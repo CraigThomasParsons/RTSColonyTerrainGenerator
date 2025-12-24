@@ -1,4 +1,4 @@
-# Heightmap Module (MapGenerator)
+# Heightmap Modulewd
 
 This module is responsible for generating heightmaps as part of the
 MapGenerator pipeline.
@@ -56,6 +56,7 @@ keeps everything transparent and debuggable.
 - Linux with systemd
 - systemd **user session** enabled
 - Bash
+- Rust
 - No root access required
 
 ---
@@ -157,21 +158,24 @@ struct HeightmapJob {
 ```
 ### Field meanings
 
-- job_id
+- job_id:
 A unique identifier used for logging and output naming.
 
-- map_width_in_cells / map_height_in_cells
+- map_width_in_cells: / map_height_in_cells
 The dimensions of the heightmap grid.
 
 - fault_line_iteration_count (optional)
-How many fault iterations to run.
-If omitted, the engine uses a conservative default.
+
+   How many fault iterations to run.
+   
+   If omitted, the engine uses a conservative default.
 
 - random_seed
-Seed for the deterministic random number generator.
-This guarantees reproducible terrain.
+   Seed for the deterministic random number generator.
+   
+   This guarantees reproducible terrain.
 
-- requested_at_utc
+- requested_at_utc:
 Timestamp recorded by the API when the job was enqueued.
 
 ---
@@ -189,7 +193,7 @@ prints usage instructions.
 ---
 
 ### Step-by-Step Execution
-  1. Parse command-line arguments
+###  1. Parse command-line arguments
 ```
 let arguments: Vec<String> = env::args().collect();
 ```
@@ -197,13 +201,14 @@ let arguments: Vec<String> = env::args().collect();
 ### The program expects exactly four arguments after the binary name:
 ```
 --job-file <path>
-
+```
+```
 --output-file <path>
 ```
----
-### Failing early prevents ambiguous behavior.
 
-   2. Load and parse the job file
+Failing early prevents ambiguous behavior.
+
+###   2. Load and parse the job file
 ```
 let job_file_contents = fs::read_to_string(job_file_path)
     .expect("Failed to read job file");
@@ -212,15 +217,15 @@ let job: HeightmapJob = serde_json::from_str(&job_file_contents)
     .expect("Failed to parse job JSON");
 
 ```
----
-### The job file is read as a UTF-8 string
-```
-serde_json deserializes it into a strongly-typed Rust struct
-```
 
-### Any failure causes an immediate, explicit exit
+- The job file is read as a UTF-8 string
 
-3. Allocate storage for height data
+- serde_json deserializes it into a strongly-typed Rust struct
+
+
+-S Any failure causes an immediate, explicit exit
+
+### 3. Allocate storage for height data
 let total_cell_count =
     job.map_width_in_cells * job.map_height_in_cells;
 
@@ -239,18 +244,21 @@ let mut height_accumulator_values: Vec<i32> =
 Normalized later into bytes
 
 Output buffer (bytes)
+```
 let mut heightmap_bytes: Vec<u8> =
     Vec::with_capacity(total_cell_count as usize);
 
+```
 
 One byte per cell
 
 Pre-allocated for performance and clarity
 
 4. Configure deterministic randomness
+```
 let mut deterministic_rng: ChaCha8Rng =
     ChaCha8Rng::seed_from_u64(job.random_seed);
-
+```
 
 Uses ChaCha8Rng
 
@@ -260,9 +268,10 @@ No global or implicit randomness is allowed
 
 5. Fault-line algorithm
 Iteration count
+```
 let fault_line_iteration_count: u32 =
     job.fault_line_iteration_count.unwrap_or(50);
-
+```
 
 If the job does not specify an iteration count, a default is chosen that still
 produces visible terrain features.
@@ -271,103 +280,111 @@ Core idea
 
 Each iteration:
 
-Picks a random line across the map
+- Picks a random line across the map
 
-Determines which side of the line each cell lies on
+- Determines which side of the line each cell lies on
 
-Adds or subtracts height accordingly
+- Adds or subtracts height accordingly
 
 Repeating this process creates ridges and valleys.
 
 Random line selection
+```
 let line_point_one_x: f32 = rng.gen_range(0.0..width);
 let line_point_one_y: f32 = rng.gen_range(0.0..height);
-
+```
 
 Two random points define a line in floating-point space.
 Floating point math simplifies geometric tests.
 
 Degenerate line detection
+```
 if line_length_squared < 0.0001 {
     continue;
 }
-
+```
 
 If the two points are almost identical, the line is skipped.
 This avoids unstable geometry edge cases.
 
-Side-of-line test
+- Side-of-line test
 
 For each cell:
-
+```
 cross = (cell - line_point_one) × line_direction
 
 
 cross >= 0 → one side
 
 cross < 0 → the other side
+```
 
 This signed cross product determines which displacement to apply.
 
 Height displacement
+```
 if signed_cross_product_value >= 0.0 {
     height += displacement;
 } else {
     height -= displacement;
 }
-
+```
 
 Each iteration creates a “step” in the terrain.
 Many iterations accumulate into mountain ridges.
 
-6. Normalize heights to 0–255
+### 6. Normalize heights to 0–255
 
 After all fault iterations:
 
-Find the minimum and maximum accumulated height
+  1. Find the minimum and maximum accumulated height
 
-Compute the height range
+  2. Compute the height range
 
-Scale each value into a byte
-
+  3. Scale each value into a byte
+```
 normalized = (value - min) / (max - min)
 byte = normalized * 255
+```
+---
 
-Flat map handling
+#### Flat map handling
 
 If the height range is zero:
-
+```
 heightmap_bytes.push(128);
-
-
+```
 A neutral mid-gray value is written for every cell.
-This avoids division-by-zero errors.
 
-7. Write output file
+This avoids division-by-zero errors.
+---
+### 7. Write output file
+```
 fs::write(output_path, heightmap_bytes)
     .expect("Failed to write output heightmap file");
+```
 
+- Exactly one output file
 
-Exactly one output file
+- Binary format
 
-Binary format
+- Row-major order
 
-Row-major order
-
-One byte per cell
+- One byte per cell
 
 This file is designed to be consumed directly by the next pipeline stage
 (the Tiler).
+---
 
 Output Format Summary
 
-Type: Binary
+- Type: Binary
 
-Encoding: Unsigned 8-bit integers
+- Encoding: Unsigned 8-bit integers
 
-Layout: Row-major
+- Layout: Row-major
 
-Value range: 0–255
+- Value range: 0–255
 
 ---
 
@@ -398,3 +415,21 @@ Value range: 0–255
 - No metadata output
 
 These features are layered after the pipeline is stable.
+
+---
+
+Lock the layer model (simple & explicit)
+We derive layers only from normalized height (0–255).
+
+Layer definitions (v1, locked)
+```
+0   –  79   → Water
+80  – 159   → Land
+160 – 219   → PineMountain
+220 – 255   → RockMountain
+```
+
+The idea here is if all heights are scaled, stretched or normalized to be between 0 - 255
+Then tiles produced will be enough for each layer of the map.
+---
+

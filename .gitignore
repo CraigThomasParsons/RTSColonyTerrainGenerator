@@ -15,13 +15,14 @@ target/
 MapGenerator/Heightmap/inbox/
 MapGenerator/Heightmap/archive/
 MapGenerator/Heightmap/failed/
-MapGenerator/Heightmap/outbox/
+
+# Adding the outbox.
+MapGenerator/Heightmap/outbox/*
 
 # Keep directories but ignore contents
 !MapGenerator/Heightmap/inbox/.gitkeep
 !MapGenerator/Heightmap/archive/.gitkeep
 !MapGenerator/Heightmap/failed/.gitkeep
-!MapGenerator/Heightmap/outbox/.gitkeep
 
 ############################
 # Built binaries
