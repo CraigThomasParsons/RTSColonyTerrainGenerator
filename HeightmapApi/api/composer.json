@@ -1,0 +1,13 @@
+{
+  "name": "mapgenerator/heightmap-api",
+  "description": "Minimal Heightmap enqueue API",
+  "type": "project",
+  "autoload": {
+    "psr-4": {
+      "MapGenerator\\HeightmapApi\\": "src/"
+    }
+  },
+  "require": {
+    "php": "^8.2"
+  }
+}

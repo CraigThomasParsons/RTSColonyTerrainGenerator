@@ -1,0 +1,16 @@
+services:
+  heightmap-api:
+    image: mapgenerator-heightmap-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: heightmap-api
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:8099:8080"
+
+    volumes:
+      - /home/craigpar/MapGenerator/Heightmap/inbox:/MapGenerator/Heightmap/inbox
+
