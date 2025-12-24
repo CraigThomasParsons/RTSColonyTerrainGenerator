@@ -64,6 +64,24 @@ fn classify_terrain_layer(height_value: u8) -> TerrainLayer {
     }
 }
 ```
+Step 2 is complete only if all of these are true:
+
+1. A helper function exists that maps u8 → TerrainLayer
+
+2. A terrain_layer_bytes: Vec<u8> buffer exists
+
+3. During normalization, each cell:
+
+    - pushes a height byte
+
+    - classifies a terrain layer
+
+    - pushes a layer byte
+
+4. The two buffers are parallel (same length, same ordering)
+
+- Right now, only (1) is proposed, not implemented.
+
 
 ---
 
@@ -201,8 +219,9 @@ Step 5 - I don't know yet.
 
 - A) Add fault-line metadata recording (ridges, cliffs)
 - B) Add PNG debug output (optional, dev-only)
-
-I want to do B and C.
+     - I think optional is a good idea, but also:
+     - after this is done, lets keep it all in dev-mode
+     - The day this goes in production I'll probably be 50 years old.
 
 Step 6
 ### What I want to do
@@ -211,5 +230,10 @@ Todo the many things that the A.I
 tells me use to test.
 
 
-I'm interested in what the A.I says about.
+## I'm interested in what the A.I says about.
 https://github.com/Goldziher/spikard
+
+I think I like the idea of starting to use
+a framework that supports polyglot projects is the way I should build tiny isolated APIs
+
+Later I want to create the basic todolist with spikard.

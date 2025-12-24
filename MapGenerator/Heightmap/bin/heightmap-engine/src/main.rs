@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -20,6 +21,22 @@ enum TerrainLayer {
     Land = 1,
     PineMountain = 2,
     RockMountain = 3,
+}
+
+/**
+ * Classify a terrain layer based on a normalized height value.
+ *
+ * This mapping is intentionally simple and stable.
+ * Changing these thresholds will change terrain distribution,
+ * but will not break the binary format.
+ */
+fn classify_terrain_layer(height_value: u8) -> TerrainLayer {
+    match height_value {
+        0..=79 => TerrainLayer::Water,
+        80..=159 => TerrainLayer::Land,
+        160..=219 => TerrainLayer::PineMountain,
+        _ => TerrainLayer::RockMountain,
+    }
 }
 
 /**
@@ -73,8 +90,22 @@ fn main() {
     let total_cell_count =
         job.map_width_in_cells * job.map_height_in_cells;
 
+    /**
+    * Output buffer for normalized height values.
+    * One byte per cell.
+    */
     let mut heightmap_bytes: Vec<u8> =
         Vec::with_capacity(total_cell_count as usize);
+
+    /**
+    * Output buffer for terrain layer classification.
+    *
+    * This buffer is parallel to heightmap_bytes:
+    * index N refers to the same cell in both buffers.
+    */
+    let mut terrain_layer_bytes: Vec<u8> =
+        Vec::with_capacity(total_cell_count as usize);
+
 
     /**
      * Determine how many fault iterations we should run.
@@ -193,6 +224,8 @@ fn main() {
         }
     }
 
+    // Normalization section, also known as min-max normalization.
+
     /**
      * Normalize accumulator values into 0..255 bytes.
      *
@@ -201,6 +234,12 @@ fn main() {
     let mut minimum_height_value: i32 = i32::MAX;
     let mut maximum_height_value: i32 = i32::MIN;
 
+    /**
+     * The min/max discovery loop
+     *  This prepares for normalization.
+     *  Answers the question: "What is the smallest height value and 
+     * the largest height value in the entire map?""
+     */
     for &height_value in height_accumulator_values.iter() {
         if height_value < minimum_height_value {
             minimum_height_value = height_value;
@@ -212,34 +251,102 @@ fn main() {
     }
 
     /**
+     * Compute the range of accumulated height values.
+     *
      * Avoid division by zero if the map is perfectly flat.
      *
      * This can happen with a very small iteration count,
      * or if displacement_amount_per_iteration is zero.
+     *
+     * This tells us how much vertical variation exists in the map.
+     * We need this value to normalize heights into the range 0..255.
      */
     let height_value_range: i32 = maximum_height_value - minimum_height_value;
 
+    /**
+    * Special case: the map is perfectly flat.
+    *
+    * This can happen if:
+    * - The fault iteration count is very small
+    * - The displacement amount is zero
+    *
+    * If the range is zero, normalization would cause division by zero.
+    */
     if height_value_range == 0 {
         println!(
             "[heightmap-engine] Height range is zero; output will be flat."
         );
 
+        /**
+         * Fill the entire heightmap with a neutral mid-gray value.
+         *
+         * 128 is chosen because it sits in the middle of 0..255
+         * and represents a "flat" terrain.
+         */
         for _ in 0..total_cell_count {
             heightmap_bytes.push(128);
         }
     } else {
+
+        /**
+         * Normal case: the map has height variation.
+         *
+         * We convert each accumulated height value into a byte.
+         */
         for &height_value in height_accumulator_values.iter() {
+
+            /**
+             * Normalize the signed height value into the range 0.0..1.0.
+             *
+             * Subtracting the minimum shifts the range to start at zero.
+             * Dividing by the total range scales it to a unit interval.
+             */
             let normalized_value_zero_to_one: f32 =
                 (height_value - minimum_height_value) as f32
                     / height_value_range as f32;
 
+            /**
+             * Convert the normalized floating-point value into a byte.
+             *
+             * - Multiply by 255 to scale into byte range
+             * - Round to avoid truncation bias
+             */
             let normalized_value_zero_to_255: u8 =
                 (normalized_value_zero_to_one * 255.0).round() as u8;
 
+            /**
+             * Adding
+             * The height of each cell (0–255)
+             * to the growable array.
+             * This is the primary heightmap output.
+             * And it is storing the normalized value:
+             */
             heightmap_bytes.push(normalized_value_zero_to_255);
+
+            /**
+             * Terrain layer bytes is:  The terrain type of each cell.
+             *                           (water / land / etc.)
+             *
+             * Classify the terrain layer based on height.
+             *
+             * This converts a numeric height into a semantic meaning
+             * such as water, land, pine forest, or rock.
+             */
+            let terrain_layer: TerrainLayer =
+                classify_terrain_layer(normalized_value_zero_to_255);
+
+            /**
+             * Store the terrain layer as a byte.
+             *
+             * This buffer is parallel to heightmap_bytes:
+             * index N refers to the same cell in both arrays.
+             */
+            terrain_layer_bytes.push(terrain_layer as u8);
         }
     }
 
+    // Sanity check.
+    assert_eq!(heightmap_bytes.len(), terrain_layer_bytes.len());
 
     let output_path = Path::new(output_file_path);
 
