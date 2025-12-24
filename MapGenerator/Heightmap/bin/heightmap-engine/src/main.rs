@@ -8,6 +8,21 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
 /**
+ * Terrain classification derived from normalized height values.
+ *
+ * These numeric values are written directly to the output file
+ * and must remain stable for the tiler to interpret correctly.
+ */
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
+enum TerrainLayer {
+    Water = 0,
+    Land = 1,
+    PineMountain = 2,
+    RockMountain = 3,
+}
+
+/**
  * Representation of a heightmap job as written by the API.
  */
 #[derive(Debug, Deserialize)]
