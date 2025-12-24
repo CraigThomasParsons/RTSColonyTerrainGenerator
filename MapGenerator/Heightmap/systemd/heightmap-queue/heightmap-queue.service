@@ -1,0 +1,19 @@
+[Unit]
+Description=Consume one heightmap queue job
+After=network.target
+
+[Service]
+Type=oneshot
+
+# Explicit shell execution, no magic
+ExecStart=%h/MapGenerator/Heightmap/bin/consume_heightmap_queue_job.sh
+
+# Hardening (safe defaults)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/MapGenerator/Heightmap
+
+[Install]
+WantedBy=default.target

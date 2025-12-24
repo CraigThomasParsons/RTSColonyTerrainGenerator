@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch heightmap inbox for new jobs
+
+[Path]
+# Trigger when any JSON file appears in the inbox
+PathExistsGlob=%h/MapGenerator/Heightmap/inbox/*.json
+
+[Install]
+WantedBy=default.target
