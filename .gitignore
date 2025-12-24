@@ -1,0 +1,46 @@
+############################
+# Rust
+############################
+
+# Cargo build output
+target/
+
+# Rust formatter backup files
+**/*.rs.bk
+
+############################
+# Heightmap runtime folders
+############################
+
+MapGenerator/Heightmap/inbox/
+MapGenerator/Heightmap/archive/
+MapGenerator/Heightmap/failed/
+MapGenerator/Heightmap/outbox/
+
+# Keep directories but ignore contents
+!MapGenerator/Heightmap/inbox/.gitkeep
+!MapGenerator/Heightmap/archive/.gitkeep
+!MapGenerator/Heightmap/failed/.gitkeep
+!MapGenerator/Heightmap/outbox/.gitkeep
+
+############################
+# Built binaries
+############################
+
+# Rust engine binary
+MapGenerator/Heightmap/bin/heightmap-engine
+
+############################
+# Logs / temp
+############################
+
+*.log
+*.tmp
+
+############################
+# OS / editor noise
+############################
+
+.DS_Store
+Thumbs.db
+.idea/

@@ -1,5 +1,6 @@
 services:
   heightmap-api:
+    image: mapgenerator-heightmap-api:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -10,5 +11,5 @@ services:
     ports:
       - "127.0.0.1:8099:8080"
 
-    volumes:
-      - ../MapGenerator/Heightmap:/app/Heightmap
+volumes:
+  - /home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap/inbox:/MapGenerator/Heightmap/inbox

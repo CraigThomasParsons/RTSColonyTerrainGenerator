@@ -19,6 +19,12 @@ final class HeightmapJobWriter
      */
     public function __construct(string $inboxDirectory)
     {
+        if (is_dir($this->inboxDirectory) === false) {
+            throw new \RuntimeException(
+                'Inbox directory does not exist: ' . $this->inboxDirectory
+            );
+        }
+
         $this->inboxDirectory = rtrim($inboxDirectory, '/');
     }
 
@@ -42,6 +48,7 @@ final class HeightmapJobWriter
             'job_id' => $jobId,
             'map_width_in_cells' => $mapWidthInCells,
             'map_height_in_cells' => $mapHeightInCells,
+            'fault_line_iteration_count' => 200,
             'random_seed' => $randomSeed,
             'requested_at_utc' => $timestampUtc,
         ];
