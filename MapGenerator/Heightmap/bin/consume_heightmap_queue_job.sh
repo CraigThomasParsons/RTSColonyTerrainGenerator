@@ -18,7 +18,8 @@ set -euo pipefail
 # Configuration
 #######################################
 
-HEIGHTMAP_MODULE_ROOT="$HOME/MapGenerator/Heightmap"
+HEIGHTMAP_MODULE_ROOT="$HOME/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap"
+
 
 INBOX_DIRECTORY="$HEIGHTMAP_MODULE_ROOT/inbox"
 ARCHIVE_DIRECTORY="$HEIGHTMAP_MODULE_ROOT/archive"
