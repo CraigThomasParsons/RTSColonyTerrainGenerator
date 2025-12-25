@@ -16,8 +16,11 @@ MapGenerator/Heightmap/inbox/
 MapGenerator/Heightmap/archive/
 MapGenerator/Heightmap/failed/
 
-# Adding the outbox.
+# Adding the heightmap's outbox.
 MapGenerator/Heightmap/outbox/*
+
+# Adding the tiler's inbox, because now we are using it :)
+MapGenerator/Tiler/inbox/*
 
 # Keep directories but ignore contents
 !MapGenerator/Heightmap/inbox/.gitkeep

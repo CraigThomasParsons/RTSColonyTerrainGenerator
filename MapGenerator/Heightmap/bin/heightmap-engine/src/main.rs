@@ -2,6 +2,8 @@ use std::io::Write;
 use std::env;
 use std::fs;
 use std::path::Path;
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
 
 use serde::Deserialize;
 use rand::Rng;
@@ -262,12 +264,14 @@ struct HeightmapJob {
     job_id: String,
     map_width_in_cells: u32,
     map_height_in_cells: u32,
+
+    // Optional
     fault_line_iteration_count: Option<u32>,
-    random_seed: u64,
 
     #[allow(dead_code)]
     requested_at_utc: String,
 }
+
 
 //
 // Entry point for the heightmap engine.
@@ -296,6 +300,15 @@ fn main() {
 
     let job: HeightmapJob = serde_json::from_str(&job_file_contents)
         .expect("Failed to parse job JSON");
+
+    // Derive a deterministic seed from job parameters.
+    // API does NOT provide a seed.
+    //
+    let mut hasher = DefaultHasher::new();
+    job.job_id.hash(&mut hasher);
+    job.map_width_in_cells.hash(&mut hasher);
+    job.map_height_in_cells.hash(&mut hasher);
+    let seed: u64 = hasher.finish();
 
     let mut debug_height_bmp_path: Option<String> = None;
     let mut debug_layer_bmp_path: Option<String> = None;
@@ -372,7 +385,7 @@ fn main() {
     // you will get the exact same map again.
     //
     let mut deterministic_rng: ChaCha8Rng =
-        ChaCha8Rng::seed_from_u64(job.random_seed);
+        ChaCha8Rng::seed_from_u64(seed);
 
     //
     // The displacement amount controls ridge strength.
@@ -617,7 +630,7 @@ fn main() {
         .expect("Failed to write map height");
 
     output_file
-        .write_all(&job.random_seed.to_le_bytes())
+        .write_all(&seed.to_le_bytes())
         .expect("Failed to write random seed");
 
     //

@@ -237,3 +237,16 @@ I think I like the idea of starting to use
 a framework that supports polyglot projects is the way I should build tiny isolated APIs
 
 Later I want to create the basic todolist with spikard.
+
+### Suggested next upgrades for the tester
+Next logical upgrades (whenever you want)
+
+- clean --all
+
+- watch --once
+
+- inspect-heightmap --stats
+
+- inspect-heightmap --dump-layers
+
+- mapgenctl doctor (sanity checks)

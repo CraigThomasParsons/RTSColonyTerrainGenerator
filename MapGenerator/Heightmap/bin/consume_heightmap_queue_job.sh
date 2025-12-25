@@ -11,74 +11,107 @@
 # - Invoke the heightmap engine (placeholder for now)
 # - Move job to archive or failed
 #
-
+set -x
 set -euo pipefail
 
-#######################################
-# Configuration
-#######################################
+process_job() {
+    #######################################
+    # Configuration
+    #######################################
 
-HEIGHTMAP_MODULE_ROOT="$HOME/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap"
-
-
-INBOX_DIRECTORY="$HEIGHTMAP_MODULE_ROOT/inbox"
-ARCHIVE_DIRECTORY="$HEIGHTMAP_MODULE_ROOT/archive"
-FAILED_DIRECTORY="$HEIGHTMAP_MODULE_ROOT/failed"
-OUTBOX_DIRECTORY="$HEIGHTMAP_MODULE_ROOT/outbox"
-
-HEIGHTMAP_ENGINE_BINARY="$HEIGHTMAP_MODULE_ROOT/bin/heightmap-engine"
+    HEIGHTMAP_MODULE_ROOT="$HOME/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap"
 
 
-echo "[heightmap-worker] Invoked at $(date -Is)"
+    INBOX_DIRECTORY="$HEIGHTMAP_MODULE_ROOT/inbox"
+    ARCHIVE_DIRECTORY="$HEIGHTMAP_MODULE_ROOT/archive"
+    FAILED_DIRECTORY="$HEIGHTMAP_MODULE_ROOT/failed"
+    OUTBOX_DIRECTORY="$HEIGHTMAP_MODULE_ROOT/outbox"
 
-#######################################
-# Ensure required directories exist
-#######################################
+    HEIGHTMAP_ENGINE_BINARY="$HEIGHTMAP_MODULE_ROOT/bin/heightmap-engine/heightmap-engine"
 
-mkdir -p "$INBOX_DIRECTORY"
-mkdir -p "$ARCHIVE_DIRECTORY"
-mkdir -p "$FAILED_DIRECTORY"
-mkdir -p "$OUTBOX_DIRECTORY"
 
-#######################################
-# Find the oldest job in the inbox
-#######################################
+    echo "[heightmap-worker] Invoked at $(date -Is)"
 
-JOB_FILE_PATH="$(ls -1t "$INBOX_DIRECTORY"/*.json 2>/dev/null | tail -n 1 || true)"
+    #######################################
+    # Ensure required directories exist
+    #######################################
 
-if [[ -z "$JOB_FILE_PATH" ]]; then
-    echo "[heightmap-worker] No jobs found in inbox. Exiting."
-    exit 0
+    mkdir -p "$INBOX_DIRECTORY"
+    mkdir -p "$ARCHIVE_DIRECTORY"
+    mkdir -p "$FAILED_DIRECTORY"
+    mkdir -p "$OUTBOX_DIRECTORY"
+
+    #######################################
+    # Find the oldest job in the inbox
+    #######################################
+
+    # ignores .processing_*
+    # picks the oldest job (FIFO)
+    # avoids glob race conditions
+    # works reliably under systemd
+    JOB_FILE_PATH="$(
+    find "$INBOX_DIRECTORY" \
+        -maxdepth 1 \
+        -type f \
+        -name "*.json" \
+        ! -name ".processing_*" \
+        -printf "%T@ %p\n" \
+    | sort -n \
+    | head -n 1 \
+    | cut -d' ' -f2-
+    )"
+
+    if [[ -z "$JOB_FILE_PATH" ]]; then
+        echo "[heightmap-worker] No jobs found in inbox. Exiting."
+        exit 0
+    fi
+
+    #######################################
+    # Atomically claim the job
+    #######################################
+
+    JOB_FILENAME="$(basename "$JOB_FILE_PATH")"
+    PROCESSING_FILE_PATH="$INBOX_DIRECTORY/.processing_$JOB_FILENAME"
+
+    mv "$JOB_FILE_PATH" "$PROCESSING_FILE_PATH"
+
+    echo "[heightmap-worker] Claimed job: $JOB_FILENAME"
+
+    #######################################
+    # Placeholder engine invocation
+    # (We will replace this with Rust shortly)
+    #######################################
+
+    JOB_BASENAME="${JOB_FILENAME%.json}"
+    OUTPUT_FILE_PATH="$OUTBOX_DIRECTORY/${JOB_BASENAME}.heightmap"
+
+    echo "[heightmap-worker] Generating heightmap: $OUTPUT_FILE_PATH"
+
+    ls -la "$HEIGHTMAP_ENGINE_BINARY"
+    "$HEIGHTMAP_ENGINE_BINARY" --version || true
+
+    echo "[heightmap-worker] Running heightmap engine: $HEIGHTMAP_ENGINE_BINARY"
+
+
+    "$HEIGHTMAP_ENGINE_BINARY" \
+    --job-file "$PROCESSING_FILE_PATH" \
+    --output-file "$OUTPUT_FILE_PATH"
+
+    echo "[heightmap-worker] Engine finished"
+
+    #######################################
+    # Archive the processed job
+    #######################################
+
+    mv "$PROCESSING_FILE_PATH" "$ARCHIVE_DIRECTORY/$JOB_FILENAME"
+
+    echo "[heightmap-worker] Job completed successfully: $JOB_FILENAME"
+}
+
+if process_job; then
+  exit 0
+else
+  echo "[heightmap-worker] Job failed"
+  exit 1
 fi
 
-#######################################
-# Atomically claim the job
-#######################################
-
-JOB_FILENAME="$(basename "$JOB_FILE_PATH")"
-PROCESSING_FILE_PATH="$INBOX_DIRECTORY/.processing_$JOB_FILENAME"
-
-mv "$JOB_FILE_PATH" "$PROCESSING_FILE_PATH"
-
-echo "[heightmap-worker] Claimed job: $JOB_FILENAME"
-
-#######################################
-# Placeholder engine invocation
-# (We will replace this with Rust shortly)
-#######################################
-
-JOB_BASENAME="${JOB_FILENAME%.json}"
-OUTPUT_FILE_PATH="$OUTBOX_DIRECTORY/${JOB_BASENAME}.heightmap"
-
-echo "[heightmap-worker] Generating placeholder output: $OUTPUT_FILE_PATH"
-
-# Placeholder output so we can test the pipeline end-to-end
-echo "PLACEHOLDER HEIGHTMAP OUTPUT for $JOB_FILENAME" > "$OUTPUT_FILE_PATH"
-
-#######################################
-# Archive the processed job
-#######################################
-
-mv "$PROCESSING_FILE_PATH" "$ARCHIVE_DIRECTORY/$JOB_FILENAME"
-
-echo "[heightmap-worker] Job completed successfully: $JOB_FILENAME"
