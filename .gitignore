@@ -18,6 +18,7 @@ MapGenerator/Heightmap/failed/
 
 # Adding the heightmap's outbox.
 MapGenerator/Heightmap/outbox/*
+MapGenerator/Heightmap/debug/*
 
 # Adding the tiler's inbox, because now we are using it :)
 MapGenerator/Tiler/inbox/*

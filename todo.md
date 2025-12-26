@@ -250,3 +250,39 @@ Next logical upgrades (whenever you want)
 - inspect-heightmap --dump-layers
 
 - mapgenctl doctor (sanity checks)
+
+### Very cool ideas that chatGPT came up with
+
+Think of it like this:
+
+- Fault lines → tectonic forces
+
+- Smoothing → erosion over time
+
+- Normalization → sea level
+
+- Classification → ecology
+
+### You’ve now built the geological layer of your world.
+
+## When you’re ready, the next logical upgrades are:
+
+- slope calculation
+
+- river flow direction
+
+- basin detection
+
+But smoothing comes first — and now you’ve done it right.
+
+- If you want next:
+
+- edge-aware smoothing
+
+- erosion simulation
+
+- river carving that respects slopes
+
+I want to do all of these things, but I'll never be done this way so,
+I'm stopping after the smoothing and moving on to Tiling.
+Maybe after the whole thing is done, I'll revisit these ideas.

@@ -42,6 +42,111 @@ fn classify_terrain_layer(height_value: u8) -> TerrainLayer {
 }
 
 //
+// Apply a box smoothing filter to a heightmap accumulator.
+//
+// PURPOSE:
+// This function performs a simple, cache-friendly smoothing pass
+// over a 2D heightmap represented as a flat array.
+//
+// The smoothing reduces sharp discontinuities produced by the
+// fault-line algorithm, resulting in more natural terrain:
+//
+// - Jagged ridges become rolling hills
+// - Isolated spikes are softened
+// - Flat areas become more coherent
+//
+// This step approximates natural erosion without introducing
+// expensive physical simulation.
+//
+// This is a deterministic operation.
+//
+// INPUTS:
+// - values:
+//     Mutable reference to a flat vector of signed height values.
+//     Layout must be row-major:
+//         index = row * width + column
+//
+// - width:
+//     Width of the heightmap in cells.
+//
+// - height:
+//     Height of the heightmap in cells.
+//
+// - passes:
+//     Number of smoothing passes to apply.
+//     Each pass further reduces high-frequency noise.
+//
+// OUTPUTS:
+// - Modifies `values` in-place.
+//
+// RETURNS:
+// - None.
+//
+// ALGORITHM:
+// - Uses a 3x3 box filter (average of neighbors).
+// - Reads from one buffer and writes to a scratch buffer.
+// - Buffers are swapped after each pass.
+//
+// EDGE HANDLING:
+// - Edge cells (top, bottom, left, right) are intentionally skipped.
+// - Edge values remain unchanged.
+// - This avoids branch-heavy logic and keeps the inner loop tight.
+//
+// PERFORMANCE NOTES:
+// - Memory access is linear and cache-friendly.
+// - Scratch buffer is allocated once.
+// - No heap allocation occurs inside loops.
+// - Designed to scale efficiently for large maps.
+//
+// IMPORTANT NOTES:
+// - This is a *debug-quality* erosion approximation.
+// - More advanced erosion models (thermal, hydraulic) may replace it later.
+// - The algorithm is stable and predictable, making it suitable for
+//   deterministic map generation.
+//
+fn smooth_heightmap_box(
+    values: &mut Vec<i32>,
+    width: u32,
+    height: u32,
+    passes: u32,
+) {
+    let width = width as usize;
+    let height = height as usize;
+
+    // Scratch buffer (allocated once)
+    let mut scratch = values.clone();
+
+    for _ in 0..passes {
+        // Skip edges to keep code tight and predictable
+        for row in 1..height - 1 {
+            let row_offset = row * width;
+
+            for col in 1..width - 1 {
+                let idx = row_offset + col;
+
+                // 3x3 neighborhood
+                let sum =
+                    values[idx] +
+                    values[idx - 1] +
+                    values[idx + 1] +
+                    values[idx - width] +
+                    values[idx + width] +
+                    values[idx - width - 1] +
+                    values[idx - width + 1] +
+                    values[idx + width - 1] +
+                    values[idx + width + 1];
+
+                scratch[idx] = sum / 9;
+            }
+        }
+
+        // Swap buffers instead of copying
+        std::mem::swap(values, &mut scratch);
+    }
+}
+
+
+//
 // Write an 8-bit grayscale BMP image for visual debugging.
 //
 // PURPOSE:
@@ -309,6 +414,10 @@ fn main() {
     job.map_width_in_cells.hash(&mut hasher);
     job.map_height_in_cells.hash(&mut hasher);
     let seed: u64 = hasher.finish();
+    
+    // Get Fault line iterations
+    let mut fault_iteration_override: Option<u32> = None;
+
 
     let mut debug_height_bmp_path: Option<String> = None;
     let mut debug_layer_bmp_path: Option<String> = None;
@@ -325,6 +434,13 @@ fn main() {
             "--debug-layer-bmp" => {
                 debug_layer_bmp_path =
                     arguments.get(argument_index + 1).cloned();
+                argument_index += 2;
+            }
+            "--fault-iterations" => {
+                fault_iteration_override =
+                    arguments
+                        .get(argument_index + 1)
+                        .and_then(|v| v.parse::<u32>().ok());
                 argument_index += 2;
             }
             _ => {
@@ -367,7 +483,9 @@ fn main() {
     // we choose a conservative default that still produces visible ridges.
     //
     let fault_line_iteration_count: u32 =
-        job.fault_line_iteration_count.unwrap_or(50);
+        fault_iteration_override
+            .or(job.fault_line_iteration_count)
+            .unwrap_or(50);
 
     //
     // We will accumulate heights using signed integers.
@@ -476,6 +594,14 @@ fn main() {
             }
         }
     }
+
+    // After fault-line accumulation
+    smooth_heightmap_box(
+        &mut height_accumulator_values,
+        job.map_width_in_cells,
+        job.map_height_in_cells,
+        2, // start with 2 passes
+    );
 
     // Normalization section, also known as min-max normalization.
 

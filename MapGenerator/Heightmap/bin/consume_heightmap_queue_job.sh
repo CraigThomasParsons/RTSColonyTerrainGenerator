@@ -106,10 +106,41 @@ process_job() {
     echo "[heightmap-worker] Running heightmap engine: $HEIGHTMAP_ENGINE_BINARY"
 
 
-    "$HEIGHTMAP_ENGINE_BINARY" \
-    --job-file "$PROCESSING_FILE_PATH" \
-    --output-file "$OUTPUT_FILE_PATH"
+    # ------------------------------------------------------------
+    # Debug output handling (human-only)
+    # ------------------------------------------------------------
 
+    ENGINE_DEBUG_ARGS=()
+
+    if [[ "${MAPGEN_DEBUG:-0}" == "1" ]]; then
+      mkdir -p "$MAPGEN_DEBUG_OUTPUT_DIR"
+
+      if [[ "${MAPGEN_DEBUG_HEIGHTMAP_BMP:-0}" == "1" ]]; then
+        ENGINE_DEBUG_ARGS+=(
+          "--debug-height-bmp"
+          "$MAPGEN_DEBUG_OUTPUT_DIR/${JOB_BASENAME}_height.bmp"
+        )
+      fi
+
+      if [[ "${MAPGEN_DEBUG_LAYER_BMP:-0}" == "1" ]]; then
+        ENGINE_DEBUG_ARGS+=(
+          "--debug-layer-bmp"
+          "$MAPGEN_DEBUG_OUTPUT_DIR/${JOB_BASENAME}_layers.bmp"
+        )
+      fi
+    fi
+
+    # Default fault iteration count if not set
+    HEIGHTMAP_FAULT_ITERATIONS="${HEIGHTMAP_FAULT_ITERATIONS:-50}"
+
+
+
+    "$HEIGHTMAP_ENGINE_BINARY" \
+      --job-file "$PROCESSING_FILE_PATH" \
+      --output-file "$OUTPUT_FILE_PATH" \
+      --fault-iterations "$HEIGHTMAP_FAULT_ITERATIONS" \
+      "${ENGINE_DEBUG_ARGS[@]}"
+    
     echo "[heightmap-worker] Engine finished"
 
     #######################################
