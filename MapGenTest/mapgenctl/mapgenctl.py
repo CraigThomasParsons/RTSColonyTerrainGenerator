@@ -22,6 +22,7 @@ import struct
 import time
 import subprocess
 import threading
+import shutil
 
 from pathlib import Path
 
@@ -307,6 +308,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pipeline stage to clean",
     )
 
+    build_parser = subparsers.add_parser(
+        "build",
+        help="Build and deploy map generator components"
+    )
+
+    build_parser.add_argument(
+        "component",
+        choices=["heightmap"],
+        help="Component to build"
+    )
 
     return parser
 
@@ -354,6 +365,51 @@ def tail_systemd_logs(unit_name: str) -> None:
     except FileNotFoundError:
         print("[mapgenctl] journalctl not found; skipping logs")
 
+def build_heightmap_engine():
+    repo_root = Path(__file__).resolve().parents[2]
+
+    engine_dir = (
+        repo_root
+        / "MapGenerator"
+        / "Heightmap"
+        / "heightmap-engine"
+    )
+
+    bin_dir = (
+        repo_root
+        / "MapGenerator"
+        / "Heightmap"
+        / "bin"
+    )
+
+    built_binary = (
+        engine_dir
+        / "target"
+        / "release"
+        / "heightmap-engine"
+    )
+
+    deployed_binary = bin_dir / "heightmap-engine"
+
+    print("[mapgenctl] Building heightmap engine (release)")
+    print(f"  source: {engine_dir}")
+
+    subprocess.run(
+        ["cargo", "build", "--release"],
+        cwd=engine_dir,
+        check=True,
+    )
+
+    if not built_binary.exists():
+        print("[mapgenctl] ❌ Build succeeded but binary not found")
+        sys.exit(1)
+
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(built_binary, deployed_binary)
+    deployed_binary.chmod(0o755)
+
+    print("[mapgenctl] ✅ Heightmap engine deployed")
+    print(f"  binary: {deployed_binary}")
 
 # ============================================================
 # Entry point
@@ -381,6 +437,14 @@ def main() -> None:
 
     if args.command == "clean":
         clean_stage(args)
+        sys.exit(0)
+
+    if args.command == "build":
+        if args.component == "heightmap":
+            build_heightmap_engine()
+        else:
+            print(f"[mapgenctl] Unknown build target: {args.component}")
+            sys.exit(1)
         sys.exit(0)
 
     # Defensive fallback

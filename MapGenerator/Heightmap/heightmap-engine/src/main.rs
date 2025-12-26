@@ -42,6 +42,147 @@ fn classify_terrain_layer(height_value: u8) -> TerrainLayer {
 }
 
 //
+// Seed initial micro-variation into the height accumulator using hash-based noise.
+//
+// PURPOSE:
+// This function injects a very small amount of deterministic noise into the
+// height accumulator *before* major terrain-shaping algorithms (such as fault
+// lines or erosion) are applied.
+//
+// The goal is NOT to generate terrain by itself.
+//
+// Instead, this noise:
+// - Breaks perfect symmetry
+// - Prevents unnaturally straight ridges
+// - Adds micro-variation for later algorithms to amplify
+// - Avoids visible grid artifacts
+//
+// This noise acts as a "grain" layer rather than a "shape" layer.
+//
+// IMPORTANT DESIGN PHILOSOPHY:
+// - This is NOT Perlin noise
+// - This is NOT gradient noise
+// - This is NOT meant to look good on its own
+//
+// It is intentionally simple, fast, and subtle.
+//
+// INPUTS:
+// - values:
+//     Mutable slice of signed height accumulator values.
+//     Each entry corresponds to one terrain cell.
+//
+// - width:
+//     Width of the map in cells.
+//     Used only for deterministic hashing (not for bounds checking).
+//
+// - height:
+//     Height of the map in cells.
+//     Used only for deterministic hashing (not for bounds checking).
+//
+// - seed:
+//     Global deterministic seed.
+//     Ensures identical jobs always produce identical noise.
+//
+// - amplitude:
+//     Maximum absolute noise value added per cell.
+//     Actual noise range is:
+//         [-amplitude, +amplitude]
+//
+//     RECOMMENDED VALUES:
+//     - 1–3 for subtle grain
+//     - Never exceed fault displacement magnitude
+//
+// OUTPUTS:
+// - Mutates `values` in-place by adding small signed offsets.
+//
+// RETURNS:
+// - None.
+//
+// SIDE EFFECTS:
+// - Alters the initial height accumulator values.
+//
+// IMPORTANT NOTES:
+// - This noise is deterministic across runs and machines.
+// - No floating-point math is used.
+// - No random number generator is required.
+// - Each cell is processed independently (no neighborhood access).
+//
+// PERFORMANCE CHARACTERISTICS:
+// - O(width × height)
+// - Cache-friendly linear access
+// - Extremely fast (integer-only math)
+//
+// WHY THIS EXISTS:
+// Fault-line algorithms and erosion work best when they amplify imperfections.
+// A perfectly flat starting surface produces unnaturally regular terrain.
+// This function provides those imperfections in the cheapest possible way.
+//
+fn seed_height_noise(
+    values: &mut [i32],
+    width: u32,
+    height: u32,
+    seed: u64,
+    amplitude: i32,
+) {
+    let width_usize = width as usize;
+    let height_usize = height as usize;
+
+    // Defensive check: ensure buffer matches expected dimensions
+    debug_assert_eq!(values.len(), width_usize * height_usize);
+
+    // Early-out for zero or negative amplitude
+    if amplitude <= 0 {
+        return;
+    }
+
+    //
+    // Pre-mix domain shape into the seed (u32 domain).
+    //
+    // This ensures that maps with different dimensions
+    // produce different noise fields, even if they share
+    // the same job seed.
+    //
+    // NOTE:
+    // All hashing is done in unsigned space to avoid
+    // literal overflow and preserve intended bit patterns.
+    //
+    let domain_seed: u32 =
+        (seed as u32)
+            ^ width.wrapping_mul(0x9E3779B1)
+            ^ height.wrapping_mul(0x85EBCA77);
+
+    for y in 0..height_usize {
+        let y_term: u32 = (y as u32).wrapping_mul(668265263);
+
+        for x in 0..width_usize {
+            let idx = y * width_usize + x;
+
+            //
+            // Coordinate hashing (u32 domain)
+            //
+            let mut h: u32 = x as u32;
+            h = h.wrapping_mul(374761393);
+            h ^= y_term;
+            h ^= domain_seed;
+
+            // Final avalanche (Murmur-style)
+            h = (h ^ (h >> 13)).wrapping_mul(1274126177);
+            h ^= h >> 16;
+
+            //
+            // Map to [-amplitude, +amplitude]
+            //
+            // Lower bits are sufficient for micro-variation.
+            //
+            let noise =
+                (h & 0xFFFF) as i32 % (amplitude * 2 + 1) - amplitude;
+
+            values[idx] += noise;
+        }
+    }
+}
+
+//
 // Apply a box smoothing filter to a heightmap accumulator.
 //
 // PURPOSE:
@@ -512,6 +653,15 @@ fn main() {
     // We will start simple and tune later.
     //
     let displacement_amount_per_iteration: i32 = 2;
+
+    // Initial seed noise
+    seed_height_noise(
+        &mut height_accumulator_values,
+        job.map_width_in_cells,
+        job.map_height_in_cells,
+        seed,
+        2, // very small amplitude
+    );
 
     //
     // Run the fault-line algorithm.
