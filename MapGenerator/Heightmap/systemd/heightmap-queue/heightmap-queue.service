@@ -17,6 +17,7 @@ ProtectHome=read-only
 ReadWritePaths=/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap/outbox
 ReadWritePaths=/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap/archive
 ReadWritePaths=/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap/failed
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap/debug
 
 
 [Install]

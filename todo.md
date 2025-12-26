@@ -286,3 +286,8 @@ But smoothing comes first — and now you’ve done it right.
 I want to do all of these things, but I'll never be done this way so,
 I'm stopping after the smoothing and moving on to Tiling.
 Maybe after the whole thing is done, I'll revisit these ideas.
+
+Crazy idea
+When the outbox of the HeightMap is done
+Cp its contents into 
+Weather Analyses as well as the tiler because both the analyses and tiling can happen in paralel.

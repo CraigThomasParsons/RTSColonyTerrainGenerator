@@ -40,7 +40,11 @@ process_job() {
     FAILED_DIRECTORY="$HEIGHTMAP_MODULE_ROOT/failed"
     OUTBOX_DIRECTORY="$HEIGHTMAP_MODULE_ROOT/outbox"
 
-    HEIGHTMAP_ENGINE_BINARY="$HEIGHTMAP_MODULE_ROOT/bin/heightmap-engine/heightmap-engine"
+
+    # todo make this an environment variable so you don't have to dig for again.
+    # Also this might be something that could possibly become different on every environment
+    # (Staging, dev, test, prod) so having it be adjustable through env isn't a bad idea.
+    HEIGHTMAP_ENGINE_BINARY="$HEIGHTMAP_MODULE_ROOT/bin/heightmap-engine"
 
 
     echo "[heightmap-worker] Invoked at $(date -Is)"

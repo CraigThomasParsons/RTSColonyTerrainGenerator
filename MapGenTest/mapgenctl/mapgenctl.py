@@ -13,6 +13,7 @@ This CLI mirrors API-level contracts.
 It does NOT expose engine tuning parameters.
 """
 
+import os
 import argparse
 import sys
 import json
@@ -314,9 +315,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     build_parser.add_argument(
-        "component",
-        choices=["heightmap"],
-        help="Component to build"
+        "target",
+        choices=["heightmap", "all"],
+        help="Which engine(s) to build"
+    )
+
+    build_parser.add_argument(
+        "--watch",
+        action="store_true",
+        help="Watch source directories and rebuild on changes"
     )
 
     return parser
@@ -366,50 +373,62 @@ def tail_systemd_logs(unit_name: str) -> None:
         print("[mapgenctl] journalctl not found; skipping logs")
 
 def build_heightmap_engine():
-    repo_root = Path(__file__).resolve().parents[2]
+    heightmap_root = Path(
+        "~/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap"
+    ).expanduser()
 
-    engine_dir = (
-        repo_root
-        / "MapGenerator"
-        / "Heightmap"
-        / "heightmap-engine"
-    )
-
-    bin_dir = (
-        repo_root
-        / "MapGenerator"
-        / "Heightmap"
-        / "bin"
-    )
-
-    built_binary = (
-        engine_dir
-        / "target"
-        / "release"
-        / "heightmap-engine"
-    )
-
-    deployed_binary = bin_dir / "heightmap-engine"
+    source_dir = heightmap_root / "heightmap-engine"
+    built_binary = source_dir / "target" / "release" / "heightmap-engine"
+    deployed_binary = heightmap_root / "bin" / "heightmap-engine"
 
     print("[mapgenctl] Building heightmap engine (release)")
-    print(f"  source: {engine_dir}")
+    print(f"  source: {source_dir}")
 
     subprocess.run(
         ["cargo", "build", "--release"],
-        cwd=engine_dir,
+        cwd=source_dir,
         check=True,
     )
 
-    if not built_binary.exists():
-        print("[mapgenctl] ❌ Build succeeded but binary not found")
-        sys.exit(1)
-
-    bin_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(built_binary, deployed_binary)
-    deployed_binary.chmod(0o755)
+    os.chmod(deployed_binary, 0o755)
 
     print("[mapgenctl] ✅ Heightmap engine deployed")
     print(f"  binary: {deployed_binary}")
+
+# ============================================================
+# Watch for changes in a component, build it if a change is 
+# detected.
+# ============================================================
+def watch_and_rebuild(build_fn, watch_path: Path):
+    print(f"[mapgenctl] Watching for changes in {watch_path}")
+    print("Press Ctrl+C to stop\n")
+
+    last_mtime = 0
+
+    try:
+        while True:
+            current_mtime = max(
+                p.stat().st_mtime
+                for p in watch_path.rglob("*")
+                if p.is_file()
+            )
+
+            if current_mtime > last_mtime:
+                last_mtime = current_mtime
+                print("[mapgenctl] Change detected, rebuilding...")
+                build_fn()
+
+            time.sleep(1)
+
+    except KeyboardInterrupt:
+        print("\n[mapgenctl] Watch stopped")
+
+# ============================================================
+# Whenever there is a build process we will add it here.
+# ============================================================
+def build_all_engines():
+    build_heightmap_engine()
 
 # ============================================================
 # Entry point
@@ -440,11 +459,28 @@ def main() -> None:
         sys.exit(0)
 
     if args.command == "build":
-        if args.component == "heightmap":
-            build_heightmap_engine()
-        else:
-            print(f"[mapgenctl] Unknown build target: {args.component}")
-            sys.exit(1)
+        if args.target == "heightmap":
+            if args.watch:
+                watch_and_rebuild(
+                    build_heightmap_engine,
+                    Path(
+                        "~/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap/heightmap-engine"
+                    ).expanduser(),
+                )
+            else:
+                build_heightmap_engine()
+
+        elif args.target == "all":
+            if args.watch:
+                watch_and_rebuild(
+                    build_all_engines,
+                    Path(
+                        "~/Code/RTSColonyTerrainGenerator/MapGenerator"
+                    ).expanduser(),
+                )
+            else:
+                build_all_engines()
+
         sys.exit(0)
 
     # Defensive fallback
