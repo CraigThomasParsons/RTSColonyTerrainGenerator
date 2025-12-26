@@ -14,14 +14,27 @@
 set -x
 set -euo pipefail
 
+
 process_job() {
     #######################################
     # Configuration
     #######################################
-
     HEIGHTMAP_MODULE_ROOT="$HOME/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap"
 
+    #######################################
+    # Load shared environment (if present)
+    #######################################
 
+    MAPGEN_ENV_FILE="$HOME/Code/RTSColonyTerrainGenerator/.env"
+
+    if [[ -f "$MAPGEN_ENV_FILE" ]]; then
+      # shellcheck disable=SC1090
+      source "$MAPGEN_ENV_FILE"
+    fi
+
+    #######################################
+    # Module paths
+    #######################################
     INBOX_DIRECTORY="$HEIGHTMAP_MODULE_ROOT/inbox"
     ARCHIVE_DIRECTORY="$HEIGHTMAP_MODULE_ROOT/archive"
     FAILED_DIRECTORY="$HEIGHTMAP_MODULE_ROOT/failed"

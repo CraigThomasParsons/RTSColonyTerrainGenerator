@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-
+EnvironmentFile=%h/Code/RTSColonyTerrainGenerator/.env
 ExecStart=%h/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap/bin/consume_heightmap_queue_job.sh
 
 # Hardening (corrected)

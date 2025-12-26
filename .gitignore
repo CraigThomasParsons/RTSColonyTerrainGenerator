@@ -48,3 +48,4 @@ MapGenerator/Heightmap/bin/heightmap-engine
 .DS_Store
 Thumbs.db
 .idea/
+.env
