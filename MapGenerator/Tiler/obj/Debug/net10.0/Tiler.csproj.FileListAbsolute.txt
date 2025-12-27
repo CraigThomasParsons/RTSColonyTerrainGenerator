@@ -1,0 +1,15 @@
+/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/bin/Debug/net10.0/Tiler
+/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/bin/Debug/net10.0/Tiler.deps.json
+/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/bin/Debug/net10.0/Tiler.runtimeconfig.json
+/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/bin/Debug/net10.0/Tiler.dll
+/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/bin/Debug/net10.0/Tiler.pdb
+/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/obj/Debug/net10.0/Tiler.GeneratedMSBuildEditorConfig.editorconfig
+/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/obj/Debug/net10.0/Tiler.AssemblyInfoInputs.cache
+/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/obj/Debug/net10.0/Tiler.AssemblyInfo.cs
+/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/obj/Debug/net10.0/Tiler.csproj.CoreCompileInputs.cache
+/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/obj/Debug/net10.0/Tiler.sourcelink.json
+/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/obj/Debug/net10.0/Tiler.dll
+/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/obj/Debug/net10.0/refint/Tiler.dll
+/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/obj/Debug/net10.0/Tiler.pdb
+/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/obj/Debug/net10.0/Tiler.genruntimeconfig.cache
+/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/obj/Debug/net10.0/ref/Tiler.dll
