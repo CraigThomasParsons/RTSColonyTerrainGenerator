@@ -20,8 +20,9 @@ MapGenerator/Heightmap/failed/
 MapGenerator/Heightmap/outbox/*
 MapGenerator/Heightmap/debug/*
 
-# Adding the tiler's inbox, because now we are using it :)
+# Adding the tiler's inbox/outbox
 MapGenerator/Tiler/inbox/*
+MapGenerator/Tiler/outbox/*
 
 # Keep directories but ignore contents
 !MapGenerator/Heightmap/inbox/.gitkeep
@@ -49,4 +50,64 @@ MapGenerator/Heightmap/bin/heightmap-engine
 .DS_Store
 Thumbs.db
 .idea/
+
+# ============================
+# .NET build artifacts
+# ============================
+
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+*.deps.json
+*.runtimeconfig.json
+
+# ============================
+# IDE / editor artifacts
+# ============================
+
+.vscode/
+.idea/
+*.swp
+*.swo
+*.user
+*.userosscache
+*.sln.docstates
+
+# ============================
+# OS junk
+# ============================
+
+.DS_Store
+Thumbs.db
+
+# ============================
+# Pipeline runtime artifacts
+# (generated data, not source)
+# ============================
+
+MapGenerator/**/outbox/*
+MapGenerator/**/archive/*
+MapGenerator/**/debug/*
+
+# Keep directories but not contents
+!MapGenerator/**/outbox/.gitkeep
+!MapGenerator/**/archive/.gitkeep
+!MapGenerator/**/debug/.gitkeep
+
+# ============================
+# Environment / secrets
+# ============================
+
 .env
+.env.*
+!.env.example
+
+# ============================
+# Logs & temp files
+# ============================
+
+*.log
+*.tmp
+*.bak
