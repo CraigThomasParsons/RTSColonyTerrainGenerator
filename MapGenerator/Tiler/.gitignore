@@ -1,1 +1,11 @@
-obj
+# ============================
+# .NET build artifacts
+# ============================
+
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+*.deps.json
+*.runtimeconfig.json

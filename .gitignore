@@ -86,12 +86,13 @@ Thumbs.db
 # Pipeline runtime artifacts
 # (generated data, not source)
 # ============================
-
+MapGenerator/**/inbox/*
 MapGenerator/**/outbox/*
 MapGenerator/**/archive/*
 MapGenerator/**/debug/*
 
 # Keep directories but not contents
+!MapGenerator/**/inbox/.gitkeep
 !MapGenerator/**/outbox/.gitkeep
 !MapGenerator/**/archive/.gitkeep
 !MapGenerator/**/debug/.gitkeep
