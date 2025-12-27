@@ -1,0 +1,6 @@
+[Unit]
+Description=MapGenerator Tiler Worker
+
+[Service]
+Type=oneshot
+ExecStart=%h/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/tiler-wrapper.sh %f
