@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 /**
  * Load global MapGenerator environment variables.
  *
@@ -12,9 +14,6 @@
  */
 $envFilePath =
     realpath(__DIR__ . '/../../.env');
-
-
-declare(strict_types=1);
 
 /**
  * TreePlanter worker.
@@ -44,6 +43,41 @@ use MapGenerator\TreePlanter\Vegetation\VegetationSuitabilityCalculator;
 use MapGenerator\TreePlanter\Vegetation\TreeTypeSelector;
 use MapGenerator\TreePlanter\Debug\TreePlanterHtmlDebugWriter;
 
+/**
+ * Write a TreePlanter informational log message.
+ *
+ * This intentionally uses STDERR so systemd captures it.
+ */
+function logInfo(string $message): void
+{
+    fwrite(STDERR, "[TreePlanter] " . $message . PHP_EOL);
+}
+
+// ------------------------------------------------------------
+// TreePlanter inbox directories
+// ------------------------------------------------------------
+
+// Resolve paths relative to TreePlanter root
+$treePlanterRootDirectory = __DIR__;
+
+$heightmapInboxDirectory =
+    $treePlanterRootDirectory . '/inbox/from_heightmap';
+
+$maptilesInboxDirectory =
+    $treePlanterRootDirectory . '/inbox/from_tiler';
+
+$weatherInboxDirectory =
+    $treePlanterRootDirectory . '/inbox/from_weather';
+
+foreach ([
+    $heightmapInboxDirectory,
+    $maptilesInboxDirectory,
+    $weatherInboxDirectory,
+] as $directory) {
+    if (!is_dir($directory)) {
+        mkdir($directory, 0777, true);
+    }
+}
 
 if ($envFilePath !== false && is_file($envFilePath)) {
     $envLines = file($envFilePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -79,7 +113,6 @@ if ($envFilePath !== false && is_file($envFilePath)) {
         }
     }
 }
-
 $jobLocator =
     new JobLocator(
         $heightmapInboxDirectory,
@@ -87,9 +120,38 @@ $jobLocator =
         $weatherInboxDirectory
     );
 
+$job = $jobLocator->findNextJob();
+
+// ------------------------------------------------------------
+// No-op if no complete job is available
+// ------------------------------------------------------------
+// 1. Locate job
+if ($job === null) {
+    // TreePlanter is a queue worker.
+    // Exiting cleanly when no work is available is expected behavior.
+    exit(0);
+}
+
+// 2. Extract job data.
+$jobIdentifier = $job->getJobIdentifier();
+$tiles = $job->getTiles();
+$mapWidthInCells = $job->getMapWidthInCells();
+$mapHeightInCells = $job->getMapHeightInCells();
+
+// 3. Process trees
 $randomGenerator = new DeterministicRandomGenerator();
 $suitabilityCalculator = new VegetationSuitabilityCalculator();
 $treeTypeSelector = new TreeTypeSelector();
+
+$engine = new TreePlacementEngine();
+
+$tiles = $engine->applyTrees(
+    $tiles,
+    $job,
+    $randomGenerator,
+    $suitabilityCalculator,
+    $treeTypeSelector
+);
 
 /**
  * Optional HTML debug output.

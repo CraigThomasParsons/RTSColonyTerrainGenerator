@@ -1,15 +1,18 @@
 ## Todo List
+
 ### Step 1 — Lock the layer model (simple & explicit)
 
 We derive layers only from normalized height (0–255).
 
 Layer definitions (v1, locked)
+
 ```
 0   –  79   → Water
 80  – 159   → Land
 160 – 219   → PineMountain
 220 – 255   → RockMountain
 ```
+
 These numbers:
 
 - Are intuitive
@@ -23,6 +26,7 @@ These numbers:
 Rust representation
 
 Add this enum:
+
 ```
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
@@ -54,6 +58,7 @@ We extend this to two parallel buffers:
 - terrain_layer_bytes: Vec<u8>
 
 Add this helper function (clear + testable)
+
 ```
 fn classify_terrain_layer(height_value: u8) -> TerrainLayer {
     match height_value {
@@ -64,6 +69,7 @@ fn classify_terrain_layer(height_value: u8) -> TerrainLayer {
     }
 }
 ```
+
 Step 2 is complete only if all of these are true:
 
 1. A helper function exists that maps u8 → TerrainLayer
@@ -82,12 +88,12 @@ Step 2 is complete only if all of these are true:
 
 - Right now, only (1) is proposed, not implemented.
 
-
 ---
 
 Modify normalization loop
 
 Replace your final normalization logic with this:
+
 ```
 let mut terrain_layer_bytes: Vec<u8> =
     Vec::with_capacity(total_cell_count as usize);
@@ -137,6 +143,7 @@ u8 * (width * height)
 u8 * (width * height)
 
 ```
+
 Why this is correct
 
 - Self-describing
@@ -154,6 +161,7 @@ Why this is correct
 ### Rust code to write this format
 
 Replace the final write block with:
+
 ```
 use std::io::Write;
 
@@ -214,31 +222,34 @@ You’ve effectively finished the heightmapper’s responsibility.
 
 ---
 Step 5 - I don't know yet.
-### Next (pick one, and we go straight there)
 
+### Next (pick one, and we go straight there)
 
 - A) Add fault-line metadata recording (ridges, cliffs)
 - B) Add PNG debug output (optional, dev-only)
-     - I think optional is a good idea, but also:
-     - after this is done, lets keep it all in dev-mode
-     - The day this goes in production I'll probably be 50 years old.
+  - I think optional is a good idea, but also:
+  - after this is done, lets keep it all in dev-mode
+  - The day this goes in production I'll probably be 50 years old.
 
 Step 6
+
 ### What I want to do
+
 I want to write a testdrive cli app.
 Todo the many things that the A.I
 tells me use to test.
 
+## I'm interested in what the A.I says about
 
-## I'm interested in what the A.I says about.
-https://github.com/Goldziher/spikard
+<https://github.com/Goldziher/spikard>
 
-I think I like the idea of starting to use
-a framework that supports polyglot projects is the way I should build tiny isolated APIs
+- I think I like the idea of starting to use
+  - a framework that supports polyglot projects is the way I should build tiny isolated APIs
 
-Later I want to create the basic todolist with spikard.
+- Later I want to create the basic todolist with spikard.
 
 ### Suggested next upgrades for the tester
+
 Next logical upgrades (whenever you want)
 
 - clean --all
@@ -262,32 +273,3 @@ Think of it like this:
 - Normalization → sea level
 
 - Classification → ecology
-
-### You’ve now built the geological layer of your world.
-
-## When you’re ready, the next logical upgrades are:
-
-- slope calculation
-
-- river flow direction
-
-- basin detection
-
-But smoothing comes first — and now you’ve done it right.
-
-- If you want next:
-
-- edge-aware smoothing
-
-- erosion simulation
-
-- river carving that respects slopes
-
-I want to do all of these things, but I'll never be done this way so,
-I'm stopping after the smoothing and moving on to Tiling.
-Maybe after the whole thing is done, I'll revisit these ideas.
-
-Crazy idea
-When the outbox of the HeightMap is done
-Cp its contents into 
-Weather Analyses as well as the tiler because both the analyses and tiling can happen in paralel.

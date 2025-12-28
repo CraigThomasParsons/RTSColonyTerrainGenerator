@@ -1,24 +1,17 @@
 [Unit]
-Description=MapGenerator TreePlanter
-Documentation=MapGenerator TreePlanter vegetation placement worker
-After=default.target
+Description="MapGenerator TreePlanter vegetation placement worker"
+After=network.target
 
 [Service]
 Type=oneshot
+WorkingDirectory=/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/TreePlanter
+ExecStart=/usr/bin/php84 run.php
 
-# Explicit execution path — no PATH reliance
-ExecStart=%h/Code/RTSColonyTerrainGenerator/MapGenerator/TreePlanter/treeplanter.sh
+# Allow filesystem access for pipeline I/O
+ReadWritePaths=/home/craigpar/Code/RTSColonyTerrainGenerator
 
-# Ensure HOME is defined for Composer autoloading and relative paths
-Environment=HOME=%h
-
-# Safety: allow enough time for large maps
-TimeoutStartSec=300
-
-# Do not restart automatically; .path unit controls invocation
+# Fail loudly, do not restart in a loop
 Restart=no
 
 [Install]
 WantedBy=default.target
-
-ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/MapGenerator/TreePlanter/outbox

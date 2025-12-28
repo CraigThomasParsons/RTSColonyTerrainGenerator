@@ -1,14 +1,9 @@
 [Unit]
-Description=Watch TreePlanter inbox directories
+Description="Watch TreePlanter inbox directories"
 
 [Path]
-# Trigger when any upstream artifact arrives.
-# The TreePlanter worker itself enforces "job completeness".
-PathExistsGlob=%h/Code/RTSColonyTerrainGenerator/MapGenerator/TreePlanter/inbox/from_heightmap/*.heightmap
-PathExistsGlob=%h/Code/RTSColonyTerrainGenerator/MapGenerator/TreePlanter/inbox/from_tiler/*.maptiles
-PathExistsGlob=%h/Code/RTSColonyTerrainGenerator/MapGenerator/TreePlanter/inbox/from_weather/*.weather
-
-Unit=treeplanter.service
+PathExistsGlob=/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/TreePlanter/inbox/*
 
 [Install]
 WantedBy=default.target
+
