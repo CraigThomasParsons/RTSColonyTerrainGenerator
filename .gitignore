@@ -112,3 +112,7 @@ MapGenerator/**/debug/*
 *.log
 *.tmp
 *.bak
+
+!MapGenerator/WeatherAnalyses/bin/
+
+!MapGenerator/WeatherAnalyses/bin/consume_queue_job.sh

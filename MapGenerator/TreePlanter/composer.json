@@ -1,0 +1,13 @@
+{
+  "name": "mapgenerator/treeplanter",
+  "description": "TreePlanter service for vegetation placement",
+  "type": "project",
+  "autoload": {
+    "psr-4": {
+      "MapGenerator\\TreePlanter\\": "src/"
+    }
+  },
+  "require": {
+    "php": "^8.2"
+  }
+}
