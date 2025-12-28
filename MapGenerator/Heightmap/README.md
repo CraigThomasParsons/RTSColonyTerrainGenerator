@@ -33,6 +33,19 @@ Heightmap/
 └── README.md
 ```
 
+## Pipeline Position
+Heightmap ← you are here
+↓
+Tiler
+↓
+Weather Analysis
+↓
+TreePlanter
+↓
+WorldFeatures
+↓
+PathFinder
+
 ---
 
 ## Concept Overview

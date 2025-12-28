@@ -9,16 +9,21 @@ Tile generation service for breaking terrain into manageable chunks.
 - `outbox/` - Generated tile files
 - `archive/` - Archived processed tiles
 
-## Tiler implementation plan that is:
+Tiler implementation plan that is:
 
-- deterministic
-- engine-agnostic
-- compatible with future Stitcher / WFC
-- simple enough to implement without regret
-- explicit enough to never rot
-- No new features, no creativity, no scope creep.
+deterministic
 
-## Tiler Implementation Plan
+engine-agnostic
+
+compatible with future Stitcher / WFC
+
+simple enough to implement without regret
+
+explicit enough to never rot
+
+No new features, no creativity, no scope creep.
+
+Tiler Implementation Plan
 
 (Heightmap → Tile Artifact)
 
@@ -335,13 +340,13 @@ Tile IDs must:
 
 - Encode terrain type
 
-- Encode bitmask variant
+-Encode bitmask variant
 
-- Be resolvable with simple arithmetic
+Be resolvable with simple arithmetic
 
-- Leave headroom for future tilesets
+Leave headroom for future tilesets
 
-- Be stable across versions
+Be stable across versions
 
 Your rule:
 
@@ -364,14 +369,20 @@ This stage is **purely interpretive**:
 ---
 
 ## Pipeline Position
+Heightmap
+↓
+Tiler ← you are here
+↓
+Weather Analysis
+↓
+TreePlanter
+↓
+WorldFeatures
+↓
+PathFinder
 
-Heightmap → Tiler → (future stages)
-
-yaml
-Copy code
-
-The Tiler consumes `.heightmap` files from its `inbox/`, which is a symlink to
-the Heightmap stage `outbox/`.
+The Tiler consumes `.heightmap` files from its `inbox/`,
+ which is a symlink to the Heightmap stage `outbox/`.
 
 ---
 

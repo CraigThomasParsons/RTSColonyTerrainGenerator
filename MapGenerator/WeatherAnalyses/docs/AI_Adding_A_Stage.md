@@ -1,0 +1,1 @@
+/home/craigpar/Code/RTSColonyTerrainGenerator/docs/AI_Adding_A_Stage.md

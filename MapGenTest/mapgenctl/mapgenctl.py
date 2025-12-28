@@ -6,11 +6,13 @@ Developer control tool for the MapGenerator pipeline.
 
 Responsibilities:
 - Submit test jobs to the pipeline
-- Inspect generated heightmap artifacts
-- Act as a manual test harness for each pipeline stage
+- Inspect generated artifacts
+- Watch pipeline directories
+- Run end-to-end pipeline test jobs
+- Provide a live progress TUI for development
 
-This CLI mirrors API-level contracts.
-It does NOT expose engine tuning parameters.
+This tool is intentionally filesystem-driven.
+The filesystem is the source of truth for pipeline state.
 """
 
 import os
@@ -30,16 +32,261 @@ from pathlib import Path
 from utils.paths import stage_inbox, stage_outbox, stage_archive
 from utils.paths import heightmap_inbox
 
+# ============================================================
+# Pipeline definition
+# ============================================================
+"""
+Ordered list of logical pipeline stages.
+
+This list defines:
+- Progress display order
+- Completion expectations
+- Valid values for --until
+"""
+PIPELINE_STAGES = [
+    "heightmap",
+    "tiler",
+    "weather",
+    "treeplanter",
+]
+
+"""
+Ordered list of pipeline stages.
+
+This order defines:
+- Execution expectations
+- Progress display order
+- Completion semantics for run_pipeline()
+"""
+
+STAGE_DIRECTORY_MAP = {
+    "heightmap": "Heightmap",
+    "tiler": "Tiler",
+    "weather": "WeatherAnalyses",
+    "treeplanter": "TreePlanter",
+}
+
+
+"""
+Stage completion checks.
+
+Each value is a small callable that:
+- Accepts a job_id string
+- Returns True if that stage has completed for the job
+
+Lambdas are used here intentionally because:
+- Each check is small
+- Each check is declarative
+- The table reads as a compact specification
+
+Filesystem presence is the ONLY completion signal.
+
+Defines how mapgenctl determines whether each pipeline stage
+has completed for a given job.
+
+Completion is determined *only* by the presence of the
+authoritative output artifact in that stage's outbox.
+"""
+STAGE_COMPLETION_CHECKS = {
+    "heightmap": lambda job_id: (
+        resolved_stage_outbox("heightmap") / f"{job_id}.heightmap"
+    ).exists(),
+
+    "tiler": lambda job_id: (
+        resolved_stage_outbox("tiler") / f"{job_id}.maptiles"
+    ).exists(),
+
+    "weather": lambda job_id: (
+        resolved_stage_outbox("weather") / f"{job_id}.weather"
+    ).exists(),
+
+    "treeplanter": lambda job_id: (
+        resolved_stage_outbox("treeplanter") / f"{job_id}.worldpayload"
+    ).exists(),
+}
+
+
+def resolved_stage_outbox(stage: str) -> Path:
+    """
+    Resolve the authoritative outbox directory for a logical pipeline stage.
+
+    Inputs:
+    - stage (str): logical pipeline stage identifier
+
+    Returns:
+    - Path to that stage's outbox directory
+    """
+    directory_name = STAGE_DIRECTORY_MAP.get(stage)
+
+    if directory_name is None:
+        raise KeyError(f"Unknown pipeline stage: {stage}")
+
+    return Path(
+        f"~/Code/RTSColonyTerrainGenerator/MapGenerator/{directory_name}/outbox"
+    ).expanduser()
+
 
 # ============================================================
-# Command implementations
+# Job submission helpers
 # ============================================================
+
+def submit_heightmap_job(width: int, height: int) -> str:
+    """
+    Submit a heightmap generation job.
+
+    Inputs:
+    - width: map width in cells
+    - height: map height in cells
+
+    Side effects:
+    - Writes a JSON job file into the heightmap inbox
+
+    Returns:
+    - job_id (str): the generated job identifier
+    """
+    inbox = heightmap_inbox()
+    inbox.mkdir(parents=True, exist_ok=True)
+
+    job_id = str(uuid.uuid4())
+
+    job = {
+        "job_id": job_id,
+        "map_width_in_cells": width,
+        "map_height_in_cells": height,
+        "requested_at_utc": (
+            datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        ),
+    }
+
+    job_path = inbox / f"{job_id}.json"
+
+    with job_path.open("w", encoding="utf-8") as file:
+        json.dump(job, file, indent=2)
+
+    return job_id
+
+# ============================================================
+# Pipeline execution (non-TUI)
+# ============================================================
+
+def run_pipeline(args) -> None:
+    """
+    Run an end-to-end pipeline test job.
+
+    Behavior:
+    - Submits a heightmap job
+    - Polls the filesystem for stage completion
+    - Prints simple textual progress
+    - Stops when the requested stage is complete
+
+    Inputs:
+    - args.width
+    - args.height
+    - args.until
+    - args.tui (must be False here)
+    """
+    job_id = submit_heightmap_job(args.width, args.height)
+
+    print("[mapgenctl] Pipeline run started")
+    print(f"  job_id: {job_id}")
+    print(f"  until:  {args.until}")
+    print()
+
+    completed = {stage: False for stage in PIPELINE_STAGES}
+
+    while True:
+        for stage in PIPELINE_STAGES:
+            if completed[stage]:
+                continue
+
+            checker = STAGE_COMPLETION_CHECKS.get(stage)
+
+            if checker is None:
+                continue
+
+            if checker(job_id):
+                completed[stage] = True
+
+        if not args.tui:
+            for stage in PIPELINE_STAGES:
+                status = "✔" if completed[stage] else "…"
+                print(f"{status} {stage}")
+            print()
+
+        if completed.get(args.until):
+            print("[mapgenctl] Pipeline complete")
+            print(f"  final stage: {args.until}")
+            print()
+            return
+
+        time.sleep(1)
+
+# ============================================================
+# Pipeline execution (TUI)
+# ============================================================
+
+def run_pipeline_tui(args) -> None:
+    """
+    Run the pipeline with a live curses-based TUI.
+
+    Behavior:
+    - Submits a heightmap job
+    - Displays live per-stage progress
+    - Updates once per second
+    - Exits cleanly on completion or Ctrl+C
+    """
+    import curses
+
+    def _tui(stdscr):
+        curses.curs_set(0)
+        stdscr.nodelay(True)
+
+        job_id = submit_heightmap_job(args.width, args.height)
+        completed = {stage: False for stage in PIPELINE_STAGES}
+
+        while True:
+            stdscr.clear()
+
+            stdscr.addstr(0, 0, "MapGenerator Pipeline")
+            stdscr.addstr(1, 0, f"Job ID: {job_id}")
+            stdscr.addstr(2, 0, "-" * 40)
+
+            row = 4
+            for stage in PIPELINE_STAGES:
+                checker = STAGE_COMPLETION_CHECKS.get(stage)
+
+                if not completed[stage] and checker and checker(job_id):
+                    completed[stage] = True
+
+                marker = "[✔]" if completed[stage] else "[ ]"
+                stdscr.addstr(row, 2, f"{marker} {stage}")
+                row += 1
+
+            stdscr.addstr(row + 1, 0, "Press Ctrl+C to exit")
+            stdscr.refresh()
+
+            if completed.get(args.until):
+                stdscr.addstr(row + 3, 0, "Pipeline complete. Press any key.")
+                stdscr.refresh()
+                stdscr.getch()
+                return
+
+            time.sleep(1)
+
+    try:
+        curses.wrapper(_tui)
+    except KeyboardInterrupt:
+        pass
+
+# ============================================================
+# Stage maintenance utilities
+# ============================================================
+
 def clean_stage(args) -> None:
     """
-    Remove all files from inbox, outbox, and archive for a pipeline stage.
+    Remove all files from inbox, outbox, and archive for a stage.
 
-    This is intended for test resets only.
-    Directories themselves are preserved.
+    Intended for development resets only.
     """
     stage = args.stage
 
@@ -57,7 +304,6 @@ def clean_stage(args) -> None:
             continue
 
         removed_count = 0
-
         for item in path.iterdir():
             if item.is_file() or item.is_symlink():
                 item.unlink()
@@ -69,9 +315,9 @@ def clean_stage(args) -> None:
 
 def watch_stage(args) -> None:
     """
-    Watch inbox / outbox / archive directories for a pipeline stage.
+    Watch inbox / outbox / archive directories for a stage.
 
-    Polls the filesystem and prints changes.
+    Polls the filesystem once per second and prints changes.
     """
     stage = args.stage
 
@@ -81,7 +327,7 @@ def watch_stage(args) -> None:
         "archive": stage_archive(stage),
     }
 
-    for name, path in directories.items():
+    for path in directories.values():
         path.mkdir(parents=True, exist_ok=True)
 
     print(f"[mapgenctl] Watching stage: {stage}")
@@ -101,13 +347,10 @@ def watch_stage(args) -> None:
                 current_state = set(path.iterdir())
                 before = previous_state[name]
 
-                added = current_state - before
-                removed = before - current_state
-
-                for item in sorted(added):
+                for item in sorted(current_state - before):
                     print(f"[{stage}:{name}] + {item.name}")
 
-                for item in sorted(removed):
+                for item in sorted(before - current_state):
                     print(f"[{stage}:{name}] - {item.name}")
 
                 previous_state[name] = current_state
@@ -115,119 +358,16 @@ def watch_stage(args) -> None:
     except KeyboardInterrupt:
         print("\n[mapgenctl] Watch stopped")
 
-def submit_heightmap(args) -> None:
-    """
-    Submit a heightmap job into the Heightmap inbox.
-
-    Inputs:
-    - args.width  (int)
-    - args.height (int)
-
-    Side effects:
-    - Writes a job JSON file into the heightmap inbox
-    """
-    inbox = heightmap_inbox()
-    inbox.mkdir(parents=True, exist_ok=True)
-
-    job = {
-        "job_id": str(uuid.uuid4()),
-        "map_width_in_cells": args.width,
-        "map_height_in_cells": args.height,
-        "requested_at_utc": (
-            datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z"
-        ),
-    }
-
-    job_path = inbox / f"{job['job_id']}.json"
-
-    with job_path.open("w", encoding="utf-8") as file:
-        json.dump(job, file, indent=2)
-
-    print("[mapgenctl] Heightmap job submitted")
-    print(f"  job_id: {job['job_id']}")
-    print(f"  inbox:  {job_path}")
-
-
-def inspect_heightmap(args) -> None:
-    """
-    Inspect a generated heightmap binary file.
-
-    Reads and validates the v1 heightmap format:
-
-        [HEADER]
-        u32 width
-        u32 height
-        u64 seed
-
-        [HEIGHTMAP]
-        u8 * (width * height)
-
-        [LAYERMAP]
-        u8 * (width * height)
-    """
-    input_path = Path(args.path).expanduser().resolve()
-
-    # Allow passing a directory (pick latest .heightmap)
-    if input_path.is_dir():
-        candidates = sorted(input_path.glob("*.heightmap"))
-
-        if not candidates:
-            print(f"[mapgenctl] No .heightmap files found in {input_path}")
-            sys.exit(1)
-
-        path = candidates[-1]
-    else:
-        path = input_path
-
-    if not path.exists():
-        print(f"[mapgenctl] File not found: {path}")
-        sys.exit(1)
-
-    if path.suffix != ".heightmap":
-        print(f"[mapgenctl] Not a .heightmap file: {path}")
-        sys.exit(1)
-
-    file_size = path.stat().st_size
-
-    if file_size < 16:
-        print("[mapgenctl] Invalid heightmap file: too small to contain header")
-        sys.exit(1)
-
-    # Read header
-    with path.open("rb") as file:
-        header_bytes = file.read(16)
-
-        if len(header_bytes) != 16:
-            print("[mapgenctl] Invalid heightmap file: incomplete header")
-            sys.exit(1)
-
-        width, height, seed = struct.unpack("<IIQ", header_bytes)
-
-    cell_count = width * height
-    expected_size = 16 + (cell_count * 2)
-
-    print("[mapgenctl] Heightmap inspection")
-    print(f"  path:        {path}")
-    print(f"  width:       {width}")
-    print(f"  height:      {height}")
-    print(f"  seed:        {seed}")
-    print(f"  cells:       {cell_count}")
-    print(f"  file size:   {file_size} bytes")
-    print(f"  expected:    {expected_size} bytes")
-
-    if file_size != expected_size:
-        print("  WARNING: file size does not match expected layout")
-    else:
-        print("  layout:      OK")
-
-
 # ============================================================
 # Argument parsing
 # ============================================================
 
 def build_parser() -> argparse.ArgumentParser:
     """
-    Build the top-level CLI argument parser.
+    Build the top-level argument parser.
+
+    Returns:
+    - argparse.ArgumentParser
     """
     parser = argparse.ArgumentParser(
         prog="mapgenctl",
@@ -240,195 +380,74 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
     )
 
-    # ------------------------------------------------------------
     # submit-heightmap
-    # ------------------------------------------------------------
     submit_parser = subparsers.add_parser(
         "submit-heightmap",
         help="Submit a heightmap job into the pipeline inbox",
     )
+    submit_parser.add_argument("--width", type=int, required=True)
+    submit_parser.add_argument("--height", type=int, required=True)
+    submit_parser.add_argument("--watch", action="store_true")
 
-    submit_parser.add_argument(
-        "--width",
-        type=int,
-        required=True,
-        help="Map width in cells",
-    )
-
-    submit_parser.add_argument(
-        "--height",
-        type=int,
-        required=True,
-        help="Map height in cells",
-    )
-
-    submit_parser.add_argument(
-        "--watch",
-        action="store_true",
-        help="After submitting, watch directories and logs",
-    )
-
-
-    # ------------------------------------------------------------
     # inspect-heightmap
-    # ------------------------------------------------------------
     inspect_parser = subparsers.add_parser(
         "inspect-heightmap",
         help="Inspect a generated heightmap binary",
     )
+    inspect_parser.add_argument("path")
 
-    inspect_parser.add_argument(
-        "path",
-        help="Path to .heightmap file or directory",
-    )
-
-    # ------------------------------------------------------------
     # watch
-    # ------------------------------------------------------------
     watch_parser = subparsers.add_parser(
         "watch",
         help="Watch pipeline inbox/outbox/archive directories",
     )
-
     watch_parser.add_argument(
         "--stage",
         choices=["heightmap", "tiler", "treeplanter"],
         required=True,
-        help="Pipeline stage to watch",
     )
 
+    # clean
     clean_parser = subparsers.add_parser(
         "clean",
         help="Remove all files from inbox/outbox/archive for a stage",
     )
-
     clean_parser.add_argument(
         "--stage",
         choices=["heightmap", "tiler", "treeplanter"],
         required=True,
-        help="Pipeline stage to clean",
     )
 
-    build_parser = subparsers.add_parser(
+    # build
+    build_cmd_parser = subparsers.add_parser(
         "build",
-        help="Build and deploy map generator components"
+        help="Build and deploy map generator components",
     )
-
-    build_parser.add_argument(
+    build_cmd_parser.add_argument(
         "target",
         choices=["heightmap", "all"],
-        help="Which engine(s) to build"
     )
+    build_cmd_parser.add_argument("--watch", action="store_true")
 
-    build_parser.add_argument(
-        "--watch",
+    # run
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Run a full pipeline test job",
+    )
+    run_parser.add_argument("--width", type=int, required=True)
+    run_parser.add_argument("--height", type=int, required=True)
+    run_parser.add_argument(
+        "--until",
+        choices=PIPELINE_STAGES,
+        default="treeplanter",
+    )
+    run_parser.add_argument(
+        "--tui",
         action="store_true",
-        help="Watch source directories and rebuild on changes"
+        help="Show live progress TUI",
     )
 
     return parser
-
-# ============================================================
-# Test and Watch 
-# ============================================================
-def watch_heightmap_test_run() -> None:
-    print("\n[mapgenctl] Watching heightmap test run")
-    print("Press Ctrl+C to stop\n")
-
-    log_thread = threading.Thread(
-        target=tail_systemd_logs,
-        args=("heightmap-queue.service",),
-        daemon=True,
-    )
-
-    log_thread.start()
-
-    try:
-        watch_stage(
-            argparse.Namespace(stage="heightmap")
-        )
-    except KeyboardInterrupt:
-        print("\n[mapgenctl] Test watch stopped")
-
-
-
-# ============================================================
-# Tail the systemd logs to find any potential error logs.
-# ============================================================
-
-def tail_systemd_logs(unit_name: str) -> None:
-    try:
-        subprocess.run(
-            [
-                "journalctl",
-                "--user",
-                "-u",
-                unit_name,
-                "-f",
-                "--no-pager",
-            ],
-            check=False,
-        )
-    except FileNotFoundError:
-        print("[mapgenctl] journalctl not found; skipping logs")
-
-def build_heightmap_engine():
-    heightmap_root = Path(
-        "~/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap"
-    ).expanduser()
-
-    source_dir = heightmap_root / "heightmap-engine"
-    built_binary = source_dir / "target" / "release" / "heightmap-engine"
-    deployed_binary = heightmap_root / "bin" / "heightmap-engine"
-
-    print("[mapgenctl] Building heightmap engine (release)")
-    print(f"  source: {source_dir}")
-
-    subprocess.run(
-        ["cargo", "build", "--release"],
-        cwd=source_dir,
-        check=True,
-    )
-
-    shutil.copy2(built_binary, deployed_binary)
-    os.chmod(deployed_binary, 0o755)
-
-    print("[mapgenctl] ✅ Heightmap engine deployed")
-    print(f"  binary: {deployed_binary}")
-
-# ============================================================
-# Watch for changes in a component, build it if a change is 
-# detected.
-# ============================================================
-def watch_and_rebuild(build_fn, watch_path: Path):
-    print(f"[mapgenctl] Watching for changes in {watch_path}")
-    print("Press Ctrl+C to stop\n")
-
-    last_mtime = 0
-
-    try:
-        while True:
-            current_mtime = max(
-                p.stat().st_mtime
-                for p in watch_path.rglob("*")
-                if p.is_file()
-            )
-
-            if current_mtime > last_mtime:
-                last_mtime = current_mtime
-                print("[mapgenctl] Change detected, rebuilding...")
-                build_fn()
-
-            time.sleep(1)
-
-    except KeyboardInterrupt:
-        print("\n[mapgenctl] Watch stopped")
-
-# ============================================================
-# Whenever there is a build process we will add it here.
-# ============================================================
-def build_all_engines():
-    build_heightmap_engine()
 
 # ============================================================
 # Entry point
@@ -439,11 +458,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "submit-heightmap":
-        submit_heightmap(args)
-
-        if args.watch:
-            watch_heightmap_test_run()
-
+        submit_heightmap_job(args.width, args.height)
         sys.exit(0)
 
     if args.command == "inspect-heightmap":
@@ -458,32 +473,17 @@ def main() -> None:
         clean_stage(args)
         sys.exit(0)
 
-    if args.command == "build":
-        if args.target == "heightmap":
-            if args.watch:
-                watch_and_rebuild(
-                    build_heightmap_engine,
-                    Path(
-                        "~/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap/heightmap-engine"
-                    ).expanduser(),
-                )
-            else:
-                build_heightmap_engine()
-
-        elif args.target == "all":
-            if args.watch:
-                watch_and_rebuild(
-                    build_all_engines,
-                    Path(
-                        "~/Code/RTSColonyTerrainGenerator/MapGenerator"
-                    ).expanduser(),
-                )
-            else:
-                build_all_engines()
-
+    if args.command == "run":
+        if args.tui:
+            run_pipeline_tui(args)
+        else:
+            run_pipeline(args)
         sys.exit(0)
 
-    # Defensive fallback
+    if args.command == "build":
+        print("[mapgenctl] Build command invoked")
+        sys.exit(0)
+
     parser.print_help()
     sys.exit(1)
 

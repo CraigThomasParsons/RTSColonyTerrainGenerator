@@ -1,0 +1,8 @@
+[Unit]
+Description=Watch WeatherAnalyses inbox for new jobs
+
+[Path]
+PathModified=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WeatherAnalyses/inbox
+
+[Install]
+WantedBy=default.target
