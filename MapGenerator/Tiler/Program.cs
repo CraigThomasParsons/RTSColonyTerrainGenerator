@@ -76,8 +76,13 @@ namespace Tiler
 
             string inputHeightmapPath = args[0];
 
-            // Defaults aligned to pipeline layout
-            // All paths are relative to the Tiler working directory
+            // Defaults aligned to pipeline layout.
+            // All paths are relative to the Tiler working directory.
+            //
+            // NOTE:
+            // - outbox is authoritative output
+            // - debug is non-authoritative
+            // - archive SHOULD NO LONGER BE USED for upstream artifacts
             string outboxDir = "outbox";
             string archiveDir = "archive";
             string debugDir = "debug";
@@ -114,7 +119,6 @@ namespace Tiler
                 }
 
                 Directory.CreateDirectory(outboxDir);
-                Directory.CreateDirectory(archiveDir);
                 Directory.CreateDirectory(debugDir);
 
                 // ------------------------------------------------------------
@@ -183,19 +187,8 @@ namespace Tiler
                 }
 
                 // ------------------------------------------------------------
-                // Archive input heightmap (final step)
+                // Archive input heightmap (final step) No! no more Archiving
                 // ------------------------------------------------------------
-
-                string archivedPath = Path.Combine(
-                    archiveDir,
-                    Path.GetFileName(inputHeightmapPath)
-                );
-
-                File.Move(inputHeightmapPath, archivedPath, overwrite: true);
-
-                Console.WriteLine();
-                Console.WriteLine("Archived input heightmap:");
-                Console.WriteLine($"  {archivedPath}");
 
                 return (int)ExitCode.Success;
             }
