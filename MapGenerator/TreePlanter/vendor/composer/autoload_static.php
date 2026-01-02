@@ -6,14 +6,23 @@ namespace Composer\Autoload;
 
 class ComposerStaticInitbf9e1bdaaf75b83087458ad4a57908d8
 {
+    public static $files = array (
+        '3dced09929965d1968c0b004f5354e9d' => __DIR__ . '/..' . '/minicli/minicli/src/helpers.php',
+    );
+
     public static $prefixLengthsPsr4 = array (
         'M' =>
         array (
+            'Minicli\\' => 8,
             'MapGenerator\\TreePlanter\\' => 25,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
+        'Minicli\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/minicli/minicli/src',
+        ),
         'MapGenerator\\TreePlanter\\' =>
         array (
             0 => __DIR__ . '/../..' . '/src',

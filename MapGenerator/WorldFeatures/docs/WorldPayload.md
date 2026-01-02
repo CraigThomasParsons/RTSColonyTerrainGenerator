@@ -209,3 +209,78 @@ Example:
 ```
 Downstream stages must not depend on this file for correctness.
 ---
+
+## Outcomes of this stage.
+
+### Passable vs Impassable: which is better?
+
+- Most tiles are passable
+
+- Impassable tiles are exceptions
+
+- You’ll want degrees of passability later so...
+
+### Recommended tile properties
+
+Each tile should expose something like:
+```
+{
+  "passable": true,
+  "movement_cost": 1.0,
+  "terrain": "grass",
+  "height": 42,
+  "flags": ["natural"]
+}
+
+So we are going to have to add this as another layer or part of the maptiles.
+```
+
+# World Payload — Implementation Plan
+
+Location: MapGenerator/WorldFeatures/docs/WorldPayload.md (spec)
+
+Summary
+- Provide a small Python library + CLI to create, validate, read, and write World Payload directories matching the spec.
+
+Data model
+- `WorldPayload` object:
+  - `id: str`, `root: Path`, `created_at_utc: str`, `stage: str`, `inputs: List[str]`, `notes: List[str]`
+  - Accessors: `heightmap_path()`, `maptiles_path()`, `weather_path()`, `manifest_path()`
+
+On-disk rules
+- Payload is a directory: `<id>.worldpayload/` containing `<id>.heightmap` (binary), `<id>.maptiles` (JSON), `<id>.weather` (JSON), `manifest.json` (JSON).
+- Write manifest atomically (temp file + rename).
+
+Validation rules
+- Directory name ends with `.worldpayload` and basename matches manifest `id`.
+- Required files present.
+- Manifest inputs reference the required files.
+- Provide an optional immutability check (timestamp/hash) to detect mutation.
+- Provide a comparator to enforce additive-only changes for `maptiles` (fail if fields removed or existing values changed).
+
+API & CLI
+- Package: `worldpayload` (suggested under `tools/` or `MapGenerator/lib/worldpayload`).
+- Core functions:
+  - `create_payload(root, id, stage, inputs, notes)`
+  - `load_payload(path) -> WorldPayload`
+  - `validate_payload(path, strict=True)`
+  - `emit_manifest(payload)`
+- CLI: `worldpayload-cli validate <path>`, `create`, `inspect`.
+
+Tests
+- Unit tests for manifest read/write, atomic write, validation rules, and maptiles comparator.
+- Integration test: create temp payload, populate files, run `validate`.
+- Use `pytest` and temp directories.
+
+Integration points
+- Heightmap stage: write `<id>.heightmap` into payload outbox.
+- Tiler: write/modify `<id>.maptiles` (additive only).
+- WeatherAnalyses: write `<id>.weather`.
+- TreePlanter/WorldFeatures: mutate `maptiles` additively.
+- CI: add a job running `worldpayload validate` on pipeline artifacts.
+
+Milestones & estimate
+1. Create package skeleton + `WorldPayload` model and `manifest` helpers (1–2 hrs).
+2. Implement validators and comparator + unit tests (2–3 hrs).
+3. Add CLI and integration test (1–2 hrs).
+4. Optional: add binary heightmap reader if needed later.

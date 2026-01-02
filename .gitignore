@@ -54,14 +54,28 @@ Thumbs.db
 # ============================
 # .NET build artifacts
 # ============================
-
-bin/
 obj/
 *.dll
 *.exe
 *.pdb
 *.deps.json
 *.runtimeconfig.json
+
+# Ignore everything in bin by default
+/bin/*
+
+# But keep scripts and entrypoints
+!/bin/*.php
+!/bin/*.sh
+!/bin/*.py
+
+# (Optional future-proofing)
+!/bin/*.ps1
+!/bin/*.rb
+!/bin/*.js
+
+# Keep README or docs if present
+!/bin/README.md
 
 # ============================
 # IDE / editor artifacts

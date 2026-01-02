@@ -144,22 +144,29 @@ def submit_heightmap_job(width: int, height: int) -> str:
     Returns:
     - job_id (str): the generated job identifier
     """
+    # Locate the inbox for the heightmap stage
     inbox = heightmap_inbox()
+    # Ensure the directory exists before writing so we don't crash
     inbox.mkdir(parents=True, exist_ok=True)
 
+    # Generate a unique identifier for this job to track it through the pipeline
     job_id = str(uuid.uuid4())
 
+    # Construct the job payload with all required parameters
     job = {
         "job_id": job_id,
         "map_width_in_cells": width,
         "map_height_in_cells": height,
+        # Timestamp the request for observability and debugging
         "requested_at_utc": (
             datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z"
         ),
     }
 
+    # Define the full path for the job file
     job_path = inbox / f"{job_id}.json"
 
+    # Write the job file atomically (or as close as possible with a single write)
     with job_path.open("w", encoding="utf-8") as file:
         json.dump(job, file, indent=2)
 
@@ -195,30 +202,39 @@ def run_pipeline(args) -> None:
     completed = {stage: False for stage in PIPELINE_STAGES}
 
     while True:
+        # Check completion status for all stages
         for stage in PIPELINE_STAGES:
+            # Skip stages we already know are done
             if completed[stage]:
                 continue
 
+            # Get the specific check logic for this stage
             checker = STAGE_COMPLETION_CHECKS.get(stage)
 
+            # If no check is defined, skip it
             if checker is None:
                 continue
 
+            # Run the check against the filesystem
             if checker(job_id):
                 completed[stage] = True
 
+        # Update the console output if we are NOT in TUI mode
         if not args.tui:
             for stage in PIPELINE_STAGES:
+                # Use a checkmark for done, dots for waiting
                 status = "✔" if completed[stage] else "…"
                 print(f"{status} {stage}")
             print()
 
+        # Check if we have reached the target stage
         if completed.get(args.until):
             print("[mapgenctl] Pipeline complete")
             print(f"  final stage: {args.until}")
             print()
             return
 
+        # Wait a bit before polling again to save CPU
         time.sleep(1)
 
 # ============================================================
@@ -245,19 +261,24 @@ def run_pipeline_tui(args) -> None:
         completed = {stage: False for stage in PIPELINE_STAGES}
 
         while True:
+            # clear screen for next frame
             stdscr.clear()
 
+            # Draw header information
             stdscr.addstr(0, 0, "MapGenerator Pipeline")
             stdscr.addstr(1, 0, f"Job ID: {job_id}")
             stdscr.addstr(2, 0, "-" * 40)
 
             row = 4
+            # Iterate through stages to update status
             for stage in PIPELINE_STAGES:
                 checker = STAGE_COMPLETION_CHECKS.get(stage)
 
+                # Check filesystem if not already marked complete
                 if not completed[stage] and checker and checker(job_id):
                     completed[stage] = True
 
+                # Draw status line
                 marker = "[✔]" if completed[stage] else "[ ]"
                 stdscr.addstr(row, 2, f"{marker} {stage}")
                 row += 1
@@ -265,12 +286,15 @@ def run_pipeline_tui(args) -> None:
             stdscr.addstr(row + 1, 0, "Press Ctrl+C to exit")
             stdscr.refresh()
 
+            # Exit if target stage is complete
             if completed.get(args.until):
                 stdscr.addstr(row + 3, 0, "Pipeline complete. Press any key.")
                 stdscr.refresh()
+                # Wait for user input before closing
                 stdscr.getch()
                 return
 
+            # Poll interval
             time.sleep(1)
 
     try:
@@ -340,22 +364,29 @@ def watch_stage(args) -> None:
     }
 
     try:
+        # Main polling loop
         while True:
+            # Poll every second
             time.sleep(1)
 
             for name, path in directories.items():
+                # snapshot current file list
                 current_state = set(path.iterdir())
                 before = previous_state[name]
 
+                # Identify and print new files
                 for item in sorted(current_state - before):
                     print(f"[{stage}:{name}] + {item.name}")
 
+                # Identify and print removed files
                 for item in sorted(before - current_state):
                     print(f"[{stage}:{name}] - {item.name}")
 
+                # Update state for next iteration
                 previous_state[name] = current_state
 
     except KeyboardInterrupt:
+        # Clean exit on Ctrl+C
         print("\n[mapgenctl] Watch stopped")
 
 # ============================================================
@@ -448,6 +479,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     return parser
+
+def inspect_heightmap(args):
+    raise NotImplementedError
 
 # ============================================================
 # Entry point

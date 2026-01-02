@@ -6,5 +6,6 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'Minicli\\' => array($vendorDir . '/minicli/minicli/src'),
     'MapGenerator\\TreePlanter\\' => array($baseDir . '/src'),
 );
