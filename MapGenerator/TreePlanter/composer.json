@@ -7,6 +7,9 @@
       "MapGenerator\\TreePlanter\\": "src/"
     }
   },
+  "bin": [
+    "bin/treeplanter.php"
+  ],
   "require": {
     "php": "^8.2",
     "minicli/minicli": "^4.2"

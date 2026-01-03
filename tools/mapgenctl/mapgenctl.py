@@ -159,7 +159,7 @@ def submit_heightmap_job(width: int, height: int) -> str:
         "map_height_in_cells": height,
         # Timestamp the request for observability and debugging
         "requested_at_utc": (
-            datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z"
+            datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds") + "Z"
         ),
     }
 
@@ -492,7 +492,16 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "submit-heightmap":
-        submit_heightmap_job(args.width, args.height)
+        job_id = submit_heightmap_job(args.width, args.height)
+        print(f"Submitted job: {job_id}")
+        
+        if args.watch:
+            # Create a mock args object for watch_stage
+            class WatchArgs:
+                stage = "heightmap"
+            print(f"Watching for job completion...")
+            watch_stage(WatchArgs())
+        
         sys.exit(0)
 
     if args.command == "inspect-heightmap":

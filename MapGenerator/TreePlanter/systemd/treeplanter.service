@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=oneshot
 WorkingDirectory=/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/TreePlanter
-ExecStart=/usr/bin/php84 run.php
+ExecStart=/usr/bin/php84 bin/treeplanter.php run
 
 # Allow filesystem access for pipeline I/O
 ReadWritePaths=/home/craigpar/Code/RTSColonyTerrainGenerator
