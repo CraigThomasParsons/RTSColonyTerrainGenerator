@@ -9,8 +9,59 @@ use MapGenerator\TreePlanter\Vegetation\VegetationSuitabilityCalculator;
 use MapGenerator\TreePlanter\Vegetation\TreeTypeSelector;
 use MapGenerator\TreePlanter\Debug\TreePlanterHtmlDebugWriter;
 
+use RuntimeException;
+
+/**
+ * TreePlacementEngine (Option B)
+ *
+ * Minimal deterministic vegetation placement engine.
+ *
+ * Responsibilities:
+ * - Iterate assembled tiles
+ * - Add tree decorations based on terrain type
+ * - Return mutated tile array
+ *
+ * Does NOT:
+ * - Read files
+ * - Write files
+ * - Use randomness
+ * - Use weather
+ */
 final class TreePlacementEngine
 {
+
+     /**
+     * Apply tree placement rules to tiles.
+     *
+     * @param array<int, array<string, mixed>> $tiles
+     * @return array<int, array<string, mixed>> Mutated tiles
+     */
+    public static function placeTrees(array $tiles): array
+    {
+        foreach ($tiles as &$tile) {
+            if (!isset($tile['terrain'])) {
+                throw new RuntimeException(
+                    'Tile missing terrain field'
+                );
+            }
+
+            // Ensure decorations array exists
+            if (!isset($tile['decorations']) || !is_array($tile['decorations'])) {
+                $tile['decorations'] = [];
+            }
+
+            $terrain = $tile['terrain'];
+
+            if ($terrain === 'grass') {
+                $tile['decorations']['tree'] = 'deciduous';
+            } elseif ($terrain === 'taiga') {
+                $tile['decorations']['tree'] = 'coniferous';
+            }
+        }
+
+        return $tiles;
+    }
+
     /**
      * Execute exactly one TreePlanter job if available.
      *

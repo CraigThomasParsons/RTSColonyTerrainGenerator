@@ -12,7 +12,6 @@ if(php_sapi_name() !== 'cli') {
 use MapGenerator\TreePlanter\Engine\TreePlacementEngine;
 use Minicli\App;
 
-
 $app = new App([
     'app_path' => [
         __DIR__ . '/app/Command',
@@ -83,6 +82,36 @@ $app->registerCommand('write-test', function () use ($app) {
     $app->success("Wrote world payload: {$path}");
 });
 
+$app->registerCommand('place-test', function () use ($app) {
+    $tiles = [
+        [
+            'x' => 0,
+            'y' => 0,
+            'terrain' => 'grass',
+            'weather' => null,
+            'decorations' => [],
+        ],
+        [
+            'x' => 1,
+            'y' => 0,
+            'terrain' => 'taiga',
+            'weather' => null,
+            'decorations' => [],
+        ],
+        [
+            'x' => 2,
+            'y' => 0,
+            'terrain' => 'rock',
+            'weather' => null,
+            'decorations' => [],
+        ],
+    ];
+
+    $mutated = \MapGenerator\TreePlanter\Engine\TreePlacementEngine::placeTrees($tiles);
+
+    $app->info(json_encode($mutated, JSON_PRETTY_PRINT));
+    exit(0);
+});
 
 /**
  * This tells MiniCLI:

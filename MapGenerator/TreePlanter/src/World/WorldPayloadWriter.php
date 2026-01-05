@@ -25,10 +25,10 @@ final class WorldPayloadWriter
     /**
      * Write a .worldpayload file.
      *
-     * @param string $outputDirectory Absolute output directory
-     * @param string $jobId Job identifier
-     * @param int $width Map width in cells
-     * @param int $height Map height in cells
+     * @param string     $outputDirectory Absolute output directory
+     * @param string     $jobId Job identifier
+     * @param int        $width Map width in cells
+     * @param int        $height Map height in cells
      * @param array<int, array<string, mixed>> $tiles Assembled tiles
      *
      * @return string Absolute path to written payload
