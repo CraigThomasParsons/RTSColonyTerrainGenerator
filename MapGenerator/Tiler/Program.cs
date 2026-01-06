@@ -1,34 +1,16 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using Tiler.IO;
 using Tiler.Processing;
 using Tiler.Util;
+using Tiler.Logging;
 
 namespace Tiler
 {
-    /// <summary>
-    /// Entry point for the Tiler batch processor.
-    ///
-    /// Responsibilities:
-    /// - Read an authoritative .heightmap file
-    /// - Compute deterministic per-cell adjacency bitmasks (4-bit N/E/S/W)
-    /// - Resolve final tile IDs and expand each cell to a 2×2 tile block
-    /// - Emit a deterministic .maptiles artifact into the Tiler outbox
-    /// - Optionally emit human-readable debug artifacts (HTML, console)
-    /// - Archive the processed heightmap on success
-    ///
-    /// This executable is intentionally NOT creative:
-    /// - No randomness
-    /// - No terrain modifications
-    /// - No procedural world logic
-    /// </summary>
     internal static class Program
     {
-        /// <summary>
-        /// Process exit codes.
-        /// These help systemd/Bash workers classify failures.
-        /// </summary>
         private enum ExitCode
         {
             Success = 0,
@@ -38,16 +20,12 @@ namespace Tiler
             UnexpectedError = 9
         }
 
-        /// <summary>
-        /// Main program entrypoint.
-        /// </summary>
         private static int Main(string[] args)
         {
             // ------------------------------------------------------------
             // Environment & culture setup
             // ------------------------------------------------------------
 
-            // Load .env from repository root (working directory)
             DotEnv.Load(Path.GetFullPath(
                 Path.Combine(
                     Directory.GetCurrentDirectory(),
@@ -57,11 +35,9 @@ namespace Tiler
                 )
             ));
 
-            // Force invariant culture to avoid locale-dependent output
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
 
-            // Read debug flags from environment
             bool debugHtml = DotEnv.GetBool("TILER_DEBUG_HTML");
 
             // ------------------------------------------------------------
@@ -75,181 +51,197 @@ namespace Tiler
             }
 
             string inputHeightmapPath = args[0];
-
-            // Defaults aligned to pipeline layout.
-            // All paths are relative to the Tiler working directory.
-            //
-            // NOTE:
-            // - outbox is authoritative output
-            // - debug is non-authoritative
-            // - archive SHOULD NO LONGER BE USED for upstream artifacts
-            string outboxDir = "outbox";
-            string archiveDir = "archive";
-            string debugDir = "debug";
-
+            string jobId = Path.GetFileNameWithoutExtension(inputHeightmapPath);
 
             bool debugSamples = false;
 
             for (int i = 1; i < args.Length; i++)
             {
-                string arg = args[i];
-
-                if (arg == "--debug-samples")
+                if (args[i] == "--debug-samples")
                 {
                     debugSamples = true;
                 }
                 else
                 {
-                    Console.Error.WriteLine($"Unknown argument: {arg}");
+                    Console.Error.WriteLine($"Unknown argument: {args[i]}");
                     PrintUsage();
                     return (int)ExitCode.InvalidArguments;
                 }
             }
 
+            var logger = new MapGenStageLogger(jobId, "tiler");
+
             try
             {
+                logger.Info(
+                    "stage_started",
+                    "Tiler stage started",
+                    new Dictionary<string, string>
+                    {
+                        { "pid", Environment.ProcessId.ToString() },
+                        { "input_path", inputHeightmapPath }
+                    }
+                );
+
                 // ------------------------------------------------------------
                 // Input validation
                 // ------------------------------------------------------------
 
                 if (!File.Exists(inputHeightmapPath))
                 {
-                    Console.Error.WriteLine($"Input file not found: {inputHeightmapPath}");
+                    logger.Error(
+                        "input_missing",
+                        "Input heightmap file does not exist",
+                        new Dictionary<string, string>
+                        {
+                            { "path", inputHeightmapPath }
+                        }
+                    );
+
                     return (int)ExitCode.InputError;
                 }
 
-                Directory.CreateDirectory(outboxDir);
-                Directory.CreateDirectory(debugDir);
+                Directory.CreateDirectory("outbox");
+                Directory.CreateDirectory("debug");
 
                 // ------------------------------------------------------------
                 // Load heightmap
                 // ------------------------------------------------------------
 
+                logger.Info("load_heightmap_begin", "Loading heightmap");
+
                 var heightmap = HeightmapReader.Read(inputHeightmapPath);
 
-                Console.WriteLine("Loaded .heightmap successfully:");
-                Console.WriteLine($"  Width (cells):  {heightmap.WidthInCells}");
-                Console.WriteLine($"  Height (cells): {heightmap.HeightInCells}");
-                Console.WriteLine($"  Seed:           {heightmap.DeterministicSeed}");
+                logger.Info(
+                    "load_heightmap_success",
+                    "Heightmap loaded",
+                    new Dictionary<string, string>
+                    {
+                        { "width", heightmap.WidthInCells.ToString() },
+                        { "height", heightmap.HeightInCells.ToString() },
+                        { "seed", heightmap.DeterministicSeed.ToString() }
+                    }
+                );
 
                 // ------------------------------------------------------------
                 // Core tiler pipeline
                 // ------------------------------------------------------------
 
+                logger.Info("compute_masks_begin", "Computing adjacency bitmasks");
                 var cellMasks = CellBitmaskCalculator.ComputeMasks(heightmap);
+
+                logger.Info("resolve_tiles_begin", "Resolving tile IDs");
                 var tileIds = TileIdResolver.Resolve(heightmap, cellMasks);
 
                 // ------------------------------------------------------------
                 // Write .maptiles
                 // ------------------------------------------------------------
 
-                string inputBaseName = Path.GetFileNameWithoutExtension(inputHeightmapPath);
-                string outputFileName = inputBaseName + ".maptiles";
-                string outputPath = Path.Combine(outboxDir, outputFileName);
+                string outputPath = Path.Combine(
+                    "outbox",
+                    jobId + ".maptiles"
+                );
 
-                MapTilesWriter.Write(outputPath, tileIds, heightmap.DeterministicSeed);
+                logger.Info(
+                    "write_maptiles_begin",
+                    "Writing .maptiles output",
+                    new Dictionary<string, string>
+                    {
+                        { "output_path", outputPath }
+                    }
+                );
 
-                Console.WriteLine("Wrote .maptiles successfully:");
-                Console.WriteLine($"  Output:    {outputPath}");
-                Console.WriteLine($"  Tile size: {tileIds.GetLength(0)} × {tileIds.GetLength(1)}");
+                MapTilesWriter.Write(
+                    outputPath,
+                    tileIds,
+                    heightmap.DeterministicSeed
+                );
+
+                logger.Info(
+                    "write_maptiles_success",
+                    ".maptiles written successfully",
+                    new Dictionary<string, string>
+                    {
+                        { "tile_width", tileIds.GetLength(0).ToString() },
+                        { "tile_height", tileIds.GetLength(1).ToString() }
+                    }
+                );
 
                 // ------------------------------------------------------------
-                // Optional console debug samples
-                // ------------------------------------------------------------
-
-                if (debugSamples)
-                {
-                    Console.WriteLine();
-                    Console.WriteLine("Sample masks:");
-                    PrintSampleByteGrid(cellMasks, 5, 5);
-
-                    Console.WriteLine();
-                    Console.WriteLine("Sample tile IDs:");
-                    PrintSampleUShortGrid(tileIds, 6, 6);
-                }
-
-                // ------------------------------------------------------------
-                // Optional HTML debug export (ENV-gated)
+                // Optional HTML debug export
                 // ------------------------------------------------------------
 
                 if (debugHtml)
                 {
                     string htmlPath = Path.Combine(
-                        debugDir,
-                        inputBaseName + ".html"
+                        "debug",
+                        jobId + ".html"
+                    );
+
+                    logger.Info(
+                        "debug_html_begin",
+                        "Writing HTML debug output",
+                        new Dictionary<string, string>
+                        {
+                            { "path", htmlPath }
+                        }
                     );
 
                     HtmlTileDebugWriter.Write(htmlPath, tileIds);
-
-                    Console.WriteLine();
-                    Console.WriteLine("Wrote HTML debug view:");
-                    Console.WriteLine($"  Debug HTML: {htmlPath}");
                 }
 
-                // ------------------------------------------------------------
-                // Archive input heightmap (final step) No! no more Archiving
-                // ------------------------------------------------------------
+                logger.Info("stage_finished", "Tiler stage completed successfully");
 
                 return (int)ExitCode.Success;
             }
             catch (InvalidDataException ex)
             {
-                Console.Error.WriteLine("Input error (invalid .heightmap):");
+                logger.Error(
+                    "input_invalid",
+                    "Invalid heightmap data",
+                    new Dictionary<string, string>
+                    {
+                        { "error", ex.Message }
+                    }
+                );
+
                 Console.Error.WriteLine(ex.Message);
                 return (int)ExitCode.InputError;
             }
             catch (IOException ex)
             {
-                Console.Error.WriteLine("I/O error:");
+                logger.Error(
+                    "io_error",
+                    "I/O error during tiler execution",
+                    new Dictionary<string, string>
+                    {
+                        { "error", ex.Message }
+                    }
+                );
+
                 Console.Error.WriteLine(ex.Message);
                 return (int)ExitCode.OutputError;
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine("Unexpected error:");
+                logger.Error(
+                    "unexpected_error",
+                    "Unexpected tiler failure",
+                    new Dictionary<string, string>
+                    {
+                        { "exception", ex.ToString() }
+                    }
+                );
+
                 Console.Error.WriteLine(ex);
                 return (int)ExitCode.UnexpectedError;
             }
         }
 
-        // ------------------------------------------------------------
-        // Helpers
-        // ------------------------------------------------------------
-
         private static void PrintUsage()
         {
             Console.Error.WriteLine("Usage:");
             Console.Error.WriteLine("  tiler <path-to-heightmap> [--debug-samples]");
-        }
-
-        private static void PrintSampleByteGrid(byte[,] grid, int sampleWidth, int sampleHeight)
-        {
-            int w = Math.Min(sampleWidth, grid.GetLength(0));
-            int h = Math.Min(sampleHeight, grid.GetLength(1));
-
-            for (int y = 0; y < h; y++)
-            {
-                for (int x = 0; x < w; x++)
-                {
-                    Console.Write($"{grid[x, y],2} ");
-                }
-                Console.WriteLine();
-            }
-        }
-
-        private static void PrintSampleUShortGrid(ushort[,] grid, int sampleWidth, int sampleHeight)
-        {
-            int w = Math.Min(sampleWidth, grid.GetLength(0));
-            int h = Math.Min(sampleHeight, grid.GetLength(1));
-
-            for (int y = 0; y < h; y++)
-            {
-                for (int x = 0; x < w; x++)
-                {
-                    Console.Write($"{grid[x, y],4} ");
-                }
-                Console.WriteLine();
-            }
         }
     }
 }

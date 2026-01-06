@@ -10,6 +10,7 @@ if(php_sapi_name() !== 'cli') {
 }
 
 use MapGenerator\TreePlanter\Engine\TreePlacementEngine;
+
 use Minicli\App;
 
 $app = new App([
@@ -82,6 +83,7 @@ $app->registerCommand('write-test', function () use ($app) {
     $app->success("Wrote world payload: {$path}");
 });
 
+//  This is a very basic test command for development purposes only.
 $app->registerCommand('place-test', function () use ($app) {
     $tiles = [
         [
@@ -119,3 +121,14 @@ $app->registerCommand('place-test', function () use ($app) {
  * - Match CLI command names automatically
  */
 $app->runCommand($argv);
+
+$engine = new TreePlacementEngine(
+    seed: $job->seed ?? 12345
+);
+
+$treePlacements = $engine->run($tileAssembler);
+
+$worldPayloadWriter->write(
+    tiles: $tileAssembler,
+    treePlacements: $treePlacements
+);

@@ -29,8 +29,8 @@ import shutil
 
 from pathlib import Path
 
-from utils.paths import stage_inbox, stage_outbox, stage_archive
-from utils.paths import heightmap_inbox
+from .utils.paths import stage_inbox, stage_outbox, stage_archive, heightmap_inbox
+from .utils.joblog import JobLogger, job_log_path
 
 # ============================================================
 # Pipeline definition
@@ -104,6 +104,32 @@ STAGE_COMPLETION_CHECKS = {
         resolved_stage_outbox("treeplanter") / f"{job_id}.worldpayload"
     ).exists(),
 }
+
+# ============================================================
+# Load environment variables.
+# ============================================================
+
+def load_dotenv():
+    """
+    Load the repo-root .env file into os.environ if present.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]  # RTSColonyTerrainGenerator/
+    env_path = root / ".env"
+
+    if not env_path.exists():
+        return
+
+    with env_path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key, value)
 
 
 def resolved_stage_outbox(stage: str) -> Path:
@@ -238,6 +264,28 @@ def run_pipeline(args) -> None:
         time.sleep(1)
 
 # ============================================================
+# Tail Last Lines
+# ============================================================
+
+def tail_last_lines(path: Path, max_lines: int = 8) -> list[str]:
+    """
+    Tail the last N lines of a text file safely.
+
+    Reads the whole file if it's small. This is fine for dev logs.
+    If it grows large later, we can optimize to read from the end.
+    """
+    if not path.exists():
+        return []
+
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+
+    lines = text.splitlines()
+    return lines[-max_lines:]
+
+# ============================================================
 # Pipeline execution (TUI)
 # ============================================================
 
@@ -245,61 +293,113 @@ def run_pipeline_tui(args) -> None:
     """
     Run the pipeline with a live curses-based TUI.
 
-    Behavior:
-    - Submits a heightmap job
-    - Displays live per-stage progress
-    - Updates once per second
-    - Exits cleanly on completion or Ctrl+C
+    Upgrades:
+    - Writes to a single job log file
+    - Shows spinner on active stage
+    - Tails last lines of the log under the UI
     """
     import curses
+
+    from .utils.joblog import JobLogger, job_log_path
+
+
+    SPINNER = ["|", "/", "-", "\\"]  # safest everywhere
 
     def _tui(stdscr):
         curses.curs_set(0)
         stdscr.nodelay(True)
 
         job_id = submit_heightmap_job(args.width, args.height)
+        logger = JobLogger(job_id)
+        log_path = job_log_path(job_id)
+
+        logger.info("mapgenctl", f"Job submitted width={args.width} height={args.height} until={args.until}")
+
         completed = {stage: False for stage in PIPELINE_STAGES}
+        spinner_i = 0
 
         while True:
-            # clear screen for next frame
-            stdscr.clear()
+            # allow Ctrl+C-ish behavior (q is nice too)
+            ch = stdscr.getch()
+            if ch in (ord("q"), ord("Q")):
+                logger.warn("mapgenctl", "User requested exit (q)")
+                return
 
-            # Draw header information
+            # update completion status
+            for stage in PIPELINE_STAGES:
+                if completed[stage]:
+                    continue
+                checker = STAGE_COMPLETION_CHECKS.get(stage)
+                if checker and checker(job_id):
+                    completed[stage] = True
+                    logger.info(stage, "Stage complete (artifact detected)")
+
+            # determine active stage = first incomplete up to args.until
+            active_stage = None
+            for stage in PIPELINE_STAGES:
+                if stage == args.until and completed.get(stage):
+                    active_stage = None
+                    break
+                if not completed.get(stage):
+                    active_stage = stage
+                    break
+
+            # render frame
+            stdscr.clear()
             stdscr.addstr(0, 0, "MapGenerator Pipeline")
             stdscr.addstr(1, 0, f"Job ID: {job_id}")
-            stdscr.addstr(2, 0, "-" * 40)
+            stdscr.addstr(2, 0, "-" * 50)
 
             row = 4
-            # Iterate through stages to update status
             for stage in PIPELINE_STAGES:
-                checker = STAGE_COMPLETION_CHECKS.get(stage)
+                # status marker
+                if completed[stage]:
+                    marker = "[✔]"
+                    right = "done"
+                elif stage == active_stage:
+                    marker = f"[{SPINNER[spinner_i]}]"
+                    right = "running"
+                else:
+                    marker = "[ ]"
+                    right = ""
 
-                # Check filesystem if not already marked complete
-                if not completed[stage] and checker and checker(job_id):
-                    completed[stage] = True
-
-                # Draw status line
-                marker = "[✔]" if completed[stage] else "[ ]"
-                stdscr.addstr(row, 2, f"{marker} {stage}")
+                # stage line
+                stdscr.addstr(row, 2, f"{marker} {stage:<12} {right}")
                 row += 1
 
-            stdscr.addstr(row + 1, 0, "Press Ctrl+C to exit")
+                if stage == args.until:
+                    break
+
+            stdscr.addstr(row + 1, 0, "Press Ctrl+C (or q) to exit")
+            stdscr.addstr(row + 2, 0, "-" * 50)
+            stdscr.addstr(row + 3, 0, f"Logs (job={job_id}):")
+
+            # tail log
+            log_lines = tail_last_lines(log_path, max_lines=8)
+            for i, line in enumerate(log_lines):
+                # defensive: don't overflow screen width
+                try:
+                    stdscr.addstr(row + 4 + i, 0, line[: max(0, curses.COLS - 1)])
+                except curses.error:
+                    pass
+
             stdscr.refresh()
 
-            # Exit if target stage is complete
+            # completion
             if completed.get(args.until):
-                stdscr.addstr(row + 3, 0, "Pipeline complete. Press any key.")
-                stdscr.refresh()
-                # Wait for user input before closing
+                logger.info("mapgenctl", f"Pipeline reached target stage: {args.until}")
+                stdscr.addstr(row + 13, 0, "Pipeline complete. Press any key.")
+                stdscr.nodelay(False)
                 stdscr.getch()
                 return
 
-            # Poll interval
-            time.sleep(1)
+            spinner_i = (spinner_i + 1) % len(SPINNER)
+            time.sleep(0.1)
 
     try:
         curses.wrapper(_tui)
     except KeyboardInterrupt:
+        # let Ctrl+C exit cleanly
         pass
 
 # ============================================================
@@ -488,6 +588,7 @@ def inspect_heightmap(args):
 # ============================================================
 
 def main() -> None:
+    load_dotenv()
     parser = build_parser()
     args = parser.parse_args()
 

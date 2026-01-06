@@ -11,7 +11,6 @@ use MapGenerator\TreePlanter\Random\DeterministicRandomGenerator;
 use MapGenerator\TreePlanter\Vegetation\VegetationSuitabilityCalculator;
 use MapGenerator\TreePlanter\Vegetation\TreeTypeSelector;
 use MapGenerator\TreePlanter\Vegetation\TreePlacementEngine;
-use MapGenerator\TreePlanter\Debug\TreePlanterHtmlDebugWriter;
 use Minicli\Command\CommandController;
 
 final class RunCommand extends CommandController

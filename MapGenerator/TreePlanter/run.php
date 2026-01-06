@@ -41,7 +41,6 @@ use MapGenerator\TreePlanter\Job\JobLocator;
 use MapGenerator\TreePlanter\Random\DeterministicRandomGenerator;
 use MapGenerator\TreePlanter\Vegetation\VegetationSuitabilityCalculator;
 use MapGenerator\TreePlanter\Vegetation\TreeTypeSelector;
-use MapGenerator\TreePlanter\Debug\TreePlanterHtmlDebugWriter;
 
 /**
  * Write a TreePlanter informational log message.
