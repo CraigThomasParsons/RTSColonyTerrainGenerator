@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using MapGen.Logging;
 using System.Numerics;
 
 // Namespace produced by: module {:extern "MapGen.Logging"} MapGenLogging

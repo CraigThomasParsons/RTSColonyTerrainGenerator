@@ -181,6 +181,12 @@ fn main() {
         serde_json::from_str(&job_file_contents)
             .expect("Failed to parse job JSON");
 
+    // Right after parsing the job, before creating the logger
+    eprintln!(
+        "DEBUG heightmap: MAPGEN_LOG_ROOT={:?}",
+        std::env::var("MAPGEN_LOG_ROOT")
+    );
+
     // Logger is created as soon as job_id is known.
     // From this point on, operational output goes to logs, not stdout.
     let logger =

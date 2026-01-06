@@ -106,16 +106,18 @@ impl StageLogger {
 fn resolve_log_path(job_id: &str, stage: &str) -> Result<PathBuf> {
     // Design choice: stage code does NOT parse .env.
     // It consumes inherited environment variables.
-    let log_root = env::var("MAPGEN_LOG_ROOT").unwrap_or_else(|_| "./logs".to_string());
+    let log_root = env::var("MAPGEN_LOG_ROOT")
+        .unwrap_or_else(|_| "./logs".to_string());
 
     let mut dir = PathBuf::from(log_root);
     dir.push("jobs");
-    dir.push(job_id);
 
-    fs::create_dir_all(&dir).with_context(|| format!("create log dir {:?}", dir))?;
+    // Ensure jobs/ exists (systemd already does this, but safe anyway)
+    fs::create_dir_all(&dir)
+        .with_context(|| format!("create log dir {:?}", dir))?;
 
     let mut file = dir;
-    file.push(format!("{stage}.log.jsonl"));
+    file.push(format!("{job_id}.log.jsonl"));
     Ok(file)
 }
 

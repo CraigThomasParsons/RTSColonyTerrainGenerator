@@ -53,6 +53,8 @@ namespace Tiler
             string inputHeightmapPath = args[0];
             string jobId = Path.GetFileNameWithoutExtension(inputHeightmapPath);
 
+            // I'm unsure why it says this, its used below.
+            // This should be used
             bool debugSamples = false;
 
             for (int i = 1; i < args.Length; i++)
