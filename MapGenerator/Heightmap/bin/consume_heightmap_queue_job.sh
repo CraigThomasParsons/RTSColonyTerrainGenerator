@@ -155,9 +155,17 @@ process_job() {
     #######################################
 
     TILER_INBOX="$HOME/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/inbox"
-    mkdir -p "$TILER_INBOX"
+    WEATHER_INBOX="$HOME/Code/RTSColonyTerrainGenerator/MapGenerator/WeatherAnalyses/inbox"
+    
+    # Builidng directories just in case
+    mkdir -p "$TILER_INBOX" "$WEATHER_INBOX"
+
+    # Copying to Tiler and WeatherAnalyses inboxes
     cp "$OUTPUT_FILE_PATH" "$TILER_INBOX/"
+    cp "$OUTPUT_FILE_PATH" "$WEATHER_INBOX/"
+
     echo "[heightmap-worker] Copied heightmap to Tiler inbox"
+    echo "[heightmap-worker] Copied heightmap to Weather inbox"
 
     #######################################
     # Archive the processed job

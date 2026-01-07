@@ -1,9 +1,15 @@
 [Unit]
-Description="Watch TreePlanter inbox directories"
+Description="Watch TreePlanter upstream dependencies"
 
 [Path]
-PathExistsGlob=/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/TreePlanter/inbox/*
+# Watch for new artifacts in upstream outboxes
+# Using PathChanged to trigger whenever a file is written/closed
+PathChanged=/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap/outbox/
+PathChanged=/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/outbox/
+PathChanged=/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/WeatherAnalyses/outbox/
+
+# Also watch the inbox symlinks just in case
+PathChanged=/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/TreePlanter/inbox/
 
 [Install]
 WantedBy=default.target
-

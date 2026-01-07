@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace RTSColonyTerrainGenerator\TreePlanter\Tile;
+namespace MapGenerator\TreePlanter\Tile;
 
 use InvalidArgumentException;
 use RuntimeException;

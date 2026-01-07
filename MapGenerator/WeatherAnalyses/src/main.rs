@@ -15,32 +15,53 @@ struct Args {
 mod heightmap;
 mod weather_map;
 mod analysis;
+mod logger;
+
+use logger::StageLogger;
 
 fn main() {
     let args = Args::parse();
 
-    println!("Starting analysis for: {:?}", args.input);
+    // Extract job_id from input filename (e.g., "abc123.heightmap" -> "abc123")
+    let job_id = args.input
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("unknown");
 
-    if let Err(e) = run(&args) {
+    // Initialize logger for this job
+    let log = match StageLogger::new(job_id) {
+        Ok(l) => l,
+        Err(e) => {
+            eprintln!("Failed to initialize logger: {}", e);
+            process::exit(1);
+        }
+    };
+
+    log.info("stage_start", &format!("Starting weather analysis for job {}", job_id));
+
+    if let Err(e) = run(&args, &log) {
+        log.error("stage_failed", &format!("Error: {}", e));
         eprintln!("Error: {}", e);
         process::exit(1);
     }
 
-    println!("Analysis complete. Output written to: {:?}", args.output);
+    log.info("stage_complete", "Weather analysis completed successfully");
 }
 
-fn run(args: &Args) -> anyhow::Result<()> {
+fn run(args: &Args, log: &StageLogger) -> anyhow::Result<()> {
     // Load heightmap
+    log.info("loading_heightmap", &format!("Loading {:?}", args.input));
     let hm = heightmap::Heightmap::load(&args.input)?;
-    println!("Loaded heightmap: {}x{}", hm.width, hm.height);
+    log.info("heightmap_loaded", &format!("Loaded heightmap: {}x{}", hm.width, hm.height));
 
     // Perform analysis
-    println!("Generating weather analysis...");
+    log.info("generating_weather", "Generating weather analysis layers");
     let weather = analysis::generate_weather_map(&hm);
 
     // Write output
-    println!("Saving weather map...");
+    log.info("saving_output", &format!("Saving weather map to {:?}", args.output));
     weather.save(&args.output)?;
+    log.info("output_saved", ".weather file written successfully");
     
     Ok(())
 }

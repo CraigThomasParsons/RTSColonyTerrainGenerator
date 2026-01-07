@@ -240,6 +240,7 @@ def run_pipeline(args) -> None:
     Run an end-to-end pipeline test job.
 
     Behavior:
+    - Optionally cleans all stages first (if --clean)
     - Submits a heightmap job
     - Polls the filesystem for stage completion
     - Prints simple textual progress
@@ -249,8 +250,13 @@ def run_pipeline(args) -> None:
     - args.width
     - args.height
     - args.until
+    - args.clean
     - args.tui (must be False here)
     """
+    if getattr(args, 'clean', False):
+        clean_all_stages_and_logs()
+        print()  # Blank line before pipeline output
+
     job_id = submit_heightmap_job(args.width, args.height)
 
     print("[mapgenctl] Pipeline run started")
@@ -359,6 +365,11 @@ def run_pipeline_tui(args) -> None:
     entries when new ones arrive, keeping memory bounded and the display
     focused on recent activity.
     """
+    # Clean if requested (before entering curses)
+    if getattr(args, 'clean', False):
+        clean_all_stages_and_logs()
+        print()  # Blank line before TUI starts
+
     import curses
 
     from .utils.joblog import JobLogger, job_log_path
@@ -402,11 +413,10 @@ def run_pipeline_tui(args) -> None:
         # Using a deque with maxlen gives us automatic eviction of old entries.
         # This is the ONLY source of data for the rendering loop.
         #
-        # Why deque? Because:
-        # - Fixed memory footprint (maxlen=8 entries)
-        # - O(1) append and automatic old-entry eviction
-        # - Simple iteration for rendering
-        ui_events = deque(maxlen=8)
+        # Buffer size is configurable via MAPGENCTL_LOG_BUFFER_SIZE env var.
+        # Default: 16 entries to show logs from multiple concurrent stages.
+        log_buffer_size = int(os.environ.get("MAPGENCTL_LOG_BUFFER_SIZE", "16"))
+        ui_events = deque(maxlen=log_buffer_size)
 
         logger.info("mapgenctl", f"Job submitted width={args.width} height={args.height} until={args.until}")
 
@@ -556,28 +566,12 @@ def run_pipeline_tui(args) -> None:
 # These functions help developers reset pipeline state during development.
 
 
-def clean_stage(args) -> None:
+def clean_single_stage(stage: str) -> int:
     """
-    Remove all files from inbox, outbox, and archive for a stage.
-
-    This is a destructive operation intended for development use only.
-    It's useful when you want to re-run the pipeline from scratch or
-    clear out failed job artifacts.
-
-    Args:
-        args: Namespace with 'stage' attribute specifying which
-              pipeline stage to clean (e.g., "heightmap").
-
-    Side Effects:
-        - Deletes all files in the stage's inbox, outbox, and archive
-        - Prints progress to stdout
-
-    Warning:
-        This permanently deletes files. There is no undo.
+    Clean a single pipeline stage's directories.
+    
+    Returns the total number of files removed.
     """
-    stage = args.stage
-
-    # Map of directory names to their paths for iteration
     directories = {
         "inbox": stage_inbox(stage),
         "outbox": stage_outbox(stage),
@@ -585,23 +579,108 @@ def clean_stage(args) -> None:
     }
 
     print(f"[mapgenctl] Cleaning stage: {stage}")
+    total_removed = 0
 
     for name, path in directories.items():
-        # Skip directories that don't exist (might not have been created yet)
         if not path.exists():
             print(f"  {name}: {path} (missing, skipped)")
             continue
 
         removed_count = 0
         for item in path.iterdir():
-            # Only remove files and symlinks, not subdirectories
-            # This is a safety measure to prevent accidental damage
-            if item.is_file() or item.is_symlink():
+            if item.is_symlink():
+                # specific request: preserve symlinks (e.g. TreePlanter infrastructure)
+                continue
+            
+            if item.is_file():
                 item.unlink()
+                removed_count += 1
+            elif item.is_dir():
+                shutil.rmtree(item)
                 removed_count += 1
 
         print(f"  {name}: removed {removed_count} files")
+        total_removed += removed_count
 
+    return total_removed
+
+
+def clean_stage(args) -> None:
+    """
+    Remove all files from inbox, outbox, and archive for a stage.
+
+    Supports cleaning a single stage or all stages plus logs.
+
+    Args:
+        args: Namespace with 'stage' attribute ("heightmap", "tiler", etc. or "all").
+
+    Side Effects:
+        - Deletes all files in the stage's inbox, outbox, and archive
+        - If 'all', also cleans logs/jobs directory
+        - Prints progress to stdout
+
+    Warning:
+        This permanently deletes files. There is no undo.
+    """
+    stage = args.stage
+
+    if stage == "all":
+        # Clean all pipeline stages
+        for s in PIPELINE_STAGES:
+            clean_single_stage(s)
+        
+        # Clean logs/jobs directory
+        log_root = os.environ.get("MAPGEN_LOG_ROOT", "./logs")
+        jobs_dir = Path(log_root) / "jobs"
+        
+        print(f"[mapgenctl] Cleaning logs: {jobs_dir}")
+        if jobs_dir.exists():
+            removed_count = 0
+            # Remove all job subdirectories
+            for item in jobs_dir.iterdir():
+                if item.is_dir():
+                    shutil.rmtree(item)
+                    removed_count += 1
+                elif item.is_file():
+                    item.unlink()
+                    removed_count += 1
+            print(f"  jobs: removed {removed_count} job directories")
+        else:
+            print(f"  jobs: {jobs_dir} (missing, skipped)")
+        
+        print("[mapgenctl] Full clean complete")
+    else:
+        # Clean single stage
+        clean_single_stage(stage)
+        print("[mapgenctl] Clean complete")
+
+
+def clean_all_stages_and_logs() -> None:
+    """
+    Clean all pipeline stages and the logs/jobs directory.
+    
+    This is used by the --clean flag on the run command.
+    """
+    for s in PIPELINE_STAGES:
+        clean_single_stage(s)
+    
+    log_root = os.environ.get("MAPGEN_LOG_ROOT", "./logs")
+    jobs_dir = Path(log_root) / "jobs"
+    
+    print(f"[mapgenctl] Cleaning logs: {jobs_dir}")
+    if jobs_dir.exists():
+        removed_count = 0
+        for item in jobs_dir.iterdir():
+            if item.is_dir():
+                shutil.rmtree(item)
+                removed_count += 1
+            elif item.is_file():
+                item.unlink()
+                removed_count += 1
+        print(f"  jobs: removed {removed_count} job directories")
+    else:
+        print(f"  jobs: {jobs_dir} (missing, skipped)")
+    
     print("[mapgenctl] Clean complete")
 
 def watch_stage(args) -> None:
@@ -747,9 +826,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     clean_parser.add_argument(
         "--stage",
-        choices=["heightmap", "tiler", "treeplanter"],
+        choices=["heightmap", "tiler", "weather", "treeplanter", "all"],
         required=True,
-        help="Pipeline stage to clean",
+        help="Pipeline stage to clean, or 'all' to clean everything including logs",
     )
 
     # --- build: Compile pipeline components ---
@@ -791,6 +870,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--tui",
         action="store_true",
         help="Show live progress TUI instead of text output",
+    )
+    run_parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="Clean all stages and logs before starting",
     )
 
     return parser

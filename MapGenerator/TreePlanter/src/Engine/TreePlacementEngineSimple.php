@@ -1,24 +1,22 @@
 <?php
 
-namespace RTSColonyTerrainGenerator\TreePlanter\Engine;
-
-use RTSColonyTerrainGenerator\TreePlanter\World\TreePlacement;
-use RTSColonyTerrainGenerator\TreePlanter\World\TreePlacementResult;
-use RTSColonyTerrainGenerator\TreePlanter\Tile\TileAssembler;
+namespace MapGenerator\TreePlanter\Engine;
 
 final class TreePlacementEngine
 {
     public function __construct(
-        private readonly int $seed
+        private readonly int $seed = 12345
     ) {}
 
-    public function run(TileAssembler $tiles): TreePlacementResult
+    /**
+     * @param array<int, array> $tiles
+     * @return array Modified tiles with trees added
+     */
+    public function run(array $tiles): array
     {
         mt_srand($this->seed);
 
-        $result = new TreePlacementResult();
-
-        foreach ($tiles->all() as $tile) {
+        foreach ($tiles as &$tile) {
             if (!$this->tileCanHaveTree($tile)) {
                 continue;
             }
@@ -29,46 +27,62 @@ final class TreePlacementEngine
 
             $treeType = $this->selectTreeType($tile);
 
-            $result->add(
-                new TreePlacement(
-                    $tile->x,
-                    $tile->y,
-                    $treeType
-                )
-            );
+            // Add tree to decorations
+            $tile['decorations'][] = [
+                'type' => 'tree',
+                'variety' => $treeType,
+            ];
         }
 
-        return $result;
+        return $tiles;
     }
 
-    private function tileCanHaveTree($tile): bool
+    private function tileCanHaveTree(array $tile): bool
     {
-        // Minimal, conservative rules
-        if ($tile->isWater()) return false;
-        if ($tile->isMountain()) return false;
-        if ($tile->isRoad()) return false;
+        $terrain = $tile['terrain'] ?? 'unknown';
+
+        // Water checks
+        if ($terrain === 'water' || $terrain === 'ocean' || $terrain === 'river') {
+            return false;
+        }
+
+        // Mountain/Rock checks
+        if ($terrain === 'mountain' || $terrain === 'rock' || $terrain === 'snow_peak') {
+            return false;
+        }
 
         return true;
     }
 
-    private function rollTreeChance($tile): bool
+    private function rollTreeChance(array $tile): bool
     {
-        // VERY rough for now — we refine later
-        $chance = match ($tile->biome) {
+        $terrain = $tile['terrain'] ?? 'unknown';
+
+        // Map terrain to tree probability
+        $chance = match ($terrain) {
             'forest' => 0.70,
-            'plains' => 0.15,
+            'jungle' => 0.80,
+            'taiga'  => 0.60,
+            'grass'  => 0.15, // Plains/Grass
             'swamp'  => 0.35,
+            'desert' => 0.01, // Oasis?
             default  => 0.05,
         };
 
-        return mt_rand() / mt_getrandmax() < $chance;
+        return (mt_rand() / mt_getrandmax()) < $chance;
     }
 
-    private function selectTreeType($tile): string
+    private function selectTreeType(array $tile): string
     {
-        return match ($tile->biome) {
+        $terrain = $tile['terrain'] ?? 'unknown';
+
+        return match ($terrain) {
             'forest' => 'oak',
+            'jungle' => 'mahogany',
+            'taiga'  => 'pine',
             'swamp'  => 'mangrove',
+            'desert' => 'palm',
+            'grass'  => 'oak',
             default  => 'scrub',
         };
     }

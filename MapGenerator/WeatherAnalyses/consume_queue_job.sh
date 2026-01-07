@@ -27,6 +27,9 @@ if [ ! -f "$BIN" ]; then
     exit 1
 fi
 
+# Ensure required directories exist
+mkdir -p "$OUTBOX" "$ARCHIVE" "$FAILED"
+
 # Process files in inbox
 # Note: systemd triggers this script, but we loop to handle any ready files
 shopt -s nullglob

@@ -33,39 +33,47 @@ project-specific conventions.
 ## Naming Conventions (LOCKED)
 
 ✅ Good:
+
 ```php
 private int $mapWidthInCells;
 protected string $jobIdentifier;
 ```
 
 ### Class Properties
+
 - **camelCase**
 - No leading underscores
 - No Hungarian notation
 
 ### Variables
+
 - Use **descriptive, multi-word variable names**
 - Never write single-letter variable names.
 
 ### Contants
-  - Use uppercase with underscores
+
+- Use uppercase with underscores
+
 ```
 const HEIGHTMAP_INBOX_DIRECTORY = '/app/Heightmap/inbox';
 ```
 
 Methods / Functions
 
-  - camelCase
-  - Verb-based, explicit names
-  - No abbreviations
+- camelCase
+- Verb-based, explicit names
+- No abbreviations
 
 Good:
+
 ```
 enqueueHeightmapJob()
 validateRequestPayload()
 generateUniqueJobIdentifier()
 ```
+
 Bad:
+
 ```
 enqueue_job()
 doStuff()
@@ -77,17 +85,20 @@ Local Variables
 PSR does not mandate a format for local variables.
 This project explicitly standardizes on camelCase for consistency.
 
- - camelCase
- - Descriptive, multi-word names
- - Single-letter variables are forbidden
+- camelCase
+- Descriptive, multi-word names
+- Single-letter variables are forbidden
 
 Good:
+
 ```
 $decodedRequestPayload
 $jobFilePath
 $heightmapInboxDirectory
 ```
+
 Bad:
+
 ```
 $i
 $tmp
@@ -97,44 +108,46 @@ $payload_arr
 
 File Structure Rules:
 
-  - One responsibility per file
+- One responsibility per file
 
-  - No mixed concerns
+- No mixed concerns
 
-  - API endpoints must do exactly one thing
+- API endpoints must do exactly one thing
 
-  - No hidden side effects
+- No hidden side effects
 
 Example:
 
-  - enqueueHeightmapJob.php
+- enqueueHeightmapJob.php
 
-    - Accept request
+  - Accept request
 
-    - Validate input
+  - Validate input
 
-    - Write job file
+  - Write job file
 
-    - Respond
+  - Respond
 
-Nothing more.
+Nothing more
 ---
+
 Commenting Rules (CRITICAL)
 Comment Density
 
 A comment every 3–4 logical lines
 
-  - Comments should explain intent and reasoning
+- Comments should explain intent and reasoning
 
-  - Avoid narrating obvious syntax
+- Avoid narrating obvious syntax
 
-  - Explain why things needed to be done over what is being done
+- Explain why things needed to be done over what is being done
 
 ---
 
 ### File-Level / Block Comments
 
 Use block comments to explain purpose and constraints:
+
 ```
 /**
  * Enqueues a heightmap generation job.
@@ -148,6 +161,7 @@ Use block comments to explain purpose and constraints:
  * into the heightmap inbox directory.
  */
 ```
+
 ---
 
 ### Inline Comments (Why > What)
@@ -156,9 +170,11 @@ Use block comments to explain purpose and constraints:
 // Generate a unique identifier to avoid filename collisions
 $jobIdentifier = generateUniqueJobIdentifier();
 ```
+
 ### Guard Clauses Must Be Commented
 
 Every early exit must justify its existence:
+
 ```
 // Reject empty request bodies to prevent writing invalid jobs
 if ($rawRequestBody === false || trim($rawRequestBody) === '') {
@@ -182,26 +198,29 @@ if ($rawRequestBody === false || trim($rawRequestBody) === '') {
 
 ### JSON Handling
 
-  - Always decode into associative arrays
+- Always decode into associative arrays
 
-  - Always pretty-print when writing to disk
+- Always pretty-print when writing to disk
 
-  - Never trust incoming JSON blindly
+- Never trust incoming JSON blindly
+
 ```
 json_encode($jobPayload, JSON_PRETTY_PRINT);
 ```
+
 ---
+
 ### Formatting Rules (PSR-12)
 
- - 4 spaces per indent
+- 4 spaces per indent
 
- - No tabs
+- No tabs
 
- - One statement per line
+- One statement per line
 
- - Blank lines between logical sections
+- Blank lines between logical sections
 
- - Opening braces on the next line for classes and functions
+- Opening braces on the next line for classes and functions
 
 ---
 
@@ -210,12 +229,14 @@ json_encode($jobPayload, JSON_PRETTY_PRINT);
 🚫 Single-letter variable names
 🚫 Abbreviations
 🚫 Deeply nested conditionals
+🚫 One-line `if` statements (always use braces)
 🚫 Clever one-liners
 🚫 Implicit behavior
 🚫 Mixing I/O and logic in the same function
 
 ---
 Canonical Example (PSR-Correct)
+
 ```
 <?php
 
@@ -285,6 +306,5 @@ If a future reader must guess intent, the code is wrong.
 
 PSR compliance is the baseline.
 Clarity is the priority.
-
 
 ---

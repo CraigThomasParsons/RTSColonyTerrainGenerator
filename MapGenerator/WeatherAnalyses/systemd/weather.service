@@ -4,4 +4,9 @@ After=local-fs.target
 
 [Service]
 Type=oneshot
+EnvironmentFile=%h/Code/RTSColonyTerrainGenerator/.env
+WorkingDirectory=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WeatherAnalyses
 ExecStart=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WeatherAnalyses/consume_queue_job.sh
+
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/logs
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WeatherAnalyses

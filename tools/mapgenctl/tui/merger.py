@@ -68,15 +68,16 @@ class EventMerger:
         """
         Add a log entry to the merge buffer.
 
-        Entries are keyed by their timestamp (preferred) or arrival time
-        (fallback). The heap ensures the oldest entry is always first.
+        Entries are keyed by their arrival time for consistent ordering.
+        We use arrival_time (float) rather than timestamp (str) to avoid
+        type comparison issues in the heap.
 
         Args:
             entry: A LogEntry object to add to the buffer.
         """
-        # Use timestamp for ordering when available, fall back to arrival time
-        # This ensures entries without timestamps still get reasonable ordering
-        key = entry.timestamp or entry.arrival_time
+        # Always use arrival_time for ordering - it's a consistent float type.
+        # Timestamps are strings and would cause comparison errors in the heap.
+        key = entry.arrival_time
         # Include sequence number as tie-breaker to avoid comparing LogEntry objects.
         # Heap key is (primary_key, sequence, entry) - sequence ensures stable ordering.
         self._seq += 1

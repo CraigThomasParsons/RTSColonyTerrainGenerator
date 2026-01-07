@@ -38,6 +38,16 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
+# Maps logical stage names to their actual directory names.
+# Most stages use capitalized names, but some have special names.
+STAGE_DIRECTORY_MAP = {
+    "heightmap": "Heightmap",
+    "tiler": "Tiler",
+    "weather": "WeatherAnalyses",
+    "treeplanter": "TreePlanter",
+}
+
+
 def stage_dir(stage: str) -> Path:
     """
     Return the MapGenerator directory for a pipeline stage.
@@ -47,7 +57,7 @@ def stage_dir(stage: str) -> Path:
 
     Args:
         stage: Logical name of the pipeline stage (e.g., "heightmap", "tiler").
-               The name is capitalized to match directory naming conventions.
+               Uses STAGE_DIRECTORY_MAP for lookup, falls back to capitalized name.
 
     Returns:
         Path: Absolute path to the stage's root directory.
@@ -55,8 +65,11 @@ def stage_dir(stage: str) -> Path:
     Example:
         >>> stage_dir("heightmap")
         PosixPath('/home/user/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap')
+        >>> stage_dir("weather")
+        PosixPath('/home/user/Code/RTSColonyTerrainGenerator/MapGenerator/WeatherAnalyses')
     """
-    return repo_root() / "MapGenerator" / stage.capitalize()
+    dir_name = STAGE_DIRECTORY_MAP.get(stage, stage.capitalize())
+    return repo_root() / "MapGenerator" / dir_name
 
 
 def stage_inbox(stage: str) -> Path:

@@ -5,10 +5,12 @@ After=network.target
 [Service]
 Type=oneshot
 WorkingDirectory=/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/TreePlanter
-ExecStart=/usr/bin/php84 bin/treeplanter.php run
+EnvironmentFile=/home/craigpar/Code/RTSColonyTerrainGenerator/.env
+ExecStart=/usr/bin/php84 run.php
 
-# Allow filesystem access for pipeline I/O
-ReadWritePaths=/home/craigpar/Code/RTSColonyTerrainGenerator
+# Allow filesystem access for pipeline I/O and logging
+ReadWritePaths=/home/craigpar/Code/RTSColonyTerrainGenerator/logs
+ReadWritePaths=/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/TreePlanter
 
 # Fail loudly, do not restart in a loop
 Restart=no
