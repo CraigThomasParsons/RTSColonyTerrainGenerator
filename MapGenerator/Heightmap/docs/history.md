@@ -102,6 +102,21 @@ At the time of interruption:
    - Layer classification
    - Fault-line metadata output
 
+7. I want heightmpas to build data and store based on more complex algorithms.
+   Then in later steps take this data in mind when placing trees, rivers, outcropping.
+   Basically, I think there is a lot more to do in the direction of the heightmapper.
+
+- slope calculation
+- river flow direction
+- basin detection
+- edge-aware smoothing
+- erosion simulation
+- river carving that respects slopes
+
+I want to do all of these things, but I'll never be done this way so,
+I'm stopping after the smoothing and moving on to Tiling.
+Maybe after the whole thing is done, I'll revisit these ideas.
+
 ---
 
 ## Developer Notes

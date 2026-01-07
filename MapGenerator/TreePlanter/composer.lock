@@ -1,0 +1,76 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "This file is @generated automatically"
+    ],
+    "content-hash": "685cbf6a53c4cd6c5f1e6d1046e9d1f9",
+    "packages": [
+        {
+            "name": "minicli/minicli",
+            "version": "4.2.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/minicli/minicli.git",
+                "reference": "81f96caba0c45a29f41b2ac7f17a3f70d8a10893"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/minicli/minicli/zipball/81f96caba0c45a29f41b2ac7f17a3f70d8a10893",
+                "reference": "81f96caba0c45a29f41b2ac7f17a3f70d8a10893",
+                "shasum": ""
+            },
+            "require": {
+                "ext-readline": "*",
+                "php": ">=8.2"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.18",
+                "mockery/mockery": "^1.6",
+                "pestphp/pest": "^3.2",
+                "phpstan/phpstan": "^1.12"
+            },
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "src/helpers.php"
+                ],
+                "psr-4": {
+                    "Minicli\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Experimental micro CLI framework for PHP",
+            "homepage": "https://github.com/minicli/minicli",
+            "keywords": [
+                "cli",
+                "command-line"
+            ],
+            "support": {
+                "issues": "https://github.com/minicli/minicli/issues",
+                "source": "https://github.com/minicli/minicli/tree/4.2.1"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/erikaheidi",
+                    "type": "github"
+                }
+            ],
+            "time": "2025-04-08T18:57:53+00:00"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "stable",
+    "stability-flags": {},
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": {
+        "php": "^8.2"
+    },
+    "platform-dev": {},
+    "plugin-api-version": "2.9.0"
+}

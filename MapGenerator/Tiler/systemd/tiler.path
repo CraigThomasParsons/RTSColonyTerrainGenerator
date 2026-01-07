@@ -1,0 +1,8 @@
+[Unit]
+Description=Watch Tiler inbox for new heightmaps
+
+[Path]
+PathExistsGlob=%h/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/inbox/*.heightmap
+
+[Install]
+WantedBy=default.target

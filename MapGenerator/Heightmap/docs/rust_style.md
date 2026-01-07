@@ -285,7 +285,8 @@ Binary Output Rules
 🚫 Implicit behavior
 🚫 Side effects outside declared outputs
 
-Final Rule (Most Important)
+---
+### Final Rule (Most Important)
 
 If you have to re-learn what your own Rust code does, the code is wrong.
 
