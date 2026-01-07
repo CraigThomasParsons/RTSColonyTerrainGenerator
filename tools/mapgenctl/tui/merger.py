@@ -60,6 +60,9 @@ class EventMerger:
         self.buffer = []
         self.max_buffer = max_buffer
         self.max_delay = max_delay
+        # Sequence counter for stable ordering when timestamps are equal.
+        # This prevents heapq from comparing LogEntry objects directly.
+        self._seq = 0
 
     def ingest(self, entry) -> None:
         """
@@ -74,7 +77,10 @@ class EventMerger:
         # Use timestamp for ordering when available, fall back to arrival time
         # This ensures entries without timestamps still get reasonable ordering
         key = entry.timestamp or entry.arrival_time
-        heapq.heappush(self.buffer, (key, entry))
+        # Include sequence number as tie-breaker to avoid comparing LogEntry objects.
+        # Heap key is (primary_key, sequence, entry) - sequence ensures stable ordering.
+        self._seq += 1
+        heapq.heappush(self.buffer, (key, self._seq, entry))
 
     def drain(self) -> list:
         """
@@ -96,22 +102,23 @@ class EventMerger:
         out = []
 
         while self.buffer:
-            key, entry = self.buffer[0]
+            # Buffer tuples are (key, seq, entry)
+            key, _seq, entry = self.buffer[0]
 
             # Condition 1: Buffer overflow - force drain to prevent memory issues
             if len(self.buffer) > self.max_buffer:
-                out.append(heapq.heappop(self.buffer)[1])
+                out.append(heapq.heappop(self.buffer)[2])
                 continue
 
             # Condition 2: Entry has a timestamp - we know its position
             if entry.timestamp:
-                out.append(heapq.heappop(self.buffer)[1])
+                out.append(heapq.heappop(self.buffer)[2])
                 continue
 
             # Condition 3: Entry has waited long enough - emit it
             # This prevents entries without timestamps from being held forever
             if entry.arrival_time <= now - self.max_delay:
-                out.append(heapq.heappop(self.buffer)[1])
+                out.append(heapq.heappop(self.buffer)[2])
                 continue
 
             # No more entries ready - stop processing

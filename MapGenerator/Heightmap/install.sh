@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 #
-# Install script for Heightmap module outbox
+# Install script for Heightmap module
 #
-# This script:
-# - Symlinks the outbox to the Tiler inbox
-# - Maybe also actually runs the systemd install.sh
+
+mkdir -p "$HOME/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap/outbox"

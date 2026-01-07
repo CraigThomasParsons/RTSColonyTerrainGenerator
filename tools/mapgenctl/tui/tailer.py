@@ -15,9 +15,12 @@ Design Decisions:
     - Handles file truncation/rotation gracefully
     - Buffers partial lines to handle incomplete writes
     - Discovers new log files dynamically
+    - Supports both JSONL (stage logs) and plain text (mapgenctl.log)
 """
 
 import json
+import os
+import re
 import time
 from pathlib import Path
 from typing import Dict, List
@@ -66,18 +69,8 @@ class FileTail:
         # Sequence number helps with stable sorting of near-simultaneous events
         self.seq = 0
 
-    def poll(self) -> List[LogEntry]:
-        """
-        Read new log entries from the file since the last poll.
-
-        Checks for new content, parses complete JSON lines, and returns
-        them as LogEntry objects. Handles file truncation and partial
-        lines at the end of the file.
-
-        Returns:
-            List[LogEntry]: New log entries read from the file.
-                           Empty list if no new content or file missing.
-        """
+    def _read_new_lines(self) -> List[str]:
+        """Read new complete lines from the file since last poll."""
         # File might not exist yet if stage hasn't started
         if not self.path.exists():
             return []
@@ -113,9 +106,25 @@ class FileTail:
         # If file doesn't end with newline, last line is incomplete
         # Buffer it for the next poll
         if not text.endswith("\n"):
-            self.partial = lines.pop()
+            self.partial = lines.pop() if lines else ""
         else:
             self.partial = ""
+
+        return lines
+
+    def poll(self) -> List[LogEntry]:
+        """
+        Read new log entries from the file since the last poll.
+
+        Checks for new content, parses complete JSON lines, and returns
+        them as LogEntry objects. Handles file truncation and partial
+        lines at the end of the file.
+
+        Returns:
+            List[LogEntry]: New log entries read from the file.
+                           Empty list if no new content or file missing.
+        """
+        lines = self._read_new_lines()
 
         # Parse each complete line as JSON and emit LogEntry objects
         entries = []
@@ -134,12 +143,69 @@ class FileTail:
             entries.append(LogEntry(
                 job_id=self.job_id,
                 stage=obj.get("stage", self.stage),  # Entry can override stage
-                timestamp=obj.get("timestamp"),
+                timestamp=obj.get("ts"),  # JSONL uses 'ts' field
                 level=obj.get("level"),
                 event=obj.get("event"),
-                message=obj.get("message"),
+                message=obj.get("msg"),  # JSONL uses 'msg' field
                 raw=obj,  # Preserve full JSON for debugging
                 arrival_time=time.monotonic(),  # For ordering entries without timestamps
+                seq=self.seq,
+            ))
+
+        return entries
+
+
+class PlainTextTail(FileTail):
+    """
+    Tail a plain text log file (mapgenctl.log format).
+
+    Parses lines in the format:
+        <timestamp> [job=<id>] [stage=<stage>] <LEVEL> <message>
+
+    Example:
+        2024-01-15T12:00:00Z [job=abc-123] [stage=heightmap] INFO Processing started
+    """
+
+    # Regex to parse mapgenctl log lines
+    # Format: <timestamp> [job=<id>] [stage=<stage>] <LEVEL> <message>
+    LINE_PATTERN = re.compile(
+        r"^(?P<ts>\S+)\s+"
+        r"\[job=(?P<job_id>[^\]]+)\]\s+"
+        r"\[stage=(?P<stage>[^\]]+)\]\s+"
+        r"(?P<level>\w+)\s+"
+        r"(?P<msg>.*)$"
+    )
+
+    def poll(self) -> List[LogEntry]:
+        """
+        Read new log entries from the plain text file.
+
+        Parses lines using the mapgenctl log format and returns
+        LogEntry objects.
+
+        Returns:
+            List[LogEntry]: New log entries read from the file.
+        """
+        lines = self._read_new_lines()
+
+        entries = []
+        for line in lines:
+            match = self.LINE_PATTERN.match(line)
+            if not match:
+                # Skip lines that don't match the expected format
+                continue
+
+            self.seq += 1
+
+            entries.append(LogEntry(
+                job_id=match.group("job_id"),
+                stage=match.group("stage"),
+                timestamp=match.group("ts"),
+                level=match.group("level"),
+                event=None,  # Plain text logs don't have structured events
+                message=match.group("msg"),
+                raw={"line": line},  # Preserve original line
+                arrival_time=time.monotonic(),
                 seq=self.seq,
             ))
 
@@ -182,7 +248,9 @@ class TailManager:
         self.tails: Dict[str, FileTail] = {}
 
         # Directory where this job's logs are stored
-        self.job_dir = Path("logs/jobs") / job_id
+        # Use MAPGEN_LOG_ROOT if set, otherwise fallback to ./logs
+        log_root = os.environ.get("MAPGEN_LOG_ROOT", "./logs")
+        self.job_dir = Path(log_root) / "jobs" / job_id
 
     def tick(self) -> None:
         """
@@ -195,14 +263,22 @@ class TailManager:
             - May create new FileTail instances for newly discovered logs
             - Pushes LogEntry objects to the output queue
         """
-        # Discover any new log files that have appeared since last tick
+        # Discover mapgenctl.log (plain text orchestration log)
+        mapgenctl_log = self.job_dir / "mapgenctl.log"
+        if mapgenctl_log.exists() and "mapgenctl" not in self.tails:
+            self.tails["mapgenctl"] = PlainTextTail(
+                mapgenctl_log, self.job_id, "mapgenctl"
+            )
+
+        # Discover JSONL stage logs (heightmap, tiler, weather, etc.)
         # This handles stages that start after we began monitoring
-        for path in self.job_dir.glob("*.log.jsonl"):
-            # Extract stage name from filename (e.g., "heightmap.log.jsonl" -> "heightmap")
-            stage = path.stem.replace(".log", "")
-            # Only create a tail if we haven't seen this stage before
-            if stage not in self.tails:
-                self.tails[stage] = FileTail(path, self.job_id, stage)
+        if self.job_dir.exists():
+            for path in self.job_dir.glob("*.log.jsonl"):
+                # Extract stage name from filename (e.g., "heightmap.log.jsonl" -> "heightmap")
+                stage = path.stem.replace(".log", "")
+                # Only create a tail if we haven't seen this stage before
+                if stage not in self.tails:
+                    self.tails[stage] = FileTail(path, self.job_id, stage)
 
         # Poll all known tails for new entries
         for tail in self.tails.values():
@@ -214,3 +290,4 @@ class TailManager:
                 except:
                     # Queue full - silently drop entry to prevent blocking
                     pass
+

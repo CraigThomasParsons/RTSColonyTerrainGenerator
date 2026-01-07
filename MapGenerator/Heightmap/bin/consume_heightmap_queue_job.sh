@@ -28,8 +28,11 @@ process_job() {
     MAPGEN_ENV_FILE="$HOME/Code/RTSColonyTerrainGenerator/.env"
 
     if [[ -f "$MAPGEN_ENV_FILE" ]]; then
+      # Enable allexport so sourced variables are inherited by child processes (heightmap-engine)
+      set -a
       # shellcheck disable=SC1090
       source "$MAPGEN_ENV_FILE"
+      set +a
     fi
 
     #######################################
@@ -146,6 +149,15 @@ process_job() {
       "${ENGINE_DEBUG_ARGS[@]}"
     
     echo "[heightmap-worker] Engine finished"
+
+    #######################################
+    # Fan-out: Copy to downstream inboxes
+    #######################################
+
+    TILER_INBOX="$HOME/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/inbox"
+    mkdir -p "$TILER_INBOX"
+    cp "$OUTPUT_FILE_PATH" "$TILER_INBOX/"
+    echo "[heightmap-worker] Copied heightmap to Tiler inbox"
 
     #######################################
     # Archive the processed job

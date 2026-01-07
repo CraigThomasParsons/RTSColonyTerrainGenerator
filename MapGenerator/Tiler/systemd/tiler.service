@@ -4,8 +4,11 @@ Description=MapGenerator Tiler Worker
 [Service]
 Type=oneshot
 WorkingDirectory=%h/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler
-ExecStart=%h/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/tiler-wrapper.sh
+ExecStart=%h/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/bin/consume_tiler_queue_job.sh
+Restart=no
 
+
+EnvironmentFile=%h/Code/RTSColonyTerrainGenerator/.env
 Environment=DOTNET_CLI_TELEMETRY_OPTOUT=1
 Environment=DOTNET_NOLOGO=1
 
@@ -15,4 +18,4 @@ ProtectSystem=full
 ProtectHome=read-only
 
 ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler
-
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/logs

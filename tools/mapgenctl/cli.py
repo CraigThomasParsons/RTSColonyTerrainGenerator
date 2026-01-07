@@ -45,13 +45,20 @@ import subprocess
 import threading
 import shutil
 
+from queue import Queue
 from pathlib import Path
+
+#from tools.mapgenctl.tui.merger import EventMerger
+#from tools.mapgenctl.tui.tailer import TailManager
 
 # Local imports - utilities for path resolution and logging
 from .utils.paths import stage_inbox, stage_outbox, stage_archive, heightmap_inbox
 from .utils.joblog import JobLogger, job_log_path
 # TUI view for the log viewer command
 from .tui.views import run_log_viewer
+from .tui.merger import EventMerger
+from .tui.tailer import TailManager
+from collections import deque
 
 # ============================================================
 # Pipeline Definition
@@ -338,39 +345,103 @@ def run_pipeline_tui(args) -> None:
     """
     Run the pipeline with a live curses-based TUI.
 
-    Upgrades:
-    - Writes to a single job log file
-    - Shows spinner on active stage
-    - Tails last lines of the log under the UI
+    This function orchestrates a full pipeline run with real-time log display.
+    It submits a job, monitors stage completion, and displays merged logs from
+    all pipeline components in a scrolling window.
+
+    Data Flow Architecture:
+        1. TailManager polls log files on each tick (Tail → Queue)
+        2. Events are ingested into EventMerger for timestamp ordering
+        3. Ordered events drain into a UI ring buffer (deque)
+        4. Render loop displays only from the UI buffer
+
+    The deque serves as a scrolling window - it automatically evicts old
+    entries when new ones arrive, keeping memory bounded and the display
+    focused on recent activity.
     """
     import curses
 
     from .utils.joblog import JobLogger, job_log_path
 
+    # Spinner animation frames for active stage indicator
+    SPINNER = ["|", "/", "-", "\\"]
 
-    SPINNER = ["|", "/", "-", "\\"]  # safest everywhere
+    def run_pipeline_curses_ui(stdscr):
+        """
+        Main curses UI loop for pipeline execution.
 
-    def _tui(stdscr):
+        This function:
+        - Submits the job and initializes logging
+        - Polls for stage completion using filesystem checks
+        - Tails and merges logs from all stages
+        - Renders a live display with progress and log output
+
+        Args:
+            stdscr: Curses standard screen (provided by curses.wrapper)
+        """
+        # Configure curses for non-blocking, cursor-hidden operation
         curses.curs_set(0)
         stdscr.nodelay(True)
 
+        # Submit the job and create a logger for mapgenctl's own messages
         job_id = submit_heightmap_job(args.width, args.height)
         logger = JobLogger(job_id)
         log_path = job_log_path(job_id)
 
+        # --- Log Tailing Setup ---
+        # The event_queue is thread-safe, but we use it in a single-threaded
+        # polling model here (tailer.tick() is non-blocking).
+        #
+        # Data flow: TailManager.tick() → event_queue → merger.ingest() → UI
+        event_queue = Queue()
+        tailer = TailManager(job_id, event_queue)
+        merger = EventMerger()
+
+        # --- UI Log Buffer (Ring Buffer) ---
+        # This deque holds the last N log entries for display.
+        # Using a deque with maxlen gives us automatic eviction of old entries.
+        # This is the ONLY source of data for the rendering loop.
+        #
+        # Why deque? Because:
+        # - Fixed memory footprint (maxlen=8 entries)
+        # - O(1) append and automatic old-entry eviction
+        # - Simple iteration for rendering
+        ui_events = deque(maxlen=8)
+
         logger.info("mapgenctl", f"Job submitted width={args.width} height={args.height} until={args.until}")
 
+        # Track which stages have completed (artifact detected in outbox)
         completed = {stage: False for stage in PIPELINE_STAGES}
         spinner_i = 0
 
         while True:
-            # allow Ctrl+C-ish behavior (q is nice too)
+            # --- Handle User Input ---
+            # Allow graceful exit via 'q' key (Ctrl+C handled by wrapper)
             ch = stdscr.getch()
             if ch in (ord("q"), ord("Q")):
                 logger.warn("mapgenctl", "User requested exit (q)")
                 return
 
-            # update completion status
+            # --- Step 1: Poll Log Files ---
+            # TailManager.tick() reads new lines from all log files and
+            # pushes LogEntry objects into the event_queue.
+            tailer.tick()
+
+            # --- Step 2: Ingest Events into Merger ---
+            # Move all queued events into the merger for timestamp ordering.
+            # This is non-blocking - we process whatever is available.
+            while not event_queue.empty():
+                event = event_queue.get_nowait()
+                merger.ingest(event)
+
+            # --- Step 3: Drain Ordered Events to UI Buffer ---
+            # The merger returns events in timestamp order.
+            # We append them to our ring buffer for display.
+            for entry in merger.drain():
+                ui_events.append(entry)
+
+            # --- Update Stage Completion Status ---
+            # Check filesystem for stage output artifacts
             for stage in PIPELINE_STAGES:
                 if completed[stage]:
                     continue
@@ -379,7 +450,7 @@ def run_pipeline_tui(args) -> None:
                     completed[stage] = True
                     logger.info(stage, "Stage complete (artifact detected)")
 
-            # determine active stage = first incomplete up to args.until
+            # Determine which stage is currently active (first incomplete)
             active_stage = None
             for stage in PIPELINE_STAGES:
                 if stage == args.until and completed.get(stage):
@@ -389,15 +460,15 @@ def run_pipeline_tui(args) -> None:
                     active_stage = stage
                     break
 
-            # render frame
+            # --- Render Frame ---
             stdscr.clear()
             stdscr.addstr(0, 0, "MapGenerator Pipeline")
             stdscr.addstr(1, 0, f"Job ID: {job_id}")
             stdscr.addstr(2, 0, "-" * 50)
 
+            # Draw stage progress list
             row = 4
             for stage in PIPELINE_STAGES:
-                # status marker
                 if completed[stage]:
                     marker = "[✔]"
                     right = "done"
@@ -408,29 +479,60 @@ def run_pipeline_tui(args) -> None:
                     marker = "[ ]"
                     right = ""
 
-                # stage line
                 stdscr.addstr(row, 2, f"{marker} {stage:<12} {right}")
                 row += 1
 
                 if stage == args.until:
                     break
 
+            # Draw log section header
             stdscr.addstr(row + 1, 0, "Press Ctrl+C (or q) to exit")
             stdscr.addstr(row + 2, 0, "-" * 50)
             stdscr.addstr(row + 3, 0, f"Logs (job={job_id}):")
 
-            # tail log
-            log_lines = tail_last_lines(log_path, max_lines=8)
-            for i, line in enumerate(log_lines):
-                # defensive: don't overflow screen width
+            # --- Render Log Entries from UI Buffer ---
+            # We iterate ONLY over ui_events (the ring buffer).
+            # This ensures stable, bounded rendering with no file re-reads.
+            for i, entry in enumerate(ui_events):
+                # Format timestamp for display
+                # JSONL logs store 'ts' as milliseconds since epoch
+                # Plain text logs store ISO format like "2026-01-06T20:38:56Z"
+                ts_display = "--------"
+                if entry.timestamp:
+                    try:
+                        if isinstance(entry.timestamp, (int, float)):
+                            # Convert milliseconds to seconds, then to local time
+                            dt = datetime.datetime.fromtimestamp(
+                                entry.timestamp / 1000,
+                                tz=datetime.timezone.utc
+                            ).astimezone()
+                            # Format as 12-hour time with AM/PM (e.g., "8:38:56 PM")
+                            ts_display = dt.strftime("%I:%M:%S %p")
+                        elif isinstance(entry.timestamp, str):
+                            # ISO format from plain text logs - just show time portion
+                            # e.g., "2026-01-06T20:38:56Z" -> parse and convert
+                            dt = datetime.datetime.fromisoformat(
+                                entry.timestamp.replace("Z", "+00:00")
+                            ).astimezone()
+                            ts_display = dt.strftime("%I:%M:%S %p")
+                    except (ValueError, OSError):
+                        # If parsing fails, show raw value truncated
+                        ts_display = str(entry.timestamp)[:11]
+
+                stage_name = entry.stage or "unknown"
+                level = (entry.level or "info").upper()
+                msg = entry.message or ""
+                line = f"{ts_display} [{stage_name}] {level} {msg}"
                 try:
+                    # Truncate to screen width to prevent curses errors
                     stdscr.addstr(row + 4 + i, 0, line[: max(0, curses.COLS - 1)])
                 except curses.error:
+                    # Ignore errors from drawing at screen edges
                     pass
 
             stdscr.refresh()
 
-            # completion
+            # --- Check for Pipeline Completion ---
             if completed.get(args.until):
                 logger.info("mapgenctl", f"Pipeline reached target stage: {args.until}")
                 stdscr.addstr(row + 13, 0, "Pipeline complete. Press any key.")
@@ -438,13 +540,14 @@ def run_pipeline_tui(args) -> None:
                 stdscr.getch()
                 return
 
+            # Advance spinner and sleep to cap frame rate
             spinner_i = (spinner_i + 1) % len(SPINNER)
             time.sleep(0.1)
 
     try:
-        curses.wrapper(_tui)
+        curses.wrapper(run_pipeline_curses_ui)
     except KeyboardInterrupt:
-        # let Ctrl+C exit cleanly
+        # Let Ctrl+C exit cleanly without traceback
         pass
 
 # ============================================================

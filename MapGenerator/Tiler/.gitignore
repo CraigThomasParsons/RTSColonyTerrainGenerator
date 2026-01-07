@@ -2,7 +2,15 @@
 # .NET build artifacts
 # ============================
 
-bin/
+# Ignore everything in bin by default
+bin/*
+
+# But keep shell scripts
+!bin/*.sh
+
+# (optional but useful)
+!bin/README.md
+
 obj/
 *.dll
 *.exe

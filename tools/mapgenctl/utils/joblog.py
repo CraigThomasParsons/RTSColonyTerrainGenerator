@@ -21,64 +21,71 @@ Design Decisions:
 from __future__ import annotations
 
 import datetime
+import os
 from pathlib import Path
 
 
-def project_root() -> Path:
+def log_root() -> Path:
     """
-    Resolve the RTSColonyTerrainGenerator root directory.
+    Return the root directory for all MapGenerator logs.
 
-    This function determines the project root by navigating up from this
-    file's location. It assumes the file structure:
-        <repo>/tools/mapgenctl/utils/joblog.py
+    Uses the MAPGEN_LOG_ROOT environment variable if set, otherwise
+    falls back to the repository's logs/ directory.
 
     Returns:
-        Path: Absolute path to the tools directory (one level above mapgenctl).
-              Note: This returns the tools/ dir, not the repo root.
-
-    Note:
-        The parent count (1) may need adjustment if the file is moved.
-    """
-    # Navigate up 1 level: joblog.py -> utils/ -> mapgenctl/ -> tools/
-    return Path(__file__).resolve().parents[1]
-
-
-def jobs_log_dir() -> Path:
-    """
-    Return the central job log directory.
-
-    All job log files are stored in a single directory for easy browsing
-    and cleanup. The directory is created if it doesn't exist when a
-    JobLogger is instantiated.
-
-    Returns:
-        Path: Absolute path to the logs/jobs/ directory.
+        Path: Absolute path to the log root directory.
 
     Example:
-        >>> jobs_log_dir()
-        PosixPath('/home/user/Code/RTSColonyTerrainGenerator/tools/logs/jobs')
+        >>> os.environ["MAPGEN_LOG_ROOT"] = "/var/log/mapgen"
+        >>> log_root()
+        PosixPath('/var/log/mapgen')
     """
-    return project_root() / "logs" / "jobs"
+    root = os.environ.get("MAPGEN_LOG_ROOT")
+    if root:
+        return Path(root)
+    # Fallback: <repo>/logs (joblog.py -> utils/ -> mapgenctl/ -> tools/ -> repo)
+    return Path(__file__).resolve().parents[3] / "logs"
+
+
+def job_log_dir(job_id: str) -> Path:
+    """
+    Return the log directory for a specific job.
+
+    Each job gets its own directory under logs/jobs/ to store logs
+    from all pipeline stages (mapgenctl, heightmap, tiler, etc.).
+
+    Args:
+        job_id: The unique identifier for the job.
+
+    Returns:
+        Path: Absolute path to the job's log directory.
+
+    Example:
+        >>> job_log_dir("abc-123-def")
+        PosixPath('/home/user/.../logs/jobs/abc-123-def')
+    """
+    return log_root() / "jobs" / job_id
 
 
 def job_log_path(job_id: str) -> Path:
     """
-    Resolve the log file path for a specific job.
+    Resolve the mapgenctl log file path for a specific job.
 
-    Each job gets a dedicated log file named after its UUID. This makes
-    it easy to find logs for a specific job and clean up old logs.
+    The mapgenctl log is a plain text file containing orchestration logs.
+    Stage-specific logs (heightmap, tiler, etc.) are JSONL files in the
+    same directory.
 
     Args:
         job_id: The unique identifier for the job (typically a UUID string).
 
     Returns:
-        Path: Absolute path to the job's log file.
+        Path: Absolute path to the job's mapgenctl log file.
 
     Example:
         >>> job_log_path("abc-123-def")
-        PosixPath('/home/user/.../logs/jobs/abc-123-def.log')
+        PosixPath('/home/user/.../logs/jobs/abc-123-def/mapgenctl.log')
     """
-    return jobs_log_dir() / f"{job_id}.log"
+    return job_log_dir(job_id) / "mapgenctl.log"
 
 
 class JobLogger:
