@@ -16,8 +16,13 @@ MapGenerator/Heightmap/inbox/
 MapGenerator/Heightmap/archive/
 MapGenerator/Heightmap/failed/
 
-# Adding the outbox.
+# Adding the heightmap's outbox.
 MapGenerator/Heightmap/outbox/*
+MapGenerator/Heightmap/debug/*
+
+# Adding the tiler's inbox/outbox
+MapGenerator/Tiler/inbox/*
+MapGenerator/Tiler/outbox/*
 
 # Keep directories but ignore contents
 !MapGenerator/Heightmap/inbox/.gitkeep
@@ -45,3 +50,111 @@ MapGenerator/Heightmap/bin/heightmap-engine
 .DS_Store
 Thumbs.db
 .idea/
+
+# ============================
+# .NET build artifacts
+# ============================
+obj/
+*.dll
+*.exe
+*.pdb
+*.deps.json
+*.runtimeconfig.json
+
+# Ignore everything in bin by default
+/bin/*
+
+# But keep scripts and entrypoints
+!/bin/*.php
+!/bin/*.sh
+!/bin/*.py
+
+# (Optional future-proofing)
+!/bin/*.ps1
+!/bin/*.rb
+!/bin/*.js
+
+# Keep README or docs if present
+!/bin/README.md
+
+# ============================
+# IDE / editor artifacts
+# ============================
+
+.vscode/
+.idea/
+*.swp
+*.swo
+*.user
+*.userosscache
+*.sln.docstates
+
+# ============================
+# OS junk
+# ============================
+
+.DS_Store
+Thumbs.db
+
+# ============================
+# Pipeline runtime artifacts
+# (generated data, not source)
+# ============================
+MapGenerator/**/inbox/*
+MapGenerator/**/outbox/*
+MapGenerator/**/archive/*
+MapGenerator/**/debug/*
+
+# Keep directories but not contents
+!MapGenerator/**/inbox/.gitkeep
+!MapGenerator/**/outbox/.gitkeep
+!MapGenerator/**/archive/.gitkeep
+!MapGenerator/**/debug/.gitkeep
+
+# ============================
+# Environment / secrets
+# ============================
+
+.env
+.env.*
+!.env.example
+
+# ============================
+# Logs & temp files
+# ============================
+
+*.log
+*.tmp
+*.bak
+
+!MapGenerator/WeatherAnalyses/bin/
+
+!MapGenerator/WeatherAnalyses/bin/consume_queue_job.sh
+RTSColonyTerrainGenerator.sln
+
+logs/jobs
+
+# ============================
+# Python
+# ============================
+
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg

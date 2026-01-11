@@ -1,0 +1,980 @@
+#!/usr/bin/env python3
+"""
+mapgenctl - Developer Control Tool for the MapGenerator Pipeline.
+
+This module implements the command-line interface for mapgenctl, providing
+commands to submit jobs, monitor progress, inspect outputs, and manage
+pipeline state during development.
+
+Responsibilities:
+    - Submit test jobs to the pipeline (submit-heightmap, run)
+    - Inspect generated artifacts (inspect-heightmap)
+    - Watch pipeline directories for changes (watch)
+    - Run end-to-end pipeline test jobs with progress tracking (run)
+    - Provide a live progress TUI for development (run --tui)
+    - Clean up pipeline state (clean)
+
+Design Philosophy:
+    This tool is intentionally filesystem-driven. The filesystem is the
+    single source of truth for pipeline state. This means:
+    - No database or external services required
+    - State can be inspected with standard Unix tools (ls, cat, etc.)
+    - Easy to debug and understand what's happening
+    - Simple deployment (just files and directories)
+
+Usage:
+    python -m mapgenctl <command> [options]
+
+Examples:
+    python -m mapgenctl submit-heightmap --width 256 --height 256
+    python -m mapgenctl run --width 256 --height 256 --tui
+    python -m mapgenctl watch --stage heightmap
+    python -m mapgenctl clean --stage heightmap
+"""
+
+# Standard library imports
+import os
+import argparse
+import sys
+import json
+import uuid
+import datetime
+import struct
+import time
+import subprocess
+import threading
+import shutil
+
+from queue import Queue
+from pathlib import Path
+
+#from tools.mapgenctl.tui.merger import EventMerger
+#from tools.mapgenctl.tui.tailer import TailManager
+
+# Local imports - utilities for path resolution and logging
+from .utils.paths import stage_inbox, stage_outbox, stage_archive, heightmap_inbox
+from .utils.joblog import JobLogger, job_log_path
+# TUI view for the log viewer command
+from .tui.views import run_log_viewer
+from .tui.merger import EventMerger
+from .tui.tailer import TailManager
+from collections import deque
+
+# ============================================================
+# Pipeline Definition
+# ============================================================
+# These constants define the structure and behavior of the pipeline.
+# They are the source of truth for stage ordering and completion logic.
+
+# Ordered list of logical pipeline stages.
+# This order is significant:
+#   - Progress displays follow this sequence
+#   - --until flag validates against this list
+#   - Completion checking iterates in this order
+PIPELINE_STAGES = [
+    "heightmap",      # Entry point: generates terrain height data
+    "tiler",          # Slices heightmap into manageable tiles
+    "weather",        # Calculates slope, flow, and basin data
+    "treeplanter",    # Places vegetation based on environmental data
+]
+
+# Maps logical stage names to their filesystem directory names.
+# Logical names are lowercase for CLI convenience, but the actual
+# directories use title case to match project conventions.
+STAGE_DIRECTORY_MAP = {
+    "heightmap": "Heightmap",
+    "tiler": "Tiler",
+    "weather": "WeatherAnalyses",  # Note: not "Weather" - full name used
+    "treeplanter": "TreePlanter",
+}
+
+
+# Stage completion checks - determines when each stage has finished.
+#
+# Why lambdas? Each check is:
+#   - Small and self-contained (one expression)
+#   - Declarative (describes what, not how)
+#   - The table reads as a compact specification
+#
+# Why file presence? The filesystem is the source of truth:
+#   - No need for inter-process communication
+#   - Can be verified with `ls` or `test -f`
+#   - Survives process crashes (no in-memory state to lose)
+#   - Each stage knows its own output filename convention
+STAGE_COMPLETION_CHECKS = {
+    # Each stage produces a specific artifact type with a known extension
+    "heightmap": lambda job_id: (
+        resolved_stage_outbox("heightmap") / f"{job_id}.heightmap"
+    ).exists(),
+
+    "tiler": lambda job_id: (
+        resolved_stage_outbox("tiler") / f"{job_id}.maptiles"
+    ).exists(),
+
+    "weather": lambda job_id: (
+        resolved_stage_outbox("weather") / f"{job_id}.weather"
+    ).exists(),
+
+    "treeplanter": lambda job_id: (
+        resolved_stage_outbox("treeplanter") / f"{job_id}.worldpayload"
+    ).exists(),
+}
+
+# ============================================================
+# Environment Configuration
+# ============================================================
+
+def load_dotenv() -> None:
+    """
+    Load the repository-root .env file into os.environ if present.
+
+    This enables developers to configure paths and other settings via
+    a .env file at the repository root, without modifying system
+    environment variables.
+
+    Side Effects:
+        Modifies os.environ by adding any variables from .env that
+        aren't already set (uses setdefault, so existing vars win).
+
+    Note:
+        We implement our own .env loading rather than using python-dotenv
+        to avoid adding an external dependency for a simple feature.
+    """
+    from pathlib import Path
+
+    # Navigate to repo root: cli.py -> mapgenctl/ -> tools/ -> repo/
+    root = Path(__file__).resolve().parents[2]
+    env_path = root / ".env"
+
+    # Silently skip if no .env file exists - it's optional
+    if not env_path.exists():
+        return
+
+    with env_path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            # Skip empty lines and comments
+            if not line or line.startswith("#"):
+                continue
+            # Skip malformed lines (no = sign)
+            if "=" not in line:
+                continue
+            # Split on first = only (value might contain =)
+            key, value = line.split("=", 1)
+            # setdefault ensures existing env vars take priority
+            os.environ.setdefault(key, value)
+
+
+def resolved_stage_outbox(stage: str) -> Path:
+    """
+    Resolve the authoritative outbox directory for a logical pipeline stage.
+
+    Inputs:
+    - stage (str): logical pipeline stage identifier
+
+    Returns:
+    - Path to that stage's outbox directory
+    """
+    directory_name = STAGE_DIRECTORY_MAP.get(stage)
+
+    if directory_name is None:
+        raise KeyError(f"Unknown pipeline stage: {stage}")
+
+    return Path(
+        f"~/Code/RTSColonyTerrainGenerator/MapGenerator/{directory_name}/outbox"
+    ).expanduser()
+
+
+# ============================================================
+# Job submission helpers
+# ============================================================
+
+def submit_heightmap_job(width: int, height: int) -> str:
+    """
+    Submit a heightmap generation job.
+
+    Inputs:
+    - width: map width in cells
+    - height: map height in cells
+
+    Side effects:
+    - Writes a JSON job file into the heightmap inbox
+
+    Returns:
+    - job_id (str): the generated job identifier
+    """
+    # Locate the inbox for the heightmap stage
+    inbox = heightmap_inbox()
+    # Ensure the directory exists before writing so we don't crash
+    inbox.mkdir(parents=True, exist_ok=True)
+
+    # Generate a unique identifier for this job to track it through the pipeline
+    job_id = str(uuid.uuid4())
+
+    # Construct the job payload with all required parameters
+    job = {
+        "job_id": job_id,
+        "map_width_in_cells": width,
+        "map_height_in_cells": height,
+        # Timestamp the request for observability and debugging
+        "requested_at_utc": (
+            datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds") + "Z"
+        ),
+    }
+
+    # Define the full path for the job file
+    job_path = inbox / f"{job_id}.json"
+
+    # Write the job file atomically (or as close as possible with a single write)
+    with job_path.open("w", encoding="utf-8") as file:
+        json.dump(job, file, indent=2)
+
+    return job_id
+
+# ============================================================
+# Pipeline execution (non-TUI)
+# ============================================================
+
+def run_pipeline(args) -> None:
+    """
+    Run an end-to-end pipeline test job.
+
+    Behavior:
+    - Optionally cleans all stages first (if --clean)
+    - Submits a heightmap job
+    - Polls the filesystem for stage completion
+    - Prints simple textual progress
+    - Stops when the requested stage is complete
+
+    Inputs:
+    - args.width
+    - args.height
+    - args.until
+    - args.clean
+    - args.tui (must be False here)
+    """
+    if getattr(args, 'clean', False):
+        clean_all_stages_and_logs()
+        print()  # Blank line before pipeline output
+
+    job_id = submit_heightmap_job(args.width, args.height)
+
+    print("[mapgenctl] Pipeline run started")
+    print(f"  job_id: {job_id}")
+    print(f"  until:  {args.until}")
+    print()
+
+    completed = {stage: False for stage in PIPELINE_STAGES}
+
+    while True:
+        # Check completion status for all stages
+        for stage in PIPELINE_STAGES:
+            # Skip stages we already know are done
+            if completed[stage]:
+                continue
+
+            # Get the specific check logic for this stage
+            checker = STAGE_COMPLETION_CHECKS.get(stage)
+
+            # If no check is defined, skip it
+            if checker is None:
+                continue
+
+            # Run the check against the filesystem
+            if checker(job_id):
+                completed[stage] = True
+
+        # Update the console output if we are NOT in TUI mode
+        if not args.tui:
+            for stage in PIPELINE_STAGES:
+                # Use a checkmark for done, dots for waiting
+                status = "✔" if completed[stage] else "…"
+                print(f"{status} {stage}")
+            print()
+
+        # Check if we have reached the target stage
+        if completed.get(args.until):
+            print("[mapgenctl] Pipeline complete")
+            print(f"  final stage: {args.until}")
+            print()
+            return
+
+        # Wait a bit before polling again to save CPU
+        # 1 second is a reasonable balance between responsiveness and efficiency
+        time.sleep(1)
+
+
+# ============================================================
+# Utility Functions
+# ============================================================
+
+def tail_last_lines(path: Path, max_lines: int = 8) -> list[str]:
+    """
+    Tail the last N lines of a text file safely.
+
+    This is a simple implementation that reads the whole file. For small
+    development logs, this is fine. If performance becomes an issue with
+    large files, we can optimize to read backwards from the end.
+
+    Args:
+        path: Path to the text file to tail.
+        max_lines: Maximum number of lines to return (default: 8).
+
+    Returns:
+        List of the last N lines from the file, or empty list if
+        the file doesn't exist or can't be read.
+
+    Note:
+        Errors are silently handled - this is intentional for the TUI
+        use case where missing/unreadable logs shouldn't crash the UI.
+    """
+    # Return empty list for missing files (stage might not have started)
+    if not path.exists():
+        return []
+
+    try:
+        # errors="replace" handles any encoding issues gracefully
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        # File might be locked or have permission issues - fail gracefully
+        return []
+
+    lines = text.splitlines()
+    # Python slicing handles the case where we have fewer lines than max_lines
+    return lines[-max_lines:]
+
+# ============================================================
+# Pipeline execution (TUI)
+# ============================================================
+
+def run_pipeline_tui(args) -> None:
+    """
+    Run the pipeline with a live curses-based TUI.
+
+    This function orchestrates a full pipeline run with real-time log display.
+    It submits a job, monitors stage completion, and displays merged logs from
+    all pipeline components in a scrolling window.
+
+    Data Flow Architecture:
+        1. TailManager polls log files on each tick (Tail → Queue)
+        2. Events are ingested into EventMerger for timestamp ordering
+        3. Ordered events drain into a UI ring buffer (deque)
+        4. Render loop displays only from the UI buffer
+
+    The deque serves as a scrolling window - it automatically evicts old
+    entries when new ones arrive, keeping memory bounded and the display
+    focused on recent activity.
+    """
+    # Clean if requested (before entering curses)
+    if getattr(args, 'clean', False):
+        clean_all_stages_and_logs()
+        print()  # Blank line before TUI starts
+
+    import curses
+
+    from .utils.joblog import JobLogger, job_log_path
+
+    # Spinner animation frames for active stage indicator
+    SPINNER = ["|", "/", "-", "\\"]
+
+    def run_pipeline_curses_ui(stdscr):
+        """
+        Main curses UI loop for pipeline execution.
+
+        This function:
+        - Submits the job and initializes logging
+        - Polls for stage completion using filesystem checks
+        - Tails and merges logs from all stages
+        - Renders a live display with progress and log output
+
+        Args:
+            stdscr: Curses standard screen (provided by curses.wrapper)
+        """
+        # Configure curses for non-blocking, cursor-hidden operation
+        curses.curs_set(0)
+        stdscr.nodelay(True)
+
+        # Submit the job and create a logger for mapgenctl's own messages
+        job_id = submit_heightmap_job(args.width, args.height)
+        logger = JobLogger(job_id)
+        log_path = job_log_path(job_id)
+
+        # --- Log Tailing Setup ---
+        # The event_queue is thread-safe, but we use it in a single-threaded
+        # polling model here (tailer.tick() is non-blocking).
+        #
+        # Data flow: TailManager.tick() → event_queue → merger.ingest() → UI
+        event_queue = Queue()
+        tailer = TailManager(job_id, event_queue)
+        merger = EventMerger()
+
+        # --- UI Log Buffer (Ring Buffer) ---
+        # This deque holds the last N log entries for display.
+        # Using a deque with maxlen gives us automatic eviction of old entries.
+        # This is the ONLY source of data for the rendering loop.
+        #
+        # Buffer size is configurable via MAPGENCTL_LOG_BUFFER_SIZE env var.
+        # Default: 16 entries to show logs from multiple concurrent stages.
+        log_buffer_size = int(os.environ.get("MAPGENCTL_LOG_BUFFER_SIZE", "16"))
+        ui_events = deque(maxlen=log_buffer_size)
+
+        logger.info("mapgenctl", f"Job submitted width={args.width} height={args.height} until={args.until}")
+
+        # Track which stages have completed (artifact detected in outbox)
+        completed = {stage: False for stage in PIPELINE_STAGES}
+        spinner_i = 0
+
+        while True:
+            # --- Handle User Input ---
+            # Allow graceful exit via 'q' key (Ctrl+C handled by wrapper)
+            ch = stdscr.getch()
+            if ch in (ord("q"), ord("Q")):
+                logger.warn("mapgenctl", "User requested exit (q)")
+                return
+
+            # --- Step 1: Poll Log Files ---
+            # TailManager.tick() reads new lines from all log files and
+            # pushes LogEntry objects into the event_queue.
+            tailer.tick()
+
+            # --- Step 2: Ingest Events into Merger ---
+            # Move all queued events into the merger for timestamp ordering.
+            # This is non-blocking - we process whatever is available.
+            while not event_queue.empty():
+                event = event_queue.get_nowait()
+                merger.ingest(event)
+
+            # --- Step 3: Drain Ordered Events to UI Buffer ---
+            # The merger returns events in timestamp order.
+            # We append them to our ring buffer for display.
+            for entry in merger.drain():
+                ui_events.append(entry)
+
+            # --- Update Stage Completion Status ---
+            # Check filesystem for stage output artifacts
+            for stage in PIPELINE_STAGES:
+                if completed[stage]:
+                    continue
+                checker = STAGE_COMPLETION_CHECKS.get(stage)
+                if checker and checker(job_id):
+                    completed[stage] = True
+                    logger.info(stage, "Stage complete (artifact detected)")
+
+            # Determine which stage is currently active (first incomplete)
+            active_stage = None
+            for stage in PIPELINE_STAGES:
+                if stage == args.until and completed.get(stage):
+                    active_stage = None
+                    break
+                if not completed.get(stage):
+                    active_stage = stage
+                    break
+
+            # --- Render Frame ---
+            stdscr.clear()
+            stdscr.addstr(0, 0, "MapGenerator Pipeline")
+            stdscr.addstr(1, 0, f"Job ID: {job_id}")
+            stdscr.addstr(2, 0, "-" * 50)
+
+            # Draw stage progress list
+            row = 4
+            for stage in PIPELINE_STAGES:
+                if completed[stage]:
+                    marker = "[✔]"
+                    right = "done"
+                elif stage == active_stage:
+                    marker = f"[{SPINNER[spinner_i]}]"
+                    right = "running"
+                else:
+                    marker = "[ ]"
+                    right = ""
+
+                stdscr.addstr(row, 2, f"{marker} {stage:<12} {right}")
+                row += 1
+
+                if stage == args.until:
+                    break
+
+            # Draw log section header
+            stdscr.addstr(row + 1, 0, "Press Ctrl+C (or q) to exit")
+            stdscr.addstr(row + 2, 0, "-" * 50)
+            stdscr.addstr(row + 3, 0, f"Logs (job={job_id}):")
+
+            # --- Render Log Entries from UI Buffer ---
+            # We iterate ONLY over ui_events (the ring buffer).
+            # This ensures stable, bounded rendering with no file re-reads.
+            for i, entry in enumerate(ui_events):
+                # Format timestamp for display
+                # JSONL logs store 'ts' as milliseconds since epoch
+                # Plain text logs store ISO format like "2026-01-06T20:38:56Z"
+                ts_display = "--------"
+                if entry.timestamp:
+                    try:
+                        if isinstance(entry.timestamp, (int, float)):
+                            # Convert milliseconds to seconds, then to local time
+                            dt = datetime.datetime.fromtimestamp(
+                                entry.timestamp / 1000,
+                                tz=datetime.timezone.utc
+                            ).astimezone()
+                            # Format as 12-hour time with AM/PM (e.g., "8:38:56 PM")
+                            ts_display = dt.strftime("%I:%M:%S %p")
+                        elif isinstance(entry.timestamp, str):
+                            # ISO format from plain text logs - just show time portion
+                            # e.g., "2026-01-06T20:38:56Z" -> parse and convert
+                            dt = datetime.datetime.fromisoformat(
+                                entry.timestamp.replace("Z", "+00:00")
+                            ).astimezone()
+                            ts_display = dt.strftime("%I:%M:%S %p")
+                    except (ValueError, OSError):
+                        # If parsing fails, show raw value truncated
+                        ts_display = str(entry.timestamp)[:11]
+
+                stage_name = entry.stage or "unknown"
+                level = (entry.level or "info").upper()
+                msg = entry.message or ""
+                line = f"{ts_display} [{stage_name}] {level} {msg}"
+                try:
+                    # Truncate to screen width to prevent curses errors
+                    stdscr.addstr(row + 4 + i, 0, line[: max(0, curses.COLS - 1)])
+                except curses.error:
+                    # Ignore errors from drawing at screen edges
+                    pass
+
+            stdscr.refresh()
+
+            # --- Check for Pipeline Completion ---
+            if completed.get(args.until):
+                logger.info("mapgenctl", f"Pipeline reached target stage: {args.until}")
+                stdscr.addstr(row + 13, 0, "Pipeline complete. Press any key.")
+                stdscr.nodelay(False)
+                stdscr.getch()
+                return
+
+            # Advance spinner and sleep to cap frame rate
+            spinner_i = (spinner_i + 1) % len(SPINNER)
+            time.sleep(0.1)
+
+    try:
+        curses.wrapper(run_pipeline_curses_ui)
+    except KeyboardInterrupt:
+        # Let Ctrl+C exit cleanly without traceback
+        pass
+
+# ============================================================
+# Stage Maintenance Utilities
+# ============================================================
+# These functions help developers reset pipeline state during development.
+
+
+def clean_single_stage(stage: str) -> int:
+    """
+    Clean a single pipeline stage's directories.
+    
+    Returns the total number of files removed.
+    """
+    directories = {
+        "inbox": stage_inbox(stage),
+        "outbox": stage_outbox(stage),
+        "archive": stage_archive(stage),
+    }
+
+    print(f"[mapgenctl] Cleaning stage: {stage}")
+    total_removed = 0
+
+    for name, path in directories.items():
+        if not path.exists():
+            print(f"  {name}: {path} (missing, skipped)")
+            continue
+
+        removed_count = 0
+        for item in path.iterdir():
+            if item.is_symlink():
+                # specific request: preserve symlinks (e.g. TreePlanter infrastructure)
+                continue
+            
+            if item.is_file():
+                item.unlink()
+                removed_count += 1
+            elif item.is_dir():
+                shutil.rmtree(item)
+                removed_count += 1
+
+        print(f"  {name}: removed {removed_count} files")
+        total_removed += removed_count
+
+    return total_removed
+
+
+def clean_stage(args) -> None:
+    """
+    Remove all files from inbox, outbox, and archive for a stage.
+
+    Supports cleaning a single stage or all stages plus logs.
+
+    Args:
+        args: Namespace with 'stage' attribute ("heightmap", "tiler", etc. or "all").
+
+    Side Effects:
+        - Deletes all files in the stage's inbox, outbox, and archive
+        - If 'all', also cleans logs/jobs directory
+        - Prints progress to stdout
+
+    Warning:
+        This permanently deletes files. There is no undo.
+    """
+    stage = args.stage
+
+    if stage == "all":
+        # Clean all pipeline stages
+        for s in PIPELINE_STAGES:
+            clean_single_stage(s)
+        
+        # Clean logs/jobs directory
+        log_root = os.environ.get("MAPGEN_LOG_ROOT", "./logs")
+        jobs_dir = Path(log_root) / "jobs"
+        
+        print(f"[mapgenctl] Cleaning logs: {jobs_dir}")
+        if jobs_dir.exists():
+            removed_count = 0
+            # Remove all job subdirectories
+            for item in jobs_dir.iterdir():
+                if item.is_dir():
+                    shutil.rmtree(item)
+                    removed_count += 1
+                elif item.is_file():
+                    item.unlink()
+                    removed_count += 1
+            print(f"  jobs: removed {removed_count} job directories")
+        else:
+            print(f"  jobs: {jobs_dir} (missing, skipped)")
+        
+        print("[mapgenctl] Full clean complete")
+    else:
+        # Clean single stage
+        clean_single_stage(stage)
+        print("[mapgenctl] Clean complete")
+
+
+def clean_all_stages_and_logs() -> None:
+    """
+    Clean all pipeline stages and the logs/jobs directory.
+    
+    This is used by the --clean flag on the run command.
+    """
+    for s in PIPELINE_STAGES:
+        clean_single_stage(s)
+    
+    log_root = os.environ.get("MAPGEN_LOG_ROOT", "./logs")
+    jobs_dir = Path(log_root) / "jobs"
+    
+    print(f"[mapgenctl] Cleaning logs: {jobs_dir}")
+    if jobs_dir.exists():
+        removed_count = 0
+        for item in jobs_dir.iterdir():
+            if item.is_dir():
+                shutil.rmtree(item)
+                removed_count += 1
+            elif item.is_file():
+                item.unlink()
+                removed_count += 1
+        print(f"  jobs: removed {removed_count} job directories")
+    else:
+        print(f"  jobs: {jobs_dir} (missing, skipped)")
+    
+    print("[mapgenctl] Clean complete")
+
+def watch_stage(args) -> None:
+    """
+    Watch inbox/outbox/archive directories for a stage and report changes.
+
+    This is useful for debugging pipeline behavior. You can see in real-time
+    when jobs enter a stage, when outputs are produced, and when inputs are
+    archived.
+
+    Args:
+        args: Namespace with 'stage' attribute specifying which
+              pipeline stage to watch (e.g., "heightmap").
+
+    Side Effects:
+        - Creates stage directories if they don't exist
+        - Prints file additions/removals to stdout in real-time
+        - Runs until interrupted with Ctrl+C
+
+    Output Format:
+        [stage:directory] + filename  (file added)
+        [stage:directory] - filename  (file removed)
+    """
+    stage = args.stage
+
+    # Define all directories to watch for this stage
+    directories = {
+        "inbox": stage_inbox(stage),
+        "outbox": stage_outbox(stage),
+        "archive": stage_archive(stage),
+    }
+
+    # Ensure all directories exist so we can watch them
+    # This prevents errors on first run before pipeline creates them
+    for path in directories.values():
+        path.mkdir(parents=True, exist_ok=True)
+
+    print(f"[mapgenctl] Watching stage: {stage}")
+    for name, path in directories.items():
+        print(f"  {name}: {path}")
+
+    # Initialize with current state to avoid false "new file" reports
+    previous_state = {
+        name: set(path.iterdir())
+        for name, path in directories.items()
+    }
+
+    try:
+        # Main polling loop - runs until Ctrl+C
+        while True:
+            # Poll every second - balances responsiveness vs. CPU usage
+            time.sleep(1)
+
+            for name, path in directories.items():
+                # Get current directory contents
+                current_state = set(path.iterdir())
+                before = previous_state[name]
+
+                # Set difference to find new files (in current but not before)
+                for item in sorted(current_state - before):
+                    print(f"[{stage}:{name}] + {item.name}")
+
+                # Set difference to find removed files (in before but not current)
+                for item in sorted(before - current_state):
+                    print(f"[{stage}:{name}] - {item.name}")
+
+                # Update state for next iteration
+                previous_state[name] = current_state
+
+    except KeyboardInterrupt:
+        # Clean exit message when user presses Ctrl+C
+        print("\n[mapgenctl] Watch stopped")
+
+# ============================================================
+# Command-Line Argument Parsing
+# ============================================================
+
+def build_parser() -> argparse.ArgumentParser:
+    """
+    Build and configure the top-level argument parser.
+
+    This function defines all CLI subcommands and their arguments.
+    Subcommands are organized by use case:
+        - Job submission: submit-heightmap, run
+        - Monitoring: watch, logs
+        - Debugging: inspect-heightmap
+        - Maintenance: clean, build
+
+    Returns:
+        argparse.ArgumentParser: Configured parser ready to parse sys.argv.
+
+    Note:
+        This uses argparse's subparser feature for clean command separation.
+        Each subcommand gets its own help text and argument validation.
+    """
+    parser = argparse.ArgumentParser(
+        prog="mapgenctl",
+        description="MapGenerator developer control CLI",
+    )
+
+    # Create subparser container for all commands
+    subparsers = parser.add_subparsers(
+        title="commands",
+        dest="command",
+        required=True,  # User must specify a command
+    )
+
+    # --- submit-heightmap: Quick job submission ---
+    submit_parser = subparsers.add_parser(
+        "submit-heightmap",
+        help="Submit a heightmap job into the pipeline inbox",
+    )
+    submit_parser.add_argument("--width", type=int, required=True,
+                               help="Map width in cells")
+    submit_parser.add_argument("--height", type=int, required=True,
+                               help="Map height in cells")
+    submit_parser.add_argument("--watch", action="store_true",
+                               help="Watch for completion after submitting")
+
+    # --- inspect-heightmap: Debug output artifacts ---
+    inspect_parser = subparsers.add_parser(
+        "inspect-heightmap",
+        help="Inspect a generated heightmap binary",
+    )
+    inspect_parser.add_argument("path", help="Path to .heightmap file")
+
+    # --- watch: Real-time directory monitoring ---
+    watch_parser = subparsers.add_parser(
+        "watch",
+        help="Watch pipeline inbox/outbox/archive directories",
+    )
+    watch_parser.add_argument(
+        "--stage",
+        choices=["heightmap", "tiler", "treeplanter"],
+        required=True,
+        help="Pipeline stage to watch",
+    )
+
+    # --- clean: Reset pipeline state ---
+    clean_parser = subparsers.add_parser(
+        "clean",
+        help="Remove all files from inbox/outbox/archive for a stage",
+    )
+    clean_parser.add_argument(
+        "--stage",
+        choices=["heightmap", "tiler", "weather", "treeplanter", "all"],
+        required=True,
+        help="Pipeline stage to clean, or 'all' to clean everything including logs",
+    )
+
+    # --- build: Compile pipeline components ---
+    build_cmd_parser = subparsers.add_parser(
+        "build",
+        help="Build and deploy map generator components",
+    )
+    build_cmd_parser.add_argument(
+        "target",
+        choices=["heightmap", "all"],
+        help="Component to build",
+    )
+    build_cmd_parser.add_argument("--watch", action="store_true",
+                                  help="Rebuild on file changes")
+
+    # --- logs: TUI log viewer ---
+    log_parser = subparsers.add_parser(
+        "logs",
+        help="Tail logs for a job ID (TUI)",
+    )
+    log_parser.add_argument("job_id", help="UUID of job to view logs for")
+
+    # --- run: Full pipeline execution ---
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Run a full pipeline test job",
+    )
+    run_parser.add_argument("--width", type=int, required=True,
+                            help="Map width in cells")
+    run_parser.add_argument("--height", type=int, required=True,
+                            help="Map height in cells")
+    run_parser.add_argument(
+        "--until",
+        choices=PIPELINE_STAGES,
+        default="treeplanter",
+        help="Stop after this stage completes (default: treeplanter)",
+    )
+    run_parser.add_argument(
+        "--tui",
+        action="store_true",
+        help="Show live progress TUI instead of text output",
+    )
+    run_parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="Clean all stages and logs before starting",
+    )
+
+    return parser
+
+
+def inspect_heightmap(args) -> None:
+    """
+    Inspect and display information about a heightmap binary file.
+
+    Args:
+        args: Namespace with 'path' attribute pointing to a .heightmap file.
+
+    Raises:
+        NotImplementedError: This feature is planned but not yet implemented.
+
+    TODO:
+        - Parse binary header format
+        - Display dimensions, metadata, and sample values
+        - Optionally render ASCII visualization
+    """
+    raise NotImplementedError
+
+# ============================================================
+# Entry Point
+# ============================================================
+
+def main() -> None:
+    """
+    Main entry point for the mapgenctl CLI.
+
+    This function:
+    1. Loads environment configuration from .env
+    2. Parses command-line arguments
+    3. Dispatches to the appropriate command handler
+
+    Exit Codes:
+        0: Success
+        1: Invalid command or error
+    """
+    # Load any .env configuration before parsing args
+    load_dotenv()
+
+    # Parse command-line arguments
+    parser = build_parser()
+    args = parser.parse_args()
+
+    # --- Command dispatch ---
+    # Each command handler is responsible for its own logic.
+    # We use explicit if statements rather than a dispatch table
+    # for clarity and to allow custom handling per command.
+
+    if args.command == "submit-heightmap":
+        job_id = submit_heightmap_job(args.width, args.height)
+        print(f"Submitted job: {job_id}")
+
+        if args.watch:
+            # Create a minimal args object for watch_stage
+            # This is a quick inline class rather than a full Args definition
+            class WatchArgs:
+                stage = "heightmap"
+            print("Watching for job completion...")
+            watch_stage(WatchArgs())
+
+        sys.exit(0)
+
+    if args.command == "inspect-heightmap":
+        inspect_heightmap(args)
+        sys.exit(0)
+
+    if args.command == "watch":
+        watch_stage(args)
+        sys.exit(0)
+
+    if args.command == "clean":
+        clean_stage(args)
+        sys.exit(0)
+
+    if args.command == "run":
+        # Choose between TUI and simple text output based on --tui flag
+        if args.tui:
+            run_pipeline_tui(args)
+        else:
+            run_pipeline(args)
+        sys.exit(0)
+
+    if args.command == "logs":
+        import curses
+        curses.wrapper(run_log_viewer, args.job_id)
+        sys.exit(0)
+
+    if args.command == "build":
+        # Placeholder - build functionality to be implemented
+        print("[mapgenctl] Build command invoked")
+        sys.exit(0)
+
+    # Unknown command - show help
+    parser.print_help()
+    sys.exit(1)
+
+
+# Standard Python idiom: only run main() if this file is executed directly
+if __name__ == "__main__":
+    main()

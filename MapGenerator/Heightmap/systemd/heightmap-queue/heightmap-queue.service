@@ -4,16 +4,22 @@ After=network.target
 
 [Service]
 Type=oneshot
+EnvironmentFile=%h/Code/RTSColonyTerrainGenerator/.env
+ExecStartPre=/usr/bin/mkdir -p %h/Code/RTSColonyTerrainGenerator/logs/jobs
+ExecStart=%h/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap/bin/consume_heightmap_queue_job.sh
 
-# Explicit shell execution, no magic
-ExecStart=%h/MapGenerator/Heightmap/bin/consume_heightmap_queue_job.sh
-
-# Hardening (safe defaults)
+# Hardening (corrected)
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=%h/MapGenerator/Heightmap
+
+# MUST match the real path exactly
+ReadWritePaths=/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap/outbox
+ReadWritePaths=/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap/archive
+ReadWritePaths=/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap/failed
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap/debug
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/logs
 
 [Install]
 WantedBy=default.target

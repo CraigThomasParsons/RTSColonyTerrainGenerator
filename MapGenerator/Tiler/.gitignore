@@ -1,0 +1,19 @@
+# ============================
+# .NET build artifacts
+# ============================
+
+# Ignore everything in bin by default
+bin/*
+
+# But keep shell scripts
+!bin/*.sh
+
+# (optional but useful)
+!bin/README.md
+
+obj/
+*.dll
+*.exe
+*.pdb
+*.deps.json
+*.runtimeconfig.json

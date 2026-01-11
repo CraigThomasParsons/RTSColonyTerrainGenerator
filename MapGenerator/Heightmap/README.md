@@ -1,4 +1,4 @@
-# Heightmap Modulewd
+# Heightmap Module
 
 This module is responsible for generating heightmaps as part of the
 MapGenerator pipeline.
@@ -32,6 +32,19 @@ Heightmap/
 ├── install.sh # Installs systemd units
 └── README.md
 ```
+
+## Pipeline Position
+Heightmap ← you are here
+↓
+Tiler
+↓
+Weather Analysis
+↓
+TreePlanter
+↓
+WorldFeatures
+↓
+PathFinder
 
 ---
 
@@ -99,10 +112,11 @@ journalctl --user -u heightmap-queue.service -f
 
 
 You should see output similar to:
-
+```
 [heightmap-worker] Claimed job: test_job_002.json
 [heightmap-worker] Generating placeholder output: ...
 [heightmap-worker] Job completed successfully: test_job_002.json
+```
 
 4. Verify results
 ls -la archive
@@ -115,7 +129,16 @@ Expected:
 
   - outbox/ contains test_job_002.heightmap
 
+## Building the heightmap engine
 
+The Rust crate lives in `heightmap-engine/`.
+
+```bash
+cd heightmap-engine
+cargo build --release
+```
+
+---
 # Heightmap Engine (Fault-Line Generator)
 
 This program is a standalone **Rust CLI tool** that generates a deterministic
@@ -201,8 +224,7 @@ let arguments: Vec<String> = env::args().collect();
 ### The program expects exactly four arguments after the binary name:
 ```
 --job-file <path>
-```
-```
+
 --output-file <path>
 ```
 
