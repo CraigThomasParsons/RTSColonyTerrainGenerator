@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline Dashboard</title>
+    <link rel="stylesheet" href="lcars.css">
+</head>
+<body>
+    <header>
+        <div class="lcars-elbow">
+            <span id="pipeline-name">LOADING...</span>
+        </div>
+        <div class="lcars-bar">
+            <div class="pipeline-selector">
+                <label for="pipeline-select">ACTIVE PIPELINE:</label>
+                <select id="pipeline-select">
+                    <!-- Populated by JS -->
+                </select>
+            </div>
+            <div id="clock">00:00:00</div>
+        </div>
+    </header>
+
+    <main>
+        <div class="sidebar">
+            <div class="lcars-button systemd">SYS</div>
+            <div class="lcars-button">QUE</div>
+            <div class="lcars-button">LOG</div>
+            <div class="lcars-button" style="background-color: var(--lcars-gold)">DIAG</div>
+        </div>
+
+        <div class="content-area">
+            
+            <section id="systemd-section">
+                <h2>System Status</h2>
+                <div id="systemd-container" class="systemd-panel">
+                    <!-- Populated by JS -->
+                    Loading system status...
+                </div>
+            </section>
+
+            <section id="queues-section">
+                <h2>Pipeline Stages</h2>
+                <div id="queues-container" class="lanes-container">
+                    <!-- Populated by JS -->
+                    Loading queues...
+                </div>
+            </section>
+
+            <section id="logs-section">
+                <h2>Activity Logs</h2>
+                <div id="logs-container" class="logs-panel">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

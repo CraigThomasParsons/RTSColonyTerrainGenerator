@@ -1,0 +1,43 @@
+id: mapgenerator
+name: MapGenerator
+root: /home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator
+
+queues:
+  heightmap:
+    pending: Heightmap/inbox
+    outbox: Heightmap/outbox
+    failed: Heightmap/failed
+
+  tiler:
+    inbox: Tiler/inbox
+    outbox: Tiler/outbox
+    failed: Tiler/failed
+
+  weather:
+    inbox: WeatherAnalyses/inbox
+    outbox: WeatherAnalyses/outbox
+    failed: WeatherAnalyses/failed
+
+  treeplanter:
+    inbox: TreePlanter/inbox
+    outbox: TreePlanter/outbox
+    failed: TreePlanter/failed
+
+logs:
+  - Heightmap/logs/*.log
+  - Tiler/logs/*.log
+  - WeatherAnalyses/logs/*.log
+  - TreePlanter/logs/*.log
+
+systemd:
+  user: true
+  units:
+    - heightmap-queue.path
+    - heightmap-queue.service
+    - tiler.service
+    - weather.service
+    - treeplanter.service
+
+job:
+  extension: ".json"
+  content: json
