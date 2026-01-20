@@ -1,0 +1,388 @@
+:root {
+    --cp-bg: #050607;
+    --cp-panel-bg: #0B0E10;
+    --cp-green: #00FF9C;
+    --cp-cyan: #008F8F;
+    --cp-red: #FF3333;
+    --cp-amber: #FFCC00;
+    --cp-dim: #334440;
+    --cp-font: 'Consolas', 'Monaco', 'Courier New', monospace;
+    --cp-border: 1px solid var(--cp-green);
+    --cp-border-dim: 1px solid var(--cp-dim);
+}
+
+body {
+    background-color: var(--cp-bg);
+    color: var(--cp-green);
+    font-family: var(--cp-font);
+    margin: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Scanline overlay */
+body::before {
+    content: " ";
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    z-index: 1000;
+    background-size: 100% 2px, 3px 100%;
+    pointer-events: none;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--cp-bg);
+    border-left: 1px solid var(--cp-dim);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--cp-dim);
+    border: 1px solid var(--cp-green);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--cp-cyan);
+}
+
+/* Header */
+header {
+    display: flex;
+    height: 60px;
+    border-bottom: var(--cp-border);
+    background: var(--cp-panel-bg);
+    align-items: center;
+    padding: 0 20px;
+    justify-content: space-between;
+    box-shadow: 0 0 10px rgba(0, 255, 156, 0.1);
+}
+
+.system-identity {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: var(--cp-green);
+    text-shadow: 0 0 5px var(--cp-green);
+    border-right: var(--cp-border-dim);
+    padding-right: 20px;
+}
+
+.pipeline-selector {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.pipeline-selector label {
+    color: var(--cp-cyan);
+    font-size: 0.8em;
+}
+
+select {
+    background: var(--cp-bg);
+    color: var(--cp-green);
+    border: var(--cp-border);
+    padding: 5px 10px;
+    font-family: var(--cp-font);
+    text-transform: uppercase;
+    outline: none;
+    cursor: pointer;
+}
+
+select:hover {
+    box-shadow: 0 0 5px var(--cp-green);
+}
+
+#clock {
+    color: var(--cp-green);
+    font-weight: bold;
+    border-left: var(--cp-border-dim);
+    padding-left: 20px;
+}
+
+/* Main Layout */
+main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    padding: 10px;
+    gap: 10px;
+}
+
+/* Command Panel (Sidebar) */
+.command-panel {
+    width: 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-right: var(--cp-border-dim);
+    padding-right: 10px;
+}
+
+.tactical-btn {
+    background: var(--cp-panel-bg);
+    color: var(--cp-green);
+    border: var(--cp-border-dim);
+    padding: 12px 15px;
+    text-align: left;
+    cursor: default;
+    transition: all 0.2s;
+    font-size: 0.9em;
+    position: relative;
+}
+
+.tactical-btn::before {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 4px;
+    background: var(--cp-dim);
+}
+
+.tactical-btn.active,
+.tactical-btn:hover {
+    border-color: var(--cp-green);
+    background: rgba(0, 255, 156, 0.05);
+}
+
+.tactical-btn.active::before,
+.tactical-btn:hover::before {
+    background: var(--cp-green);
+}
+
+.tactical-btn.separator {
+    border: none;
+    background: transparent;
+    color: var(--cp-cyan);
+    font-size: 0.7em;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--cp-dim);
+    margin-top: 10px;
+}
+
+/* Viewport Display (Content) */
+.viewport-display {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+section {
+    border: var(--cp-border-dim);
+    background: rgba(11, 14, 16, 0.5);
+    padding: 15px;
+    position: relative;
+}
+
+section::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    border-top: 10px solid var(--cp-green);
+    border-left: 10px solid transparent;
+}
+
+h2 {
+    color: var(--cp-cyan);
+    font-size: 1em;
+    border-bottom: 1px solid var(--cp-dim);
+    margin-top: 0;
+    padding-bottom: 8px;
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+}
+
+h2::after {
+    content: '[ONLINE]';
+    font-size: 0.8em;
+    color: var(--cp-dim);
+}
+
+/* Utilities */
+.hidden {
+    display: none !important;
+}
+
+/* Stages Visualization (Replaces Lanes) */
+.stages-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.stage-unit {
+    background: var(--cp-panel-bg);
+    border: 1px solid var(--cp-dim);
+    padding: 15px;
+    position: relative;
+    overflow: hidden;
+}
+
+.stage-unit::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--cp-green);
+    box-shadow: 0 0 5px var(--cp-green);
+    opacity: 0.5;
+}
+
+.stage-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--cp-dim);
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    color: var(--cp-green);
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.stage-header::after {
+    content: 'ONLINE';
+    font-size: 0.7em;
+    color: var(--cp-dim);
+    padding: 2px 5px;
+    border: 1px solid var(--cp-dim);
+}
+
+.stage-metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 0.9em;
+}
+
+.bar-container {
+    flex: 1;
+    height: 6px;
+    background: #111;
+    margin: 0 10px;
+    border: 1px solid #333;
+    position: relative;
+}
+
+.bar-fill {
+    height: 100%;
+    background: var(--cp-cyan);
+    width: 0%;
+    /* JS will animate */
+    transition: width 0.5s ease-out;
+}
+
+.stage-metric.inbox .bar-fill {
+    background: var(--cp-green);
+}
+
+.stage-metric.failed .bar-fill {
+    background: var(--cp-red);
+}
+
+.metric-count {
+    width: 30px;
+    text-align: right;
+    font-weight: bold;
+}
+
+/* Systemd Panel */
+.systemd-panel {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+}
+
+.unit-status {
+    background: var(--cp-bg);
+    border: 1px solid var(--cp-dim);
+    padding: 10px;
+    font-size: 0.8em;
+    position: relative;
+    padding-left: 20px;
+}
+
+.unit-status::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--cp-dim);
+}
+
+.unit-status.active {
+    border-color: var(--cp-green);
+    color: var(--cp-green);
+}
+
+.unit-status.active::before {
+    background: var(--cp-green);
+}
+
+.unit-status.inactive {
+    border-color: var(--cp-dim);
+    color: var(--cp-dim);
+}
+
+.unit-status.failed {
+    border-color: var(--cp-red);
+    color: var(--cp-red);
+}
+
+.unit-status.failed::before {
+    background: var(--cp-red);
+}
+
+/* Logs Panel */
+.logs-panel {
+    background: #000;
+    border: var(--cp-border-dim);
+    height: 300px;
+    overflow-y: auto;
+    padding: 10px;
+    font-size: 0.85em;
+    color: #ccc;
+}
+
+.log-file {
+    margin-bottom: 15px;
+}
+
+.log-title {
+    color: var(--cp-cyan);
+    border-bottom: 1px solid #333;
+    margin-bottom: 5px;
+    padding-bottom: 2px;
+}
+
+pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}

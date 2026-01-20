@@ -2,21 +2,46 @@
 
 A read-only, file-backed, systemd-aware dashboard framework for observing pipeline stages.
 
-## dual-pipeline Setup
+## Installation & Running
 
-This dashboard supports multiple pipelines running on different ports or switched dynamically.
+### Option 1: Systemd Service (Recommended)
 
-### Running MapGenerator Dashboard (Port 5001)
+The dashboard can be installed as a user systemd service that runs automatically on startup and restarts on file changes.
+
+```bash
+./install.sh
+```
+
+This will:
+1. Create the systemd service units in `~/.config/systemd/user/`
+2. Enable the `web-dashboard.service` (runs on port 5001)
+3. Enable the `web-dashboard.path` watcher (auto-restarts on code/config changes)
+
+Once installed, view the dashboard at `http://localhost:5001`
+
+To check status:
+```bash
+systemctl --user status web-dashboard.service
+systemctl --user status web-dashboard.path
+```
+
+### Option 2: Manual Execution
+
+#### Running MapGenerator Dashboard (Port 5001)
 
 ```bash
 ./run.sh --config pipelines/mapgenerator.yaml --port 5001
 ```
 
-### Running BandcampSync Dashboard (Port 5000)
+#### Running BandcampSync Dashboard (Port 5000)
 
 ```bash
 ./run.sh --config pipelines/bandcamp.yaml --port 5000
 ```
+
+## dual-pipeline Setup
+
+This dashboard supports multiple pipelines running on different ports or switched dynamically.
 
 ## Dashboard Features
 

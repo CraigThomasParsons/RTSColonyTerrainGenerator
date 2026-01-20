@@ -17,6 +17,30 @@ async function init() {
     document.getElementById('pipeline-select').addEventListener('change', (e) => {
         switchPipeline(e.target.value);
     });
+
+    setupNavigation();
+}
+
+function setupNavigation() {
+    const buttons = document.querySelectorAll('.tactical-btn[data-target]');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetId = btn.getAttribute('data-target');
+
+            // Toggle Content Sections
+            document.querySelectorAll('.tab-section').forEach(section => {
+                if (section.id === targetId) {
+                    section.classList.remove('hidden');
+                } else {
+                    section.classList.add('hidden');
+                }
+            });
+
+            // Update active state
+            buttons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
 }
 
 function updateClock() {
@@ -30,10 +54,10 @@ async function loadConfig() {
         if (!res.ok) throw new Error('Failed to load config');
         currentConfig = await res.json();
 
-        document.getElementById('pipeline-name').innerText = currentConfig.name;
+        // document.getElementById('pipeline-name').innerText = currentConfig.name; // Removed in Cyberpunk
     } catch (e) {
         console.error(e);
-        document.getElementById('pipeline-name').innerText = "ERROR";
+        // document.getElementById('pipeline-name').innerText = "ERROR";
     }
 }
 
@@ -79,16 +103,16 @@ async function switchPipeline(path) {
 }
 
 async function fetchData() {
-    fetchQueues();
+    fetchStages();
     fetchSystemd();
     fetchLogs();
 }
 
-async function fetchQueues() {
+async function fetchStages() {
     try {
         const res = await fetch('/api/queues');
         const data = await res.json();
-        renderQueues(data);
+        renderStages(data);
     } catch (e) {
         console.error(e);
     }
@@ -114,16 +138,11 @@ async function fetchLogs() {
     }
 }
 
-function renderQueues(data) {
-    const container = document.getElementById('queues-container');
+function renderStages(data) {
+    const container = document.getElementById('stages-container');
     container.innerHTML = '';
 
-    // Data is { stage: { queue: count } }
-    // If multistage, order might matter. 
-    // currentConfig.stages has order if provided.
-
     let stages = Object.keys(data);
-    // Sort by config stages order if available
     if (currentConfig && currentConfig.stages) {
         stages.sort((a, b) => {
             const ia = currentConfig.stages.indexOf(a);
@@ -134,40 +153,49 @@ function renderQueues(data) {
 
     stages.forEach(stage => {
         const queues = data[stage];
-        const lane = document.createElement('div');
-        lane.className = 'lane';
+        const unit = document.createElement('div');
+        unit.className = 'stage-unit';
 
         const header = document.createElement('div');
-        header.className = 'lane-header';
+        header.className = 'stage-header';
         header.innerText = stage;
-        lane.appendChild(header);
-
-        // Normalize queue display
-        // MapGen: inbox, outbox, failed
-        // Bandcamp: pending, in_progress, failed, done
+        unit.appendChild(header);
 
         const queueOrder = ['inbox', 'pending', 'in_progress', 'outbox', 'done', 'failed'];
-
         let qKeys = Object.keys(queues).sort((a, b) => {
             const ia = queueOrder.indexOf(a);
             const ib = queueOrder.indexOf(b);
             return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
         });
 
+        // Calculate total for percentages
+        let total = 0;
+        qKeys.forEach(q => total += queues[q]);
+        if (total === 0) total = 1; // Avoid divide by zero
+
         qKeys.forEach(q => {
             const count = queues[q];
             const div = document.createElement('div');
-            // Assign class based on queue name for color
             let type = 'inbox';
             if (q.includes('out') || q.includes('done')) type = 'outbox';
             if (q.includes('fail')) type = 'failed';
 
-            div.className = `metric ${type}`;
-            div.innerHTML = `<span>${q}</span> <span>${count}</span>`;
-            lane.appendChild(div);
+            div.className = `stage-metric ${type}`;
+
+            // Bar calculation
+            let percent = Math.min(100, Math.round((count / total) * 100));
+
+            div.innerHTML = `
+                <span>${q}</span>
+                <div class="bar-container">
+                    <div class="bar-fill" style="width: ${count > 0 ? (percent < 10 ? 10 : percent) : 0}%"></div>
+                </div>
+                <span class="metric-count">${count}</span>
+            `;
+            unit.appendChild(div);
         });
 
-        container.appendChild(lane);
+        container.appendChild(unit);
     });
 }
 
@@ -185,11 +213,6 @@ function renderSystemd(data) {
 
 function renderLogs(data) {
     const container = document.getElementById('logs-container');
-    // Only update if content changed? 
-    // For simplicity, just wipe and redraw. Text selection might reset though.
-    // Ideally we diff, but 'Boring Code'.
-
-    // To preserve scroll, save it.
     const scrollTop = container.scrollTop;
 
     container.innerHTML = '';
@@ -203,11 +226,6 @@ function renderLogs(data) {
         div.innerHTML = `<div class="log-title">${file}</div><pre>${safeContent}</pre>`;
         container.appendChild(div);
     }
-
-    // Restore scroll if user wasn't at bottom? 
-    // Actually log tails usually want to follow.
-    // If user is at bottom, scroll to bottom. 
-    // Let's just leave it natural.
 }
 
 // Start

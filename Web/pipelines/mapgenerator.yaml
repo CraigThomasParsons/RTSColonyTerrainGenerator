@@ -28,6 +28,7 @@ logs:
   - Tiler/logs/*.log
   - WeatherAnalyses/logs/*.log
   - TreePlanter/logs/*.log
+  - ../logs/jobs/*/*.log
 
 systemd:
   user: true
