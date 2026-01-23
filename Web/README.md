@@ -13,6 +13,7 @@ The dashboard can be installed as a user systemd service that runs automatically
 ```
 
 This will:
+
 1. Create the systemd service units in `~/.config/systemd/user/`
 2. Enable the `web-dashboard.service` (runs on port 5001)
 3. Enable the `web-dashboard.path` watcher (auto-restarts on code/config changes)
@@ -20,6 +21,7 @@ This will:
 Once installed, view the dashboard at `http://localhost:5001`
 
 To check status:
+
 ```bash
 systemctl --user status web-dashboard.service
 systemctl --user status web-dashboard.path

@@ -6,7 +6,7 @@ After=network.target
 Type=oneshot
 WorkingDirectory=/home/craigpar/Code/RTSColonyTerrainGenerator/MapGenerator/TreePlanter
 EnvironmentFile=/home/craigpar/Code/RTSColonyTerrainGenerator/.env
-ExecStart=/usr/bin/php84 run.php
+ExecStart=/usr/bin/php84 -d memory_limit=512M run.php
 
 # Allow filesystem access for pipeline I/O and logging
 ReadWritePaths=/home/craigpar/Code/RTSColonyTerrainGenerator/logs

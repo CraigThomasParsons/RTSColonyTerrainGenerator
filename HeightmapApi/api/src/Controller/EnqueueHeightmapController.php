@@ -44,7 +44,7 @@ final class EnqueueHeightmapController
             $mapHeightInCells = $this->extractHeight($requestData);
 
             $jobWriter = new HeightmapJobWriter(
-                '/MapGenerator/Heightmap/inbox'
+                '/app/Heightmap/inbox'
             );
 
             $jobMetadata = $jobWriter->writeJob(
@@ -66,6 +66,7 @@ final class EnqueueHeightmapController
                 'error' => $exception->getMessage(),
             ]);
         } catch (Throwable $exception) {
+            error_log($exception->getMessage());
             http_response_code(500);
 
             echo json_encode([

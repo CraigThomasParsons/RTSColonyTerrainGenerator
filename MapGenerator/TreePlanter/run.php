@@ -24,6 +24,7 @@ use MapGenerator\TreePlanter\World\WorldPayloadWriter;
  */
 function logInfo(string $message): void
 {
+    // Why: STDERR is captured by systemd and surfaces operational hints.
     fwrite(STDERR, "[TreePlanter] " . $message . PHP_EOL);
 }
 
@@ -84,10 +85,9 @@ $jobLocator = new JobLocator(
 
 $job = $jobLocator->findNextJob();
 
+// Why: No job indicates upstream artifacts are incomplete or missing.
 if ($job === null) {
-    // No job found. 
-    // This is expected if the upstream files are missing or incomplete.
-    // We log to stderr for systemd but cannot create a JSON job log.
+    // Why: We log to stderr for systemd visibility even without a job log.
     logInfo('No complete job found in upstream outboxes.');
     exit(EXIT_CODE_SUCCESS); 
 }
@@ -107,13 +107,20 @@ try {
     // ------------------------------------------------------------
     // We infer dimensions from the raw heightmap binary size (2 bytes per cell)
     $heightmapPath = $job['heightmap'];
+    // Why: Heightmap files are binary and must be sized to infer dimensions.
     $heightmapSizeBytes = filesize($heightmapPath);
     if ($heightmapSizeBytes === false) {
         throw new RuntimeException("Could not read filesize of heightmap: {$heightmapPath}");
     }
     $totalCells = $heightmapSizeBytes / 2;
+    // Why: Heightmap cells are square; we infer width from the cell count.
     $mapWidthInCells = (int)sqrt($totalCells);
-    $mapHeightInCells = $mapWidthInCells; // Assuming square map
+    $mapHeightInCells = $mapWidthInCells; // Why: MapGenerator assumes square maps.
+
+    // Tiler emits tiles at 2x cell resolution
+    // Why: Tiler emits tiles at 2x the cell resolution.
+    $tileWidth = $mapWidthInCells * 2;
+    $tileHeight = $mapHeightInCells * 2;
 
     $logger->info('dimensions_calculated', "Map dimensions: {$mapWidthInCells}x{$mapHeightInCells}");
 
@@ -126,8 +133,8 @@ try {
     $tiles = $tileAssembler->assemble(
         $job['maptiles'],
         $job['weather'],
-        $mapWidthInCells,
-        $mapHeightInCells
+        $tileWidth,
+        $tileHeight
     );
 
     $logger->info('tiles_assembled', "Assembled " . count($tiles) . " tiles");
@@ -177,10 +184,11 @@ try {
 
     exit(EXIT_CODE_SUCCESS);
 
-} catch (Throwable $e) {
+} catch (Throwable $exception) {
+    // Why: We still want a structured log line even when exceptions occur.
     if (isset($logger)) {
-        $logger->error('stage_failed', $e->getMessage());
+        $logger->error('stage_failed', $exception->getMessage());
     }
-    logInfo("TreePlanter failed: " . $e->getMessage());
+    logInfo("TreePlanter failed: " . $exception->getMessage());
     exit(1);
 }

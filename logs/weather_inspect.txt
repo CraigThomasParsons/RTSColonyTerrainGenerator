@@ -1,0 +1,12 @@
+Script started on 2026-01-22 18:52:04-05:00 [COMMAND="python MapGenerator/WeatherAnalyses/mapgenctl.py inspect MapGenerator/WeatherAnalyses/outbox/0ab66106-97fe-4fe4-8133-3ff67fde706e.weather" TERM="xterm-256color" TTY="/dev/pts/12" COLUMNS="180" LINES="33"]
+[mapgenctl] Inspecting 0ab66106-97fe-4fe4-8133-3ff67fde706e.weather
+  Size:    430544 bytes
+  Magic:   0x57414E41 (ANAW)
+  Version: 1
+  Dim:     248 x 248
+  Layers:  3
+  Cells:   61504
+  Exp Size:430544
+  Status:  VALID structure
+
+Script done on 2026-01-22 18:52:04-05:00 [COMMAND_EXIT_CODE="0"]

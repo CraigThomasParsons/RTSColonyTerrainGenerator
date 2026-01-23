@@ -1,0 +1,4 @@
+Script started on 2026-01-22 18:49:55-05:00 [COMMAND="ls -l logs/jobs/0ab66106-97fe-4fe4-8133-3ff67fde706e/treeplanter.log.jsonl" TERM="xterm-256color" TTY="/dev/pts/12" COLUMNS="180" LINES="33"]
+-rw-r--r-- 1 craigpar craigpar 30440 Jan 22 18:49 logs/jobs/0ab66106-97fe-4fe4-8133-3ff67fde706e/treeplanter.log.jsonl
+
+Script done on 2026-01-22 18:49:55-05:00 [COMMAND_EXIT_CODE="0"]

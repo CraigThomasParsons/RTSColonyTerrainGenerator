@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MapGenerator Control Plane</title>
+    <style>
+        body {
+            font-family: monospace;
+            margin: 20px;
+            background: #1a1a1a;
+            color: #00ff00;
+        }
+        h1 {
+            color: #00ff00;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .controls {
+            background: #222;
+            padding: 15px;
+            border: 1px solid #00ff00;
+            margin-bottom: 20px;
+        }
+        input {
+            background: #333;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 5px;
+            margin: 5px;
+        }
+        button {
+            background: #003300;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 8px 16px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #005500;
+        }
+        .jobs-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .jobs-table th, .jobs-table td {
+            border: 1px solid #00ff00;
+            padding: 10px;
+            text-align: left;
+        }
+        .jobs-table th {
+            background: #003300;
+        }
+        .jobs-table tr:nth-child(even) {
+            background: #222;
+        }
+        .log-panel {
+            background: #222;
+            border: 1px solid #00ff00;
+            padding: 10px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            padding: 5px;
+            border-bottom: 1px solid #333;
+            font-size: 12px;
+        }
+        .status-active { color: #00ff00; }
+        .status-pending { color: #ffff00; }
+        .status-failed { color: #ff0000; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 MapGenerator Control Plane</h1>
+
+        <div class="controls">
+            <h3>Start New Heightmap Job</h3>
+            <div>
+                <input type="number" id="width" placeholder="Width (cells)" value="512">
+                <input type="number" id="height" placeholder="Height (cells)" value="512">
+                <button onclick="startJob()">START JOB</button>
+            </div>
+            <div id="status-message" style="color: #ffff00; margin-top: 10px;"></div>
+        </div>
+
+        <h2>Live Jobs</h2>
+        <table class="jobs-table">
+            <thead>
+                <tr>
+                    <th>Job ID</th>
+                    <th>Stage</th>
+                    <th>Location</th>
+                    <th>Filename</th>
+                    <th>Last Log Entry</th>
+                    <th>Updated</th>
+                </tr>
+            </thead>
+            <tbody id="jobs-tbody">
+                <tr><td colspan="6">Waiting for jobs...</td></tr>
+            </tbody>
+        </table>
+
+        <div class="log-panel">
+            <h3>Event Log</h3>
+            <div id="event-log"></div>
+        </div>
+    </div>
+
+    <script>
+        const eventLog = document.getElementById('event-log');
+        const statusMessage = document.getElementById('status-message');
+        let jobs = {};
+
+        // Connect to the SSE endpoint
+        function connectToEvents() {
+            const eventSource = new EventSource('/events');
+
+            eventSource.onmessage = function(event) {
+                const msg = JSON.parse(event.data);
+                console.log('Received event:', msg);
+
+                if (msg.type === 'job_updated') {
+                    const job = msg.data;
+                    jobs[job.job_id] = job;
+                    updateJobsTable();
+
+                    // Log to the event panel
+                    const logEntry = document.createElement('div');
+                    logEntry.className = 'log-entry';
+                    logEntry.textContent = `[${msg.timestamp}] ${job.job_id} → ${job.stage}/${job.location}`;
+                    eventLog.insertBefore(logEntry, eventLog.firstChild);
+
+                    // Keep only last 100 entries
+                    while (eventLog.children.length > 100) {
+                        eventLog.removeChild(eventLog.lastChild);
+                    }
+                }
+            };
+
+            eventSource.onerror = function() {
+                console.error('EventSource error');
+                // Reconnect after 3 seconds
+                setTimeout(connectToEvents, 3000);
+            };
+        }
+
+        // Update the jobs table
+        function updateJobsTable() {
+            const tbody = document.getElementById('jobs-tbody');
+            const jobList = Object.values(jobs);
+
+            if (jobList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6">No jobs yet</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = jobList.map(job => `
+                <tr>
+                    <td>${job.job_id}</td>
+                    <td>${job.stage}</td>
+                    <td class="${getStatusClass(job.location)}">${job.location}</td>
+                    <td>${job.filename}</td>
+                    <td style="font-size: 11px; max-width: 300px; word-break: break-all;">${job.last_log_line}</td>
+                    <td style="font-size: 11px;">${new Date(job.updated_at).toLocaleTimeString()}</td>
+                </tr>
+            `).join('');
+        }
+
+        function getStatusClass(location) {
+            switch (location) {
+                case 'outbox': return 'status-active';
+                case 'inbox': return 'status-pending';
+                case 'failed': return 'status-failed';
+                default: return '';
+            }
+        }
+
+        // Start a new job
+        async function startJob() {
+            const width = parseInt(document.getElementById('width').value);
+            const height = parseInt(document.getElementById('height').value);
+
+            if (!width || !height) {
+                statusMessage.textContent = '❌ Enter width and height';
+                return;
+            }
+
+            statusMessage.textContent = '⏳ Starting job...';
+
+            try {
+                const response = await fetch('/api/jobs/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ width, height })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusMessage.textContent = `✅ Job started: ${data.job_id}`;
+                    document.getElementById('width').value = '512';
+                    document.getElementById('height').value = '512';
+                } else {
+                    statusMessage.textContent = `❌ ${data.error || 'Unknown error'}`;
+                }
+            } catch (error) {
+                statusMessage.textContent = `❌ ${error.message}`;
+            }
+        }
+
+        // Initialize
+        connectToEvents();
+    </script>
+</body>
+</html>

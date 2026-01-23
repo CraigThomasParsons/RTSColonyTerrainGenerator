@@ -13,5 +13,8 @@
   "require": {
     "php": "^8.2",
     "minicli/minicli": "^4.2"
+  },
+  "require-dev": {
+    "phpmd/phpmd": "^2.15"
   }
 }
