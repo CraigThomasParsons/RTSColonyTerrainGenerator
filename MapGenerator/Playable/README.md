@@ -10,12 +10,12 @@ emits placeholder labels, so downstream exporters can be wired immediately.
 - Optional: InfrastructureBuilder output (if configured via env)
 
 ## Outputs
-- outbox/<job_id>.worldpayload (copied from input)
-- outbox/<job_id>.playable.json (placeholder labels)
+- outbox/<job_id>.worldpayload (augmented with a top-level `playable` block)
+- outbox/<job_id>.playable.json (labels sidecar)
 
 ## Determinism
-- No randomness; output is derived directly from input job order.
-- Placeholder labels are deterministic and tagged with job_id.
+- No randomness; selection uses stable sorting and fixed thresholds.
+- Labels are deterministic and tagged with job_id.
 
 ## Environment overrides
 - PLAYABLE_INPUT_DIR (default: MapGenerator/WorldFeatures/outbox)
@@ -35,7 +35,6 @@ cd MapGenerator/Playable
 ```
 
 ## TODO (implementation)
-- Select start zones using slope + accessibility + distance to resources
-- Place wood + ore clusters within a fixed radius per start zone
-- Label expansions based on path cost tiers
-- Emit labels into payload metadata (not just sidecar JSON)
+- Add expansion labeling (distance tiers + path cost)
+- Use PathFinder connectivity costs when available
+- Enforce per-faction resource balance (if factions are introduced)
