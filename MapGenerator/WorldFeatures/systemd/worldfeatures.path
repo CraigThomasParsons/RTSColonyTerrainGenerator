@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch WorldFeatures inputs for new payloads
+
+[Path]
+PathChanged=%h/Code/RTSColonyTerrainGenerator/MapGenerator/TreePlanter/outbox/
+PathChanged=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WorldFeatures/inbox/
+
+[Install]
+WantedBy=default.target

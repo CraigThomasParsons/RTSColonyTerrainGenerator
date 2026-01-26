@@ -1,0 +1,125 @@
+You are implementing the next core phase of the MapGenerator project.
+
+Your task is to design and implement the following three components:
+
+1. A Rust crate named `wcar` that defines the WorldCartridge (.wcar) binary format
+2. A WCAR → StarCraft CHK exporter
+3. A headless Stratagus runner for simulation and validation
+
+This work is based on the WCAR + CHK v0.2 specification.
+
+
+────────────────────────────────────────
+HIGH-LEVEL GOALS
+────────────────────────────────────────
+
+• WCAR is the canonical world artifact
+• CHK is a derived executable projection
+• Stratagus is used as a real RTS engine for validation
+• The system must support deterministic, automated testing
+
+WCAR → CHK → Stratagus → simulation
+
+────────────────────────────────────────
+DELIVERABLES
+────────────────────────────────────────
+
+1. Rust crate: `wcar`
+   - Read/write WCAR files
+   - Chunk-based binary format
+   - Safe skipping of unknown chunks
+   - Strong typing for standard chunks
+   - Zero external runtime dependencies beyond serde (if needed)
+
+2. Rust binary: `wcar_export_chk`
+   - Input: `.wcar`
+   - Output: `.chk` or `.scx`
+   - Maps WCAR chunks to StarCraft CHK sections
+   - Projection is lossy by design
+   - CHK output must be valid and loadable by Stratagus/Stargus
+
+3. Rust binary: `wcar_run_stratagus`
+   - Runs Stratagus headlessly
+   - Loads exported CHK
+   - Executes a short simulation
+   - Reports success/failure via exit code
+   - Designed for future AI-driven regression testing
+
+────────────────────────────────────────
+IMPORTANT CONSTRAINTS
+────────────────────────────────────────
+
+• WCAR is immutable once written
+• WCAR is never generated from CHK
+• CHK is treated as opaque binary data inside WCAR
+• Use little-endian encoding
+• Use fixed-width numeric types
+• Prefer explicit structs over generic maps
+• Avoid premature abstraction
+
+────────────────────────────────────────
+IMPLEMENTATION GUIDANCE
+────────────────────────────────────────
+
+• Follow the WCAR + CHK v0.2 specification exactly
+• Separate parsing, validation, and projection layers
+• Favor correctness and clarity over performance
+• Code must be readable by future maintainers
+• Add comments where binary layout matters
+
+────────────────────────────────────────
+EXPECTED OUTPUT
+────────────────────────────────────────
+
+• Rust source code
+• Minimal README files where appropriate
+• No mockups or placeholder pseudocode
+• No UI work
+• No HTML output
+
+If any part of the specification is ambiguous, make a reasonable assumption and document it in comments.
+
+Read the spec files:
+- acceptance_criteria.md
+- assumptions.md
+- rust_style.md
+- stratagus_harness_contract_v0_1.md
+- wcar_chk_spec_v0_2.md
+- context.md
+
+When you write out a function try to have something like a docblock.
+
+Like this:
+//
+// Entry point for the heightmap engine.
+//
+// This program:
+// - Parses command-line arguments
+// - Loads the job JSON file
+// - Generates placeholder heightmap data
+// - Writes a binary output file
+//
+fn main() {
+
+Use heightmap_engine as an example on how to comment the code.
+Try to output thought in thoughts.md while you going through the process.
+
+Use the TYS method.
+read tys.md
+
+Use, update and Build your own test tools and harnesses.
+Can you read and update stages.md with every Stages inbox and outbox details?
+
+And maybe flesh out the doc a little more, be creative.
+Its purpose is to be a guide telling someone briefly what the purpose of each stage is and describe in detail how it works as a larger pipeline.
+
+As with previous prompts.
+Follow the style guide, build out the stage the same way every stage is built.
+1. systemd with install.sh
+2. Use the inbox and outbox to move things along the pipeline.
+3. Build in debugging into the code.
+4. things that execute are stored in bin.
+
+Now use the tys.md
+include pipeline_ai_test.py in the test portions
+if pipeline_ai_test needs more to better cover the testing then add to it.

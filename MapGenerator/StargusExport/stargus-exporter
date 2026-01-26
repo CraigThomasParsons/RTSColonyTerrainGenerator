@@ -1,0 +1,234 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import struct
+import shutil
+import subprocess
+from pathlib import Path
+from typing import Dict, Any, List
+
+TILESET_IDS = {
+    "badlands": 0,
+    "space_platform": 1,
+    "installation": 2,
+    "ashworld": 3,
+    "jungle": 4,
+    "desert": 5,
+    "ice": 6,
+    "twilight": 7,
+}
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Export World Payload to StarCraft CHK")
+    parser.add_argument("--job-file", required=True, help="World payload JSON file")
+    parser.add_argument("--output-dir", required=True, help="Output directory")
+    parser.add_argument("--tileset", default="badlands", help="StarCraft tileset name")
+    parser.add_argument(
+        "--tileset-map",
+        default=str(Path(__file__).parent / "tileset_mappings" / "default_badlands.json"),
+        help="Path to terrain→tile mapping JSON",
+    )
+    parser.add_argument(
+        "--map-type",
+        type=int,
+        default=2,
+        help="CHK TYPE value (2=melee by default)",
+    )
+    parser.add_argument(
+        "--chk-version",
+        type=int,
+        default=33,
+        help="CHK VER value (default 33)",
+    )
+    parser.add_argument(
+        "--mpq-tool",
+        default=None,
+        help="Optional MPQ tool path to build .scm (e.g., mpqadd)",
+    )
+    return parser.parse_args()
+
+
+def load_json(path: Path) -> Dict[str, Any]:
+    with path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def load_tileset_mapping(path: Path) -> Dict[str, Any]:
+    data = load_json(path)
+    terrain_map = data.get("terrain_to_tile", {})
+    default_tile = int(data.get("default_tile", 0))
+    return {"terrain_to_tile": terrain_map, "default_tile": default_tile}
+
+
+def build_tile_grid(width: int, height: int, tiles: List[Dict[str, Any]], mapping: Dict[str, Any]) -> List[int]:
+    total = width * height
+    grid = [mapping["default_tile"] for _ in range(total)]
+
+    for tile in tiles:
+        x = int(tile.get("x", -1))
+        y = int(tile.get("y", -1))
+        if x < 0 or y < 0 or x >= width or y >= height:
+            continue
+        terrain = str(tile.get("terrain", ""))
+        tile_id = mapping["terrain_to_tile"].get(terrain, mapping["default_tile"])
+        grid[y * width + x] = int(tile_id)
+
+    return grid
+
+
+def pack_section(name: str, data: bytes) -> bytes:
+    return name.encode("ascii") + struct.pack("<I", len(data)) + data
+
+
+def build_chk(width: int, height: int, tiles: List[int], tileset_id: int, map_type: int, chk_version: int) -> bytes:
+    sections: List[bytes] = []
+
+    sections.append(pack_section("TYPE", struct.pack("<H", map_type)))
+    sections.append(pack_section("VER ", struct.pack("<H", chk_version)))
+    sections.append(pack_section("IVER", struct.pack("<H", 0)))
+    sections.append(pack_section("IVE2", struct.pack("<H", 0)))
+    sections.append(pack_section("ERA ", struct.pack("<H", tileset_id)))
+    sections.append(pack_section("DIM ", struct.pack("<HH", width, height)))
+
+    mtxm = b"".join(struct.pack("<H", tile_id) for tile_id in tiles)
+    sections.append(pack_section("MTXM", mtxm))
+
+    return b"".join(sections)
+
+
+def write_file(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("wb") as handle:
+        handle.write(data)
+
+
+def build_scm_with_tool(chk_path: Path, scm_path: Path, mpq_tool: str) -> bool:
+    tool = shutil.which(mpq_tool) if mpq_tool else None
+    if not tool:
+        return False
+
+    try:
+        subprocess.run([tool, str(scm_path), str(chk_path)], check=True)
+    except subprocess.CalledProcessError:
+        return False
+
+    return scm_path.exists()
+
+
+def _build_crypt_table() -> list[int]:
+    table = [0] * 0x500
+    seed = 0x00100001
+    for index in range(0x100):
+        for i in range(5):
+            seed = (seed * 125 + 3) % 0x2AAAAB
+            temp1 = (seed & 0xFFFF) << 16
+            seed = (seed * 125 + 3) % 0x2AAAAB
+            temp2 = seed & 0xFFFF
+            table[i * 0x100 + index] = temp1 | temp2
+    return table
+
+
+_CRYPT_TABLE = _build_crypt_table()
+
+
+def _hash_string(name: str, hash_type: int) -> int:
+    seed1 = 0x7FED7FED
+    seed2 = 0xEEEEEEEE
+    for ch in name.upper():
+        value = ord(ch)
+        seed1 = _CRYPT_TABLE[(hash_type << 8) + value] ^ (seed1 + seed2)
+        seed1 &= 0xFFFFFFFF
+        seed2 = value + seed1 + seed2 + ((seed2 << 5) & 0xFFFFFFFF) + 3
+        seed2 &= 0xFFFFFFFF
+    return seed1 & 0xFFFFFFFF
+
+
+def build_scm_minimal(chk_path: Path, scm_path: Path) -> None:
+    chk_data = chk_path.read_bytes()
+    file_name = "staredit/scenario.chk"
+
+    header_size = 32
+    data_offset = header_size
+    data_size = len(chk_data)
+
+    hash_table_entries = 1
+    block_table_entries = 1
+
+    hash_table_offset = data_offset + data_size
+    hash_table_size = hash_table_entries * 16
+    block_table_offset = hash_table_offset + hash_table_size
+    block_table_size = block_table_entries * 16
+    archive_size = block_table_offset + block_table_size
+
+    sector_size_shift = 3  # 512 << 3 = 4096 bytes
+
+    header = b"".join(
+        [
+            b"MPQ\x1a",
+            struct.pack("<I", header_size),
+            struct.pack("<I", archive_size),
+            struct.pack("<H", 0),  # format version 0
+            struct.pack("<H", sector_size_shift),
+            struct.pack("<I", hash_table_offset),
+            struct.pack("<I", block_table_offset),
+            struct.pack("<I", hash_table_entries),
+            struct.pack("<I", block_table_entries),
+        ]
+    )
+
+    hash_entry = struct.pack(
+        "<IIHHI",
+        _hash_string(file_name, 1),
+        _hash_string(file_name, 2),
+        0,
+        0,
+        0,
+    )
+
+    block_flags = 0x80000000 | 0x01000000
+    block_entry = struct.pack(
+        "<IIII",
+        data_offset,
+        data_size,
+        data_size,
+        block_flags,
+    )
+
+    with scm_path.open("wb") as handle:
+        handle.write(header)
+        handle.write(chk_data)
+        handle.write(hash_entry)
+        handle.write(block_entry)
+
+
+def main() -> None:
+    args = parse_args()
+    job_path = Path(args.job_file).expanduser().resolve()
+    output_dir = Path(args.output_dir).expanduser().resolve()
+
+    payload = load_json(job_path)
+    job_id = payload.get("job_id") or job_path.stem
+    width = int(payload["map"]["width_in_cells"])
+    height = int(payload["map"]["height_in_cells"])
+    tiles = payload.get("tiles", [])
+
+    mapping = load_tileset_mapping(Path(args.tileset_map))
+    tileset_id = TILESET_IDS.get(args.tileset, TILESET_IDS["badlands"])
+
+    grid = build_tile_grid(width, height, tiles, mapping)
+    chk_data = build_chk(width, height, grid, tileset_id, args.map_type, args.chk_version)
+
+    chk_path = output_dir / f"{job_id}.chk"
+    write_file(chk_path, chk_data)
+
+    scm_path = output_dir / f"{job_id}.scm"
+    if args.mpq_tool:
+        if not build_scm_with_tool(chk_path, scm_path, args.mpq_tool):
+            build_scm_minimal(chk_path, scm_path)
+    else:
+        build_scm_minimal(chk_path, scm_path)
+
+
+if __name__ == "__main__":
+    main()

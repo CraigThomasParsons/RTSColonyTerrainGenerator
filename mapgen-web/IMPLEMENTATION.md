@@ -1,4 +1,4 @@
-# MapGenerator Control Plane - Implementation Complete
+# MapGenerator Control Panel - Implementation Complete
 
 ## Summary
 

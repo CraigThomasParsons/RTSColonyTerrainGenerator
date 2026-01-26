@@ -1,5 +1,5 @@
 #!/bin/bash
-# Quick reference for MapGenerator Control Plane
+# Quick reference for MapGenerator Control Panel
 
 # Install Go (Arch Linux)
 sudo pacman -S go

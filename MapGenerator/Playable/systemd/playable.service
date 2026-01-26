@@ -1,0 +1,17 @@
+[Unit]
+Description=Playable Stage Worker
+After=local-fs.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/Code/RTSColonyTerrainGenerator/.env
+WorkingDirectory=%h/Code/RTSColonyTerrainGenerator/MapGenerator/Playable
+ExecStart=%h/Code/RTSColonyTerrainGenerator/MapGenerator/Playable/bin/consume_playable_job.sh
+
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/logs
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/MapGenerator/Playable
+
+Restart=no
+
+[Install]
+WantedBy=default.target

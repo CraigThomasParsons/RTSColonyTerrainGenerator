@@ -1,0 +1,17 @@
+[Unit]
+Description=AncientCivilization Worker
+After=local-fs.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/Code/RTSColonyTerrainGenerator/.env
+WorkingDirectory=%h/Code/RTSColonyTerrainGenerator/MapGenerator/AncientCivilization
+ExecStart=%h/Code/RTSColonyTerrainGenerator/MapGenerator/AncientCivilization/bin/consume_ancientcivilization_job.sh
+
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/logs
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/MapGenerator/AncientCivilization
+
+Restart=no
+
+[Install]
+WantedBy=default.target

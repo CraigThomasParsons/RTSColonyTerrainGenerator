@@ -24,3 +24,13 @@ application {
 tasks.test {
     useJUnitPlatform()
 }
+
+// Let Kotlin use its default JVM target (will fall back to 21 automatically with JDK 25)
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+    kotlinOptions.jvmTarget = "21"
+}
+
+tasks.withType<JavaCompile> {
+    sourceCompatibility = "21"
+    targetCompatibility = "21"
+}

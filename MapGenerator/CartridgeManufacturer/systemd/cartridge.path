@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch CartridgeManufacturer inbox for new jobs
+
+[Path]
+PathModified=%h/Code/RTSColonyTerrainGenerator/MapGenerator/CartridgeManufacturer/inbox
+PathModified=%h/Code/RTSColonyTerrainGenerator/MapGenerator/TreePlanter/outbox
+
+[Install]
+WantedBy=default.target

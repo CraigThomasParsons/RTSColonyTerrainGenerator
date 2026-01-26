@@ -120,12 +120,12 @@ emit_json_line() {
   printf '%s\n' "${normalized}" >&3
 }
 
-# One watcher per file; tail -n0 prevents duplication on restart and -F tolerates rotations.
+# One watcher per file; tail -n +1 backfills existing lines and -F tolerates rotations.
 launch_watcher() {
   local file="$1"
   local stage="$2"
   local job="$3"
-  tail -n0 -F --retry "${file}" |
+  tail -n +1 -F --retry "${file}" |
     while IFS= read -r line || [[ -n "${line}" ]]; do
       emit_json_line "${stage}" "${job}" "${line}"
     done &

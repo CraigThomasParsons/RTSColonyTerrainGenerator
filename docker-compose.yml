@@ -15,7 +15,7 @@ services:
     networks:
       - mapgen
 
-  # MapGenerator Control Plane - Go service for tracking jobs and exposing events
+  # MapGenerator Control Panel - Go service for tracking jobs and exposing events
   mapgen-web:
     build:
       context: ./mapgen-web

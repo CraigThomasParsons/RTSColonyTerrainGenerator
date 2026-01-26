@@ -1,4 +1,4 @@
-# MapGenerator Control Plane - Project Structure & Overview
+# MapGenerator Control Panel - Project Structure & Overview
 
 ## File Tree
 

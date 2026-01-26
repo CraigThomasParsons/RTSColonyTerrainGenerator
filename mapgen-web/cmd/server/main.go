@@ -30,6 +30,7 @@ type Server struct {
 }
 
 // StartJobRequest is the JSON payload for POST /api/jobs/start
+// StartJobRequest is the JSON payload for POST /api/jobs/start
 type StartJobRequest struct {
 	Width  int `json:"width"`
 	Height int `json:"height"`
@@ -50,18 +51,19 @@ func main() {
 		heightmapAPIURL = "http://localhost:8099" // Default for local development
 	}
 
-	// Path to logs/jobs directory (where job logs are organized by jobID)
-	logsJobsPath := os.Getenv("LOGS_JOBS_PATH")
-	if logsJobsPath == "" {
-		// Default to local logs/jobs when running outside Docker
-		logsJobsPath = "./logs/jobs"
+	// Path to the single aggregated log file
+	logsPath := os.Getenv("LOGS_PATH")
+	if logsPath == "" {
+		// Default to local logs/mapgen.log when running outside Docker
+		// Assuming we are running from mapgen-web/ directory.
+		logsPath = "../logs/mapgen.log"
 	}
 
 	// Create server components
 	registry := jobs.NewRegistry()
 	eventHub := events.NewHub()
 	watcher := fswatch.NewWatcher(registry)
-	logTailer := logs.NewTailer(logsJobsPath)
+	logTailer := logs.NewTailer(logsPath)
 	heightmapClient := pipeline.NewHeightmapAPIClient(heightmapAPIURL)
 
 	server := &Server{
@@ -86,9 +88,9 @@ func main() {
 	http.HandleFunc("/api/jobs", server.handleListJobs)
 	http.HandleFunc("/api/jobs/logs/", server.handleGetJobLogs)
 
-	log.Printf("🚀 MapGenerator Control Plane starting on %s", httpPort)
+	log.Printf("🚀 MapGenerator Control Panel starting on %s", httpPort)
 	log.Printf("   HeightmapAPI: %s", heightmapAPIURL)
-	log.Printf("   Logs path: %s", logsJobsPath)
+	log.Printf("   Logs path: %s", logsPath)
 
 	if listenError := http.ListenAndServe(httpPort, nil); listenError != nil {
 		log.Fatalf("server error: %v", listenError)
@@ -256,12 +258,22 @@ func (server *Server) updateLogsLoop(stopChannel <-chan struct{}) {
 
 		case <-ticker.C:
 			// Fetch all jobs and update their log lines
+			// Fetch all jobs and update their log lines
 			allJobs := server.registry.ListJobs()
 			for _, job := range allJobs {
 				logLine := server.logTailer.Tail(job.JobID)
-				server.registry.UpdateJob(job.JobID, func(jobState *jobs.JobState) {
-					jobState.LastLogLine = logLine
-				})
+
+				// Only update and broadcast if the log line has changed or was empty
+				if logLine != "" && logLine != job.LastLogLine {
+					updatedJob := server.registry.UpdateJob(job.JobID, func(jobState *jobs.JobState) {
+						jobState.LastLogLine = logLine
+					})
+
+					// Broadcast the update to the frontend
+					if updatedJob != nil {
+						server.eventHub.PublishJobUpdate(updatedJob)
+					}
+				}
 			}
 		}
 	}

@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MapGenerator Control Plane</title>
+    <title>MapGenerator Control Panel</title>
     <style>
         body {
             font-family: monospace;
@@ -11,19 +12,23 @@
             background: #1a1a1a;
             color: #00ff00;
         }
+
         h1 {
             color: #00ff00;
         }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
         }
+
         .controls {
             background: #222;
             padding: 15px;
             border: 1px solid #00ff00;
             margin-bottom: 20px;
         }
+
         input {
             background: #333;
             color: #00ff00;
@@ -31,6 +36,7 @@
             padding: 5px;
             margin: 5px;
         }
+
         button {
             background: #003300;
             color: #00ff00;
@@ -39,25 +45,32 @@
             cursor: pointer;
             margin: 5px;
         }
+
         button:hover {
             background: #005500;
         }
+
         .jobs-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
         }
-        .jobs-table th, .jobs-table td {
+
+        .jobs-table th,
+        .jobs-table td {
             border: 1px solid #00ff00;
             padding: 10px;
             text-align: left;
         }
+
         .jobs-table th {
             background: #003300;
         }
+
         .jobs-table tr:nth-child(even) {
             background: #222;
         }
+
         .log-panel {
             background: #222;
             border: 1px solid #00ff00;
@@ -66,19 +79,30 @@
             max-height: 300px;
             overflow-y: auto;
         }
+
         .log-entry {
             padding: 5px;
             border-bottom: 1px solid #333;
             font-size: 12px;
         }
-        .status-active { color: #00ff00; }
-        .status-pending { color: #ffff00; }
-        .status-failed { color: #ff0000; }
+
+        .status-active {
+            color: #00ff00;
+        }
+
+        .status-pending {
+            color: #ffff00;
+        }
+
+        .status-failed {
+            color: #ff0000;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
-        <h1>🎮 MapGenerator Control Plane</h1>
+        <h1>🎮 MapGenerator Control Panel</h1>
 
         <div class="controls">
             <h3>Start New Heightmap Job</h3>
@@ -103,12 +127,14 @@
                 </tr>
             </thead>
             <tbody id="jobs-tbody">
-                <tr><td colspan="6">Waiting for jobs...</td></tr>
+                <tr>
+                    <td colspan="6">Waiting for jobs...</td>
+                </tr>
             </tbody>
         </table>
 
         <div class="log-panel">
-            <h3>Event Log</h3>
+            <h3 id="log-panel-title">Live Job Log (Waiting...)</h3>
             <div id="event-log"></div>
         </div>
     </div>
@@ -122,7 +148,7 @@
         function connectToEvents() {
             const eventSource = new EventSource('/events');
 
-            eventSource.onmessage = function(event) {
+            eventSource.onmessage = function (event) {
                 const msg = JSON.parse(event.data);
                 console.log('Received event:', msg);
 
@@ -144,7 +170,7 @@
                 }
             };
 
-            eventSource.onerror = function() {
+            eventSource.onerror = function () {
                 console.error('EventSource error');
                 // Reconnect after 3 seconds
                 setTimeout(connectToEvents, 3000);
@@ -219,4 +245,5 @@
         connectToEvents();
     </script>
 </body>
+
 </html>

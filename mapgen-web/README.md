@@ -1,4 +1,4 @@
-# MapGenerator Control Plane (Go)
+# MapGenerator Control Panel (Go)
 
 A minimal HTTP control plane for the MapGenerator pipeline.  
 Triggers jobs via HeightmapAPI, tracks progress via filesystem polling, and streams updates to browsers using Server-Sent Events (SSE).

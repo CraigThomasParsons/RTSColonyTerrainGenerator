@@ -1,4 +1,4 @@
-# 📚 MapGenerator Control Plane - Documentation Index
+# 📚 MapGenerator Control Panel - Documentation Index
 
 ## Quick Links
 

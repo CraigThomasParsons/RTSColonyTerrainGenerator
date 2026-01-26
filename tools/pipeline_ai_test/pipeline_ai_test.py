@@ -134,6 +134,14 @@ def detect_issue_from_line(state: HealthState, message: str) -> None:
             "Invalid numeric literal",
             "Non-JSON log line parsed as JSON → confirm LogStreamer text normalization",
         ),
+        (
+            "stratagus harness failed",
+            "Stratagus harness failed → verify SCM output and harness.lua compatibility",
+        ),
+        (
+            "HARNESS:FAIL",
+            "Stratagus reported HARNESS:FAIL → inspect stratagus_stdout.log for details",
+        ),
     ]
 
     for snippet, suggestion in issue_patterns:
@@ -151,6 +159,7 @@ def build_stage_artifact_map(repo_root: Path, job_id: str) -> Dict[str, Path]:
         "tiler": repo_root / "MapGenerator" / "Tiler" / "outbox" / f"{job_id}.maptiles",
         "weather": repo_root / "MapGenerator" / "WeatherAnalyses" / "outbox" / f"{job_id}.weather",
         "treeplanter": repo_root / "MapGenerator" / "TreePlanter" / "outbox" / f"{job_id}.worldpayload",
+        "cartridge": repo_root / "MapGenerator" / "CartridgeManufacturer" / "outbox" / f"{job_id}.wcar",
     }
 
 
@@ -191,6 +200,7 @@ def run_pipeline(width: int, height: int, until: str) -> subprocess.Popen:
 
     Why: The tester should be able to orchestrate a run end-to-end.
     """
+    until_arg = normalize_until(until)
     command = [
         sys.executable,
         "-m",
@@ -201,9 +211,23 @@ def run_pipeline(width: int, height: int, until: str) -> subprocess.Popen:
         "--height",
         str(height),
         "--until",
-        until,
+        until_arg,
     ]
     return subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+
+def normalize_until(until: str) -> str:
+    """Map requested stage names to valid mapgenctl values.
+
+    Why: mapgenctl only supports core stages, while follow-on stages
+    are handled by systemd consumers.
+    """
+    valid_until = {"heightmap", "tiler", "weather", "treeplanter"}
+    if until in valid_until:
+        return until
+    if until in {"worldfeatures", "pathfinder", "worldpreview", "cartridge"}:
+        return "treeplanter"
+    return until
 
 
 def monitor_logs(
@@ -212,7 +236,7 @@ def monitor_logs(
     stale_seconds: int,
     stage_timeouts: Dict[str, int],
     repo_root: Path,
-) -> int:
+) -> Tuple[int, str]:
     """Tail the main log file and evaluate health.
 
     Why: The global log is the authoritative stream across stages.
@@ -263,7 +287,82 @@ def monitor_logs(
             # Why: Periodically check for stage stalls without flooding the UI.
             detect_stage_timeouts(state, repo_root, stage_timeouts, now)
 
-    return compute_score(state, time.time(), stale_seconds)
+    return compute_score(state, time.time(), stale_seconds), state.job_id
+
+
+def run_worldpreview_playwright(repo_root: Path, job_id: str, timeout_seconds: int) -> Tuple[bool, str]:
+    """Open WorldPreview output using Playwright and perform basic UI checks.
+
+    Why: Validates the final stage renders correctly for human inspection.
+    """
+    if job_id == "unknown":
+        return False, "No job_id detected from logs"
+
+    preview_path = repo_root / "MapGenerator" / "WorldPreview" / "outbox" / job_id / "index.html"
+    if not preview_path.exists():
+        return False, f"WorldPreview index not found: {preview_path}"
+
+    try:
+        from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+    except Exception as exc:
+        return False, f"Playwright not available: {exc} (install: pip install playwright && playwright install)"
+
+    url = preview_path.as_uri()
+    timeout_ms = max(1, timeout_seconds) * 1000
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            page.goto(url)
+
+            page.wait_for_selector("#world-canvas", timeout=timeout_ms)
+            page.wait_for_selector("#toggle-height", timeout=timeout_ms)
+            page.wait_for_selector("#toggle-terrain", timeout=timeout_ms)
+            page.wait_for_selector("#toggle-features", timeout=timeout_ms)
+            page.wait_for_selector("#toggle-paths", timeout=timeout_ms)
+
+            # Ensure canvas has dimensions
+            canvas_box = page.locator("#world-canvas").bounding_box()
+            if not canvas_box or canvas_box["width"] <= 0 or canvas_box["height"] <= 0:
+                browser.close()
+                return False, "Canvas has invalid dimensions"
+
+            # Trigger hover update
+            page.mouse.move(canvas_box["x"] + 10, canvas_box["y"] + 10)
+            page.wait_for_timeout(500)
+            hover_text = page.locator("#hover-info").text_content() or ""
+
+            browser.close()
+
+            if "Hover over a tile" in hover_text:
+                return False, "Hover inspector did not update"
+
+            return True, "WorldPreview rendered successfully"
+
+    except PlaywrightTimeoutError:
+        return False, "WorldPreview UI did not load within timeout"
+    except Exception as exc:
+        return False, f"WorldPreview Playwright check failed: {exc}"
+
+
+def wait_for_worldsnapshot(repo_root: Path, job_id: str, timeout_seconds: int) -> Tuple[bool, str]:
+    """Wait for WorldSnapshot output to appear for a job.
+
+    Why: WorldSnapshot is asynchronous and may lag behind WorldPreview output.
+    """
+    if job_id == "unknown":
+        return False, "No job_id detected from logs"
+
+    snapshot_path = repo_root / "MapGenerator" / "WorldSnapshot" / "outbox" / f"{job_id}.png"
+    deadline = time.time() + max(1, timeout_seconds)
+
+    while time.time() < deadline:
+        if snapshot_path.exists():
+            return True, f"WorldSnapshot found: {snapshot_path}"
+        time.sleep(0.5)
+
+    return False, f"WorldSnapshot not found within {timeout_seconds}s: {snapshot_path}"
 
 
 def parse_stage_timeout_options(stage_timeout_options: List[str]) -> Dict[str, int]:
@@ -276,6 +375,7 @@ def parse_stage_timeout_options(stage_timeout_options: List[str]) -> Dict[str, i
         "tiler": 120,
         "weather": 120,
         "treeplanter": 180,
+        "cartridge": 120,
     }
 
     for option in stage_timeout_options:
@@ -304,6 +404,28 @@ def main() -> int:
     )
     parser.add_argument("--follow-only", action="store_true", help="Only tail logs; do not start a job")
     parser.add_argument("--log", type=str, default="logs/mapgen.log", help="Path to log file")
+    parser.add_argument(
+        "--playwright-worldpreview",
+        action="store_true",
+        help="After monitoring, open WorldPreview output via Playwright and validate UI",
+    )
+    parser.add_argument(
+        "--playwright-timeout",
+        type=int,
+        default=15,
+        help="Timeout in seconds for Playwright UI checks",
+    )
+    parser.add_argument(
+        "--worldsnapshot",
+        action="store_true",
+        help="After monitoring, wait for WorldSnapshot PNG output",
+    )
+    parser.add_argument(
+        "--worldsnapshot-timeout",
+        type=int,
+        default=30,
+        help="Timeout in seconds for WorldSnapshot output",
+    )
     args = parser.parse_args()
 
     log_path = Path(args.log)
@@ -319,7 +441,7 @@ def main() -> int:
     repo_root = Path(__file__).resolve().parents[2]
     stage_timeouts = parse_stage_timeout_options(args.stage_timeout)
 
-    final_score = monitor_logs(
+    final_score, job_id = monitor_logs(
         log_path,
         args.duration,
         args.stale,
@@ -332,6 +454,21 @@ def main() -> int:
         pipeline_process.terminate()
 
     print(f"\nFinal health score: {final_score}")
+
+    if args.playwright_worldpreview:
+        ok, message = run_worldpreview_playwright(repo_root, job_id, args.playwright_timeout)
+        status = "PASS" if ok else "FAIL"
+        print(f"WorldPreview Playwright: {status} - {message}")
+        if not ok:
+            return 2
+
+    if args.worldsnapshot:
+        ok, message = wait_for_worldsnapshot(repo_root, job_id, args.worldsnapshot_timeout)
+        status = "PASS" if ok else "FAIL"
+        print(f"WorldSnapshot: {status} - {message}")
+        if not ok:
+            return 3
+
     return 0
 
 

@@ -1,0 +1,7 @@
+[package]
+name = "wcar_run_stratagus"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wcar = { path = "../wcar" }

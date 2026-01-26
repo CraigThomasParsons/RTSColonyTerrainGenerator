@@ -17,6 +17,18 @@ From the repo root:
 python tools/pipeline_ai_test/pipeline_ai_test.py --width 64 --height 64 --duration 60
 ```
 
+Playwright validation for WorldPreview (requires Playwright + system deps):
+
+```sh
+python tools/pipeline_ai_test/pipeline_ai_test.py --width 64 --height 64 --duration 60 --playwright-worldpreview
+```
+
+WorldSnapshot validation (waits for PNG output):
+
+```sh
+python tools/pipeline_ai_test/pipeline_ai_test.py --width 64 --height 64 --duration 60 --worldsnapshot
+```
+
 Follow-only mode (no job run):
 
 ```sh
@@ -50,3 +62,7 @@ Why: Some machines or debug builds legitimately take longer.
 - The tool expects `logs/mapgen.log` to exist.
 - Uses the same log normalization already produced by the LogStreamer.
 - Intended for local debugging and rapid iteration.
+- Playwright install steps:
+	- `pip install playwright`
+	- `python -m playwright install`
+	- Linux deps (if prompted): `sudo playwright install-deps`

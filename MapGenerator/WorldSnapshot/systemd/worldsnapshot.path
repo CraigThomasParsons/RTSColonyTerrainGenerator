@@ -1,0 +1,11 @@
+[Unit]
+Description=Watch WorldPreview outputs for snapshots
+
+[Path]
+PathChanged=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WorldPreview/outbox/
+PathChanged=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WorldPreview/outbox/*/index.html
+PathExistsGlob=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WorldPreview/outbox/*/index.html
+PathChanged=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WorldSnapshot/inbox/
+
+[Install]
+WantedBy=default.target
