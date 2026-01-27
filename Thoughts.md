@@ -20,3 +20,9 @@
   - Why: Faster root-cause hints reduce time spent scanning logs manually.
   - Began WorldFeatures Kotlin implementation with deterministic feature planning and unit tests.
   - Why: A typed module reduces error rates and is easier to validate with tests.
+
+- 2026-01-26
+  - Validated WCAR parsing rules and added strict HEAD-first and dimension checks.
+  - Why: WCAR is a canonical artifact and must fail fast on malformed structure.
+  - Cleaned up MapGenerator stages reference with updated inbox/outbox details.
+  - Why: The pipeline guide is the top-level operational reference for new stages.

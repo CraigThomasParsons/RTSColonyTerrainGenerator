@@ -125,9 +125,18 @@ pub fn read_wcar_bytes(buffer: &[u8]) -> Result<WcarFile, WcarError> {
     let mut chk: Option<ChkChunk> = None;
     let mut unknown = Vec::new();
 
+    let mut saw_first_chunk = false;
+
     while offset < buffer.len() {
         let (chunk, next) = Chunk::read_from(buffer, offset)?;
         offset = next;
+
+        if !saw_first_chunk {
+            saw_first_chunk = true;
+            if chunk.tag != ChunkTag::HEAD {
+                return Err(WcarError::InvalidFormat("HEAD chunk must be first".to_string()));
+            }
+        }
 
         match chunk.tag {
             ChunkTag::HEAD => head = Some(HeadChunk::from_chunk(&chunk)?),
@@ -146,7 +155,33 @@ pub fn read_wcar_bytes(buffer: &[u8]) -> Result<WcarFile, WcarError> {
     }
 
     let head = head.ok_or_else(|| WcarError::InvalidFormat("Missing HEAD chunk".to_string()))?;
+    if &head.magic != b"WCAR" {
+        return Err(WcarError::InvalidFormat("Invalid HEAD magic".to_string()));
+    }
+    if head.major_version != 0 || head.minor_version != 2 {
+        return Err(WcarError::InvalidFormat("Unsupported WCAR version".to_string()));
+    }
     let prov = prov.ok_or_else(|| WcarError::InvalidFormat("Missing PROV chunk".to_string()))?;
+
+    if let Some(hmap) = &hmap {
+        if hmap.width != head.width_tiles || hmap.height != head.height_tiles {
+            return Err(WcarError::InvalidFormat("HMAP dimensions do not match HEAD".to_string()));
+        }
+    }
+
+    if let Some(tile) = &tile {
+        let expected = (head.width_tiles as usize) * (head.height_tiles as usize);
+        if tile.tile_map.len() != expected {
+            return Err(WcarError::InvalidFormat("TILE map length does not match HEAD".to_string()));
+        }
+    }
+
+    if let Some(biom) = &biom {
+        let expected = (head.width_tiles as usize) * (head.height_tiles as usize);
+        if biom.biome_map.len() != expected {
+            return Err(WcarError::InvalidFormat("BIOM map length does not match HEAD".to_string()));
+        }
+    }
 
     Ok(WcarFile {
         head,

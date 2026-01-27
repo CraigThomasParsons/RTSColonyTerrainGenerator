@@ -42,13 +42,14 @@ fn main() -> Result<(), WcarError> {
     let args = parse_args();
     let wcar_file = read_wcar(&args.input)?;
 
-    let chk_bytes = if let Some(chk) = wcar_file.chk {
-        chk.chk_data
+    let chk_bytes = if let Some(chk) = wcar_file.chk.as_ref() {
+        chk.chk_data.clone()
     } else {
         let tile_chunk = wcar_file
             .tile
+            .as_ref()
             .ok_or_else(|| WcarError::InvalidFormat("Missing TILE chunk".to_string()))?;
-        build_chk(&wcar_file, &tile_chunk, &args.tileset_map)?
+        build_chk(&wcar_file, tile_chunk, &args.tileset_map)?
     };
 
     if args.output.extension().and_then(|s| s.to_str()).unwrap_or("") == "chk" {

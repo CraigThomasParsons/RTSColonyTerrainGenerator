@@ -32,3 +32,4 @@ bin/consume_cartridge_job.sh
 - Run consumer once
 - Verify `outbox/<job_id>.wcar`, `.chk`, `.scm`
 - Confirm harness logs contain `HARNESS:PASS` or a structured failure marker
+- Run `tools/pipeline_ai_test/pipeline_ai_test.py --follow-only` to verify cartridge artifacts appear
