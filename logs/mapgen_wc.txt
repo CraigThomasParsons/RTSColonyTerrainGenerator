@@ -1,4 +1,0 @@
-Script started on 2026-01-23 14:24:51-05:00 [COMMAND="wc -l logs/mapgen.log" TERM="xterm-256color" TTY="/dev/pts/12" COLUMNS="180" LINES="33"]
-126 logs/mapgen.log
-
-Script done on 2026-01-23 14:24:51-05:00 [COMMAND_EXIT_CODE="0"]

@@ -138,3 +138,13 @@ MapGenerator/**/.gradle/
 RTSColonyTerrainGenerator.sln
 
 logs/jobs
+
+# ============================
+# Runtime / generated outputs
+# ============================
+
+# Autosaved "where I left off" session snapshots (generated, not source)
+logs/leftoff_snapshots/
+
+# StargusExport generated SCM map outputs
+MapGenerator/StargusExport/exports/

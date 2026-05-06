@@ -1,0 +1,169 @@
+You are implementing a MapGenerator pipeline stage called CivicOverreach (v1).
+
+This stage models abandoned civic ambition and ruins using
+SimCity-2000-inspired logic, but WITHOUT running a real simulation engine.
+
+CivicOverreach v1 is a pure analysis + synthesis stage.
+
+---------------------------------------
+PIPELINE POSITION
+---------------------------------------
+Input: heightmap artifacts only
+Runs in parallel with Tiler, Weather, OldInfrastructure
+Must NOT block the pipeline
+
+---------------------------------------
+GOAL
+---------------------------------------
+Generate believable abandoned civic structures:
+- bridges
+- roads
+- buildings
+
+These represent overreach, collapse, and failed colonization attempts.
+
+This stage is NOT about:
+- balance
+- playability
+- optimization
+- determinism
+
+---------------------------------------
+INPUTS
+---------------------------------------
+Required:
+- heightmap_*.png (16-bit grayscale)
+- heightmap.meta.json
+  - min_elevation
+  - max_elevation
+  - sea_level
+
+Optional inputs must be ignored in v1.
+
+---------------------------------------
+OUTPUT
+---------------------------------------
+Write a single file to outbox:
+
+<job_id>.civic_overreach.worldpayload
+
+---------------------------------------
+OUTPUT FORMAT
+---------------------------------------
+The payload must contain three top-level sections:
+
+{
+  "concrete": { ... },
+  "heuristics": { ... },
+  "provenance": { ... }
+}
+
+---------------------------------------
+CONCRETE SECTION (AUTHORITATIVE)
+---------------------------------------
+Concrete outputs represent real, canonical world geometry.
+
+Include:
+- bridges (collapsed or intact)
+- roads (overgrown, broken, partial)
+- buildings (abandoned)
+
+These objects MUST include real coordinates.
+
+Example structure:
+
+"bridges": [
+  {
+    "id": "bridge_017",
+    "x": 233,
+    "y": 401,
+    "length": 6,
+    "orientation": "E-W",
+    "status": "collapsed",
+    "cause": "flood"
+  }
+]
+
+"roads": [
+  {
+    "path": [[410,188],[460,210]],
+    "status": "overgrown"
+  }
+]
+
+"buildings": [
+  {
+    "x": 512,
+    "y": 220,
+    "type": "residential",
+    "status": "abandoned"
+  }
+]
+
+Concrete data MUST be usable by later stages without heuristics.
+
+---------------------------------------
+HEURISTICS SECTION (OPTIONAL, NON-CANON)
+---------------------------------------
+Heuristics explain *why* ruins exist.
+
+Include:
+- overreach_zones (e.g. islands, cliffs, floodplains)
+- disaster_events (synthetic)
+- maintenance_failures
+
+These are advisory only.
+
+---------------------------------------
+PROVENANCE SECTION
+---------------------------------------
+Document:
+- stage name
+- version ("v1")
+- approach ("SimCity-inspired, rule-based")
+- confidence ("low", "medium")
+
+---------------------------------------
+ALGORITHM (REQUIRED)
+---------------------------------------
+Implement the following steps:
+
+1. Heightmap Analysis
+   - Detect water bodies
+   - Detect islands
+   - Detect chokepoints
+   - Detect flat buildable regions
+
+2. Aggressive Expansion Heuristic
+   - Attempt to connect islands via bridges
+   - Prefer bridges over ferries
+   - Attempt roads into all flat regions
+   - Ignore long-term viability
+
+3. Synthetic Disaster Pass
+   - Randomly apply floods near water
+   - Apply collapses on long bridges
+   - Abandon buildings in affected zones
+   - Roads and bridges may be marked broken
+
+4. Extraction
+   - Emit final concrete ruins
+   - Emit heuristics explaining failures
+
+---------------------------------------
+CONSTRAINTS
+---------------------------------------
+- Do NOT simulate population, power, or economy
+- Do NOT run OpenSC2K or any external engine
+- Do NOT depend on determinism
+- Removing this stage must not break the pipeline
+
+---------------------------------------
+SUCCESS CRITERIA
+---------------------------------------
+- Bridges appear in risky but interesting places
+- Abandoned buildings are common
+- Output is stable JSON
+- Stage can be replaced later without breaking contracts
+
+Implement this stage with clear functions, comments, and testable logic.

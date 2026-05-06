@@ -1,31 +1,66 @@
 # Where I Left Off
 
-## Summary
-- WCAR toolchain exists under [MapGenerator/CartridgeManufacturer/bin/wcar-tools](MapGenerator/CartridgeManufacturer/bin/wcar-tools):
-  - `wcar` crate parses and writes WCAR chunks.
-  - `wcar_pack` builds WCAR from world payload JSON.
-  - `wcar_export_chk` projects WCAR to CHK/SCM (minimal MPQ).
-  - `wcar_run_stratagus` runs the headless Stratagus harness.
-- WCAR parsing now enforces HEAD-first, validates WCAR magic/version, and checks TILE/HMAP/BIOM dimensions.
-- CartridgeManufacturer stage already wires the pipeline (`consume_cartridge_job.sh`) and calls all tools.
-- MapGenerator stage reference doc was cleaned and updated.
+## Snapshot
+- timestamp_utc: 2026-03-17T17:39:35Z
+- branch: feature/stargus-local
+- latest_job_id: 9b7345d2-5d38-4fde-aaa9-c241d76d34fe.playable
+- operator_note: post-reboot continuity checkpoint
 
-## Latest Changes
-- Updated WCAR validation rules in [MapGenerator/CartridgeManufacturer/bin/wcar-tools/crates/wcar/src/lib.rs](MapGenerator/CartridgeManufacturer/bin/wcar-tools/crates/wcar/src/lib.rs).
-- Rewrote [MapGenerator/stages.md](MapGenerator/stages.md) for clarity and correct inbox/outbox details.
-- Added pipeline_ai_test usage to [MapGenerator/CartridgeManufacturer/README.md](MapGenerator/CartridgeManufacturer/README.md).
-- Logged work in [Thoughts.md](Thoughts.md).
+## Stage Queue Summary
+- AncientCivilization: inbox=0, outbox=0, failed=0
+- CartridgeManufacturer: inbox=0, outbox=0, failed=0
+- CivicOverreach: inbox=0, outbox=0, failed=0
+- Heightmap: inbox=0, outbox=8, failed=0
+- InfrastructureBuilder: inbox=0, outbox=0, failed=0
+- PathFinder: inbox=0, outbox=16, failed=0
+- Playable: inbox=0, outbox=32, failed=0
+- SimulateCity: inbox=7, outbox=0, failed=0
+- StargusExport: inbox=0, outbox=12, failed=0
+- Tiler: inbox=0, outbox=8, failed=0
+- TransportTycoonDeluxe: inbox=0, outbox=1, failed=0
+- TreePlanter: inbox=0, outbox=7, failed=0
+- WeatherAnalyses: inbox=0, outbox=8, failed=0
+- WorldFeatures: inbox=0, outbox=16, failed=0
+- WorldPreview: inbox=0, outbox=16, failed=0
+- WorldSnapshot: inbox=0, outbox=16, failed=0
 
-## TYS Notes
-- Ran `cargo build --release` for the WCAR toolchain.
-- Next: run the cartridge consumer to verify `.wcar`, `.chk`, `.scm`, and harness logs.
+## Git Status (top 30)
+```text
+ M MapGenerator/Heightmap/bin/consume_heightmap_queue_job.sh
+ M MapGenerator/StargusExport/README.md
+ M MapGenerator/StargusExport/bin/consume_stargusexport_job.sh
+ M MapGenerator/StargusExport/stargus-exporter
+ M MapGenerator/StargusExport/tileset_mappings/default_badlands.json
+ D MapGenerator/TreePlanter/debug/.gitkeep
+ M MapGenerator/WorldFeatures/README.md
+ D MapGenerator/WorldFeatures/archive/.gitkeep
+ M MapGenerator/WorldFeatures/bin/main/mapgen/worldfeatures/FeaturePlanner.kt
+ M MapGenerator/WorldFeatures/bin/main/mapgen/worldfeatures/WorldFeaturesApp.kt
+ D MapGenerator/WorldFeatures/outbox/.gitkeep
+ M MapGenerator/WorldFeatures/src/main/kotlin/mapgen/worldfeatures/FeaturePlanner.kt
+ M MapGenerator/WorldFeatures/src/main/kotlin/mapgen/worldfeatures/WorldFeaturesApp.kt
+ M docs/Stage_Contract.md
+ D docs/tys.md
+ D generated/dafny-cs/MapGen.cs
+ D generated/dafny-cs/MapGen.csproj
+ D logs/jobs_ls.txt
+ D logs/mapgen_wc.txt
+ D logs/treeplanter_ls.txt
+ D logs/treeplanter_status.txt
+ D logs/weather_inspect.txt
+ M tools/ai_test/registry.py
+ M tools/mapgenctl/utils/__pycache__/paths.cpython-314.pyc
+ M tools/mapgenctl/utils/paths.py
+ M tools/pipeline_ai_test/pipeline_ai_test.py
+?? MapGenerator/CivicOverreach/
+?? MapGenerator/Heightmap/bin/export_heightmap_png.py
+?? MapGenerator/PostalServiceProposal.md
+?? MapGenerator/RTSColonyTerrainGenerator.code-workspace
+```
 
-## Next Steps
-1. Run `MapGenerator/CartridgeManufacturer/bin/consume_cartridge_job.sh` and confirm:
-   - `outbox/<id>.wcar`, `outbox/<id>.chk`, `outbox/<id>.scm`
-   - `logs/jobs/<id>/cartridge.log.jsonl` contains `HARNESS:PASS` or a stable failure marker.
-2. If Stratagus fails to load maps, verify:
-   - Tileset mapping JSON (default_badlands.json)
-   - CHK section completeness (DIM/ERA/MTXM)
-3. Extend `wcar_pack` to emit HMAP/BIOM/FEAT when available (currently TILE only).
-4. Update `pipeline_ai_test` heuristics if new failure modes appear.
+## Recovery Steps
+1. Review stage queue summary above.
+2. Check failed lanes for blockers.
+3. Run trace/report scripts or targeted stage consumers.
+4. Update this snapshot note after major pipeline transitions.
+

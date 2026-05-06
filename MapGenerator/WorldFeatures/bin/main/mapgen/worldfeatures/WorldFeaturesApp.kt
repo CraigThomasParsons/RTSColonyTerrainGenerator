@@ -48,7 +48,17 @@ fun main(arguments: Array<String>) {
     val planner = FeaturePlanner(logger)
     val features = planner.planFeatures(payload)
 
-    val outputPayload = payload.withFeatures(features)
+    val civicData = CivicOverreachLoader.load(
+        jobId = jobId,
+        outputDirectory = configuration.civicOutputDirectory,
+        logger = logger
+    )
+
+    val civicFeatures = civicData?.let { planner.planCivicFeatures(it, payload.map) } ?: emptyList()
+    if (civicFeatures.isNotEmpty()) {
+        logger.info("civic_features", "Merged ${civicFeatures.size} CivicOverreach features")
+    }
+    val outputPayload = payload.withFeatures(features + civicFeatures)
     val outputPath = OutputWriter.writePayload(
         outputPayload,
         configuration.outputDirectory,
@@ -68,13 +78,15 @@ fun main(arguments: Array<String>) {
 data class WorldFeaturesConfig(
     val inputPath: String,
     val outputDirectory: String,
-    val logDirectory: String
+    val logDirectory: String,
+    val civicOutputDirectory: String
 ) {
     companion object {
         fun fromArgs(arguments: Array<String>): WorldFeaturesConfig {
             var inputPath = "MapGenerator/TreePlanter/outbox"
             var outputDirectory = "MapGenerator/WorldFeatures/outbox"
             var logDirectory = "logs/jobs"
+            var civicOutputDirectory = "MapGenerator/CivicOverreach/outbox"
 
             val iterator = arguments.iterator()
             while (iterator.hasNext()) {
@@ -82,6 +94,7 @@ data class WorldFeaturesConfig(
                     "--input" -> inputPath = iterator.next()
                     "--output" -> outputDirectory = iterator.next()
                     "--log-dir" -> logDirectory = iterator.next()
+                    "--civic-outbox" -> civicOutputDirectory = iterator.next()
                     else -> {
                         // Why: Ignore unknown arguments to keep the tool tolerant.
                     }
@@ -91,7 +104,8 @@ data class WorldFeaturesConfig(
             return WorldFeaturesConfig(
                 inputPath = inputPath,
                 outputDirectory = outputDirectory,
-                logDirectory = logDirectory
+                logDirectory = logDirectory,
+                civicOutputDirectory = civicOutputDirectory
             )
         }
     }

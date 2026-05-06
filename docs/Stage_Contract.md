@@ -171,7 +171,7 @@ Human + AI understanding.
 - Any additional design docs
 
 Docs are considered **part of the API**.
-
+bb
 ---
 
 ### `systemd/`
@@ -212,6 +212,34 @@ No sockets.
 No databases.
 
 Files are the contract.
+
+---
+
+## Continuity Contract (Where I Left Off)
+
+Long-running map generation work is vulnerable to freezes, reboots, and interrupted sessions.
+To preserve continuity, the pipeline should maintain a durable LeftOff snapshot.
+
+Required behavior:
+
+1. Keep a recovery document at repository root: `where_I_left_off.md`
+2. Write snapshots atomically (no partial file writes)
+3. Keep timestamped historical snapshots under `logs/leftoff_snapshots/`
+4. Snapshot should include:
+   - timestamp
+   - current branch/status
+   - latest discovered job id
+   - per-stage queue summary (inbox/outbox/failed)
+   - optional operator note
+
+Recommended commands:
+
+- Manual snapshot:
+  `MapGenerator/bin/save_leftoff.sh "optional note"`
+- Install autosave timer:
+  `MapGenerator/bin/install_leftoff_autosave.sh`
+
+This continuity layer is file-first and language-agnostic, matching the stage model.
 
 ---
 

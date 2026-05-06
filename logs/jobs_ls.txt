@@ -1,8 +1,0 @@
-Script started on 2026-01-23 14:06:09-05:00 [COMMAND="ls -lt logs/jobs | head -n 5" TERM="xterm-256color" TTY="/dev/pts/12" COLUMNS="180" LINES="33"]
-total 72
-drwxr-xr-x 2 craigpar craigpar 4096 Jan 23 14:06 c7b1366a-d226-4f2b-84c5-695a3d2b87b2
-drwxr-xr-x 2 craigpar craigpar 4096 Jan 23 14:05 c58a27b0-10e8-4bba-be4e-c23381d10063
-drwxr-xr-x 2 craigpar craigpar 4096 Jan 22 18:53 95d6350a-bd2c-42d7-938c-3403f2f86e01
-drwxr-xr-x 2 craigpar craigpar 4096 Jan 22 18:49 4c3db9a5-b81b-47c8-b0e0-e4d0d1e86648
-
-Script done on 2026-01-23 14:06:09-05:00 [COMMAND_EXIT_CODE="0"]

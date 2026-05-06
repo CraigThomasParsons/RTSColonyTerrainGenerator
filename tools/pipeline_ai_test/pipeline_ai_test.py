@@ -14,6 +14,7 @@ import re
 import subprocess
 import sys
 import time
+import struct
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -236,6 +237,7 @@ def monitor_logs(
     stale_seconds: int,
     stage_timeouts: Dict[str, int],
     repo_root: Path,
+    render: bool,
 ) -> Tuple[int, str]:
     """Tail the main log file and evaluate health.
 
@@ -255,7 +257,8 @@ def monitor_logs(
             line = log_file.readline()
             if not line:
                 score = compute_score(state, now, stale_seconds)
-                render_screen(state, score, duration_seconds, start_time)
+                if render:
+                    render_screen(state, score, duration_seconds, start_time)
                 time.sleep(0.5)
                 continue
 
@@ -290,13 +293,105 @@ def monitor_logs(
     return compute_score(state, time.time(), stale_seconds), state.job_id
 
 
+def infer_latest_job_id(repo_root: Path) -> Optional[str]:
+    """Infer the latest job id from logs or outbox artifacts.
+
+    Why: Tests should still run if log aggregation is down.
+    """
+    logs_root = repo_root / "logs" / "jobs"
+    if logs_root.exists():
+        job_dirs = [p for p in logs_root.iterdir() if p.is_dir()]
+        if job_dirs:
+            job_dirs.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+            return job_dirs[0].name
+
+    inferred = infer_latest_worldpreview_job_id(repo_root)
+    if inferred:
+        return inferred
+
+    inferred = infer_latest_worldsnapshot_job_id(repo_root)
+    if inferred:
+        return inferred
+
+    stargus_outbox = repo_root / "MapGenerator" / "StargusExport" / "outbox"
+    if stargus_outbox.exists():
+        inferred = infer_latest_stargus_job_id(repo_root)
+        if inferred:
+            return inferred
+
+    cartridge_outbox = repo_root / "MapGenerator" / "CartridgeManufacturer" / "outbox"
+    if cartridge_outbox.exists():
+        candidates = list(cartridge_outbox.glob("*.wcar"))
+        if candidates:
+            candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+            return candidates[0].stem
+
+    treeplanter_outbox = repo_root / "MapGenerator" / "TreePlanter" / "outbox"
+    if treeplanter_outbox.exists():
+        candidates = list(treeplanter_outbox.glob("*.worldpayload"))
+        if candidates:
+            candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+            return candidates[0].stem
+
+    playable_outbox = repo_root / "MapGenerator" / "Playable" / "outbox"
+    if playable_outbox.exists():
+        candidates = list(playable_outbox.glob("*.worldpayload"))
+        if candidates:
+            candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+            return candidates[0].stem
+
+    return None
+
+
+def infer_latest_worldpreview_job_id(repo_root: Path) -> Optional[str]:
+    """Return the latest job id that has a WorldPreview index.html."""
+    outbox = repo_root / "MapGenerator" / "WorldPreview" / "outbox"
+    if not outbox.exists():
+        return None
+    candidates = list(outbox.glob("*/index.html"))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return candidates[0].parent.name
+
+
+def infer_latest_worldsnapshot_job_id(repo_root: Path) -> Optional[str]:
+    """Return the latest job id that has a WorldSnapshot PNG."""
+    outbox = repo_root / "MapGenerator" / "WorldSnapshot" / "outbox"
+    if not outbox.exists():
+        return None
+    candidates = list(outbox.glob("*.png"))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return candidates[0].stem
+
+
+def infer_latest_stargus_job_id(repo_root: Path) -> Optional[str]:
+    """Return the latest job id that has both CHK and SCM outputs."""
+    outbox = repo_root / "MapGenerator" / "StargusExport" / "outbox"
+    if not outbox.exists():
+        return None
+    chk_files = {p.stem: p for p in outbox.glob("*.chk")}
+    scm_files = {p.stem: p for p in outbox.glob("*.scm")}
+    shared = set(chk_files.keys()) & set(scm_files.keys())
+    if not shared:
+        return None
+    candidates = [(stem, max(chk_files[stem].stat().st_mtime, scm_files[stem].stat().st_mtime)) for stem in shared]
+    candidates.sort(key=lambda item: item[1], reverse=True)
+    return candidates[0][0]
+
+
 def run_worldpreview_playwright(repo_root: Path, job_id: str, timeout_seconds: int) -> Tuple[bool, str]:
     """Open WorldPreview output using Playwright and perform basic UI checks.
 
     Why: Validates the final stage renders correctly for human inspection.
     """
     if job_id == "unknown":
-        return False, "No job_id detected from logs"
+        inferred = infer_latest_worldpreview_job_id(repo_root)
+        if not inferred:
+            return False, "No job_id detected from logs"
+        job_id = inferred
 
     preview_path = repo_root / "MapGenerator" / "WorldPreview" / "outbox" / job_id / "index.html"
     if not preview_path.exists():
@@ -352,7 +447,11 @@ def wait_for_worldsnapshot(repo_root: Path, job_id: str, timeout_seconds: int) -
     Why: WorldSnapshot is asynchronous and may lag behind WorldPreview output.
     """
     if job_id == "unknown":
-        return False, "No job_id detected from logs"
+        inferred = infer_latest_worldpreview_job_id(repo_root)
+        if inferred:
+            job_id = inferred
+        else:
+            return False, "No job_id detected from logs"
 
     snapshot_path = repo_root / "MapGenerator" / "WorldSnapshot" / "outbox" / f"{job_id}.png"
     deadline = time.time() + max(1, timeout_seconds)
@@ -363,6 +462,128 @@ def wait_for_worldsnapshot(repo_root: Path, job_id: str, timeout_seconds: int) -
         time.sleep(0.5)
 
     return False, f"WorldSnapshot not found within {timeout_seconds}s: {snapshot_path}"
+
+
+def run_worldsnapshot_consumer(repo_root: Path, timeout_seconds: int) -> Tuple[bool, str]:
+    """Run the WorldSnapshot consumer script.
+
+    Why: WorldSnapshot is triggered by a consumer, not mapgenctl.
+    """
+    script = repo_root / "MapGenerator" / "WorldSnapshot" / "bin" / "consume_worldsnapshot_job.sh"
+    if not script.exists():
+        return False, f"WorldSnapshot consumer not found: {script}"
+
+    try:
+        result = subprocess.run([str(script)], check=False, capture_output=True, text=True, timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        return False, f"WorldSnapshot consumer timed out after {timeout_seconds}s"
+
+    if result.returncode != 0:
+        stderr = result.stderr.strip()
+        detail = stderr if stderr else f"exit code {result.returncode}"
+        return False, f"WorldSnapshot consumer failed: {detail}"
+
+    return True, "WorldSnapshot consumer completed"
+
+
+def wait_for_stargus_export(repo_root: Path, job_id: str, timeout_seconds: int) -> Tuple[bool, str]:
+    """Wait for StargusExport outputs to appear for a job.
+
+    Why: StargusExport is a key artifact path for CHK/SCM validation.
+    """
+    outbox = repo_root / "MapGenerator" / "StargusExport" / "outbox"
+    deadline = time.time() + max(1, timeout_seconds)
+
+    while time.time() < deadline:
+        if job_id != "unknown":
+            chk_path = outbox / f"{job_id}.chk"
+            scm_path = outbox / f"{job_id}.scm"
+            if chk_path.exists() and scm_path.exists():
+                ok, detail = validate_chk_mtxm(chk_path)
+                if not ok:
+                    return False, detail
+                return True, f"StargusExport outputs found: {chk_path}, {scm_path}"
+        else:
+            inferred = infer_latest_stargus_job_id(repo_root)
+            if inferred:
+                chk_path = outbox / f"{inferred}.chk"
+                scm_path = outbox / f"{inferred}.scm"
+                if chk_path.exists() and scm_path.exists():
+                    ok, detail = validate_chk_mtxm(chk_path)
+                    if not ok:
+                        return False, detail
+                    return True, f"StargusExport outputs found: {chk_path}, {scm_path}"
+        time.sleep(0.5)
+
+    if job_id == "unknown":
+        return False, f"StargusExport outputs not found within {timeout_seconds}s"
+    return False, f"StargusExport outputs not found within {timeout_seconds}s: {chk_path}, {scm_path}"
+
+
+def parse_chk_sections(data: bytes) -> Dict[str, bytes]:
+    offset = 0
+    sections: Dict[str, bytes] = {}
+    length = len(data)
+
+    while offset + 8 <= length:
+        name = data[offset : offset + 4].decode("ascii", errors="replace").rstrip()
+        size = struct.unpack_from("<I", data, offset + 4)[0]
+        offset += 8
+        if offset + size > length:
+            break
+        sections[name] = data[offset : offset + size]
+        offset += size
+
+    return sections
+
+
+def validate_chk_mtxm(chk_path: Path) -> Tuple[bool, str]:
+    try:
+        data = chk_path.read_bytes()
+    except Exception as exc:
+        return False, f"Failed to read CHK: {chk_path} ({exc})"
+
+    sections = parse_chk_sections(data)
+    if "DIM" not in sections or "MTXM" not in sections:
+        return False, f"CHK missing DIM/MTXM: {chk_path}"
+
+    width, height = struct.unpack_from("<HH", sections["DIM"], 0)
+    count = int(width * height)
+    mtxm = sections["MTXM"]
+    if len(mtxm) < count * 2:
+        return False, f"MTXM too short for DIM ({width}x{height}) in {chk_path}"
+
+    tile_ids = struct.unpack_from(f"<{count}H", mtxm, 0)
+    unique_tiles = len(set(tile_ids))
+    if unique_tiles <= 1:
+        return False, (
+            f"MTXM is uniform ({unique_tiles} unique tile). "
+            f"Check StargusExport tileset mapping (likely all 0s)."
+        )
+
+    return True, f"MTXM OK ({unique_tiles} unique tiles)"
+
+
+def run_stargus_consumer(repo_root: Path, timeout_seconds: int) -> Tuple[bool, str]:
+    """Run the StargusExport consumer script.
+
+    Why: StargusExport is triggered by a consumer, not mapgenctl.
+    """
+    script = repo_root / "MapGenerator" / "StargusExport" / "bin" / "consume_stargusexport_job.sh"
+    if not script.exists():
+        return False, f"StargusExport consumer not found: {script}"
+
+    try:
+        result = subprocess.run([str(script)], check=False, capture_output=True, text=True, timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        return False, f"StargusExport consumer timed out after {timeout_seconds}s"
+
+    if result.returncode != 0:
+        stderr = result.stderr.strip()
+        detail = stderr if stderr else f"exit code {result.returncode}"
+        return False, f"StargusExport consumer failed: {detail}"
+
+    return True, "StargusExport consumer completed"
 
 
 def parse_stage_timeout_options(stage_timeout_options: List[str]) -> Dict[str, int]:
@@ -426,6 +647,44 @@ def main() -> int:
         default=30,
         help="Timeout in seconds for WorldSnapshot output",
     )
+    parser.add_argument(
+        "--run-worldsnapshot-consumer",
+        action="store_true",
+        help="Run the WorldSnapshot consumer before checking output",
+    )
+    parser.add_argument(
+        "--worldsnapshot-consumer-timeout",
+        type=int,
+        default=120,
+        help="Timeout in seconds for the WorldSnapshot consumer script",
+    )
+    parser.add_argument(
+        "--no-render",
+        action="store_true",
+        help="Disable live screen rendering (useful for CI or long runs)",
+    )
+    parser.add_argument(
+        "--stargus-export",
+        action="store_true",
+        help="After monitoring, wait for StargusExport CHK/SCM outputs",
+    )
+    parser.add_argument(
+        "--stargus-timeout",
+        type=int,
+        default=60,
+        help="Timeout in seconds for StargusExport outputs",
+    )
+    parser.add_argument(
+        "--run-stargus-consumer",
+        action="store_true",
+        help="Run the StargusExport consumer before checking outputs",
+    )
+    parser.add_argument(
+        "--stargus-consumer-timeout",
+        type=int,
+        default=120,
+        help="Timeout in seconds for the StargusExport consumer script",
+    )
     args = parser.parse_args()
 
     log_path = Path(args.log)
@@ -447,11 +706,18 @@ def main() -> int:
         args.stale,
         stage_timeouts,
         repo_root,
+        render=not args.no_render,
     )
 
     if pipeline_process is not None:
         # Why: We avoid hanging if the process is still running.
         pipeline_process.terminate()
+
+    if job_id == "unknown":
+        inferred = infer_latest_job_id(repo_root)
+        if inferred:
+            job_id = inferred
+            print(f"\nNo job_id from logs; inferred latest job: {job_id}")
 
     print(f"\nFinal health score: {final_score}")
 
@@ -463,11 +729,30 @@ def main() -> int:
             return 2
 
     if args.worldsnapshot:
+        if args.run_worldsnapshot_consumer:
+            ok, message = run_worldsnapshot_consumer(repo_root, args.worldsnapshot_consumer_timeout)
+            status = "PASS" if ok else "FAIL"
+            print(f"WorldSnapshot consumer: {status} - {message}")
+            if not ok:
+                return 3
         ok, message = wait_for_worldsnapshot(repo_root, job_id, args.worldsnapshot_timeout)
         status = "PASS" if ok else "FAIL"
         print(f"WorldSnapshot: {status} - {message}")
         if not ok:
             return 3
+
+    if args.stargus_export:
+        if args.run_stargus_consumer:
+            ok, message = run_stargus_consumer(repo_root, args.stargus_consumer_timeout)
+            status = "PASS" if ok else "FAIL"
+            print(f"StargusExport consumer: {status} - {message}")
+            if not ok:
+                return 4
+        ok, message = wait_for_stargus_export(repo_root, job_id, args.stargus_timeout)
+        status = "PASS" if ok else "FAIL"
+        print(f"StargusExport: {status} - {message}")
+        if not ok:
+            return 5
 
     return 0
 

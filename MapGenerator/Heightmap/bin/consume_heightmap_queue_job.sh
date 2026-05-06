@@ -156,9 +156,10 @@ process_job() {
 
     TILER_INBOX="$HOME/Code/RTSColonyTerrainGenerator/MapGenerator/Tiler/inbox"
     WEATHER_INBOX="$HOME/Code/RTSColonyTerrainGenerator/MapGenerator/WeatherAnalyses/inbox"
+    SIMULATECITY_INBOX="$HOME/Code/RTSColonyTerrainGenerator/MapGenerator/SimulateCity/inbox"
     
     # Builidng directories just in case
-    mkdir -p "$TILER_INBOX" "$WEATHER_INBOX"
+    mkdir -p "$TILER_INBOX" "$WEATHER_INBOX" "$SIMULATECITY_INBOX"
 
     # Copying to Tiler and WeatherAnalyses inboxes
     cp "$OUTPUT_FILE_PATH" "$TILER_INBOX/"
@@ -166,6 +167,26 @@ process_job() {
 
     echo "[heightmap-worker] Copied heightmap to Tiler inbox"
     echo "[heightmap-worker] Copied heightmap to Weather inbox"
+
+    #######################################
+    # Fan-out: Export PNG + meta for SimulateCity
+    #######################################
+
+    PYTHON_BIN="$HOME/Code/RTSColonyTerrainGenerator/.venv/bin/python"
+    if [[ ! -x "$PYTHON_BIN" ]]; then
+      PYTHON_BIN="python3"
+    fi
+
+    SIMULATECITY_JOB_DIR="$SIMULATECITY_INBOX/$JOB_BASENAME"
+    mkdir -p "$SIMULATECITY_JOB_DIR"
+
+    "$PYTHON_BIN" \
+      "$HEIGHTMAP_MODULE_ROOT/bin/export_heightmap_png.py" \
+      --input "$OUTPUT_FILE_PATH" \
+      --output-dir "$SIMULATECITY_JOB_DIR" \
+      --job-id "$JOB_BASENAME"
+
+    echo "[heightmap-worker] Exported heightmap PNG/meta to SimulateCity inbox"
 
     #######################################
     # Archive the processed job

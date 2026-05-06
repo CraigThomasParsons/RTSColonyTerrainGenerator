@@ -69,6 +69,72 @@ class FeaturePlanner(
         return features
     }
 
+    fun planCivicFeatures(civic: CivicOverreachData, map: MapInfo): List<WorldFeature> {
+        val features = mutableListOf<WorldFeature>()
+
+        civic.bridges
+            .filter { it.x in 0 until map.widthInCells && it.y in 0 until map.heightInCells }
+            .forEach { bridge ->
+                features.add(
+                    WorldFeature(
+                        type = "civic_bridge",
+                        x = bridge.x,
+                        y = bridge.y,
+                        reason = bridge.status ?: "unknown",
+                        details = mapOf(
+                            "id" to (bridge.id ?: "unknown"),
+                            "length" to (bridge.length?.toString() ?: "unknown"),
+                            "orientation" to (bridge.orientation ?: "unknown"),
+                            "status" to (bridge.status ?: "unknown"),
+                            "cause" to (bridge.cause ?: "unknown")
+                        )
+                    )
+                )
+            }
+
+        civic.roads.forEach { road ->
+            road.path.forEachIndexed { index, point ->
+                if (point.x !in 0 until map.widthInCells || point.y !in 0 until map.heightInCells) {
+                    return@forEachIndexed
+                }
+
+                features.add(
+                    WorldFeature(
+                        type = "civic_road",
+                        x = point.x,
+                        y = point.y,
+                        reason = road.status ?: "unknown",
+                        details = mapOf(
+                            "status" to (road.status ?: "unknown"),
+                            "segment_index" to index.toString(),
+                            "path_length" to road.path.size.toString()
+                        )
+                    )
+                )
+            }
+        }
+
+        civic.buildings
+            .filter { it.x in 0 until map.widthInCells && it.y in 0 until map.heightInCells }
+            .forEach { building ->
+                features.add(
+                    WorldFeature(
+                        type = "civic_building",
+                        x = building.x,
+                        y = building.y,
+                        reason = building.status ?: "abandoned",
+                        details = mapOf(
+                            "type" to (building.type ?: "unknown"),
+                            "status" to (building.status ?: "unknown")
+                        )
+                    )
+                )
+            }
+
+        logger.info("civic_plan_complete", "Planned ${features.size} CivicOverreach features")
+        return features
+    }
+
     private fun selectRampCandidate(tiles: List<TileInfo>): TileInfo? {
         // Why: We look for a steep tile (ridge) and a nearby low slope tile.
         val ridgeTile = tiles
