@@ -1,0 +1,13 @@
+[Unit]
+Description=Watch dashboard sources and restart on changes
+
+[Path]
+Unit=web-dashboard-reload.service
+PathModified=%h/Code/RTSColonyTerrainGenerator/Web/server
+PathModified=%h/Code/RTSColonyTerrainGenerator/Web/ui
+PathModified=%h/Code/RTSColonyTerrainGenerator/Web/pipelines
+PathChanged=%h/Code/RTSColonyTerrainGenerator/Web/requirements.txt
+PathChanged=%h/Code/RTSColonyTerrainGenerator/Web/run.sh
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline Command</title>
+    <link rel="stylesheet" href="cyberpunk.css">
+</head>
+
+<body>
+    <header>
+        <div class="system-identity">PIPELINE COMMAND // TACTICAL OVERVIEW</div>
+        <div class="pipeline-selector">
+            <label for="pipeline-select">TARGET SYSTEM:</label>
+            <select id="pipeline-select">
+                <!-- Populated by JS -->
+            </select>
+            <div id="clock">00:00:00</div>
+        </div>
+    </header>
+
+    <main>
+        <div class="command-panel">
+            <div class="tactical-btn systemd active" data-target="systemd-section">SYSTEM STATUS</div>
+            <div class="tactical-btn" data-target="stages-section">PIPELINE STAGES</div>
+            <div class="tactical-btn" data-target="logs-section">EVENT LOGS</div>
+        </div>
+
+        <div class="viewport-display">
+
+            <section id="systemd-section" class="tab-section">
+                <h2>System Status</h2>
+                <div id="systemd-container" class="systemd-panel">
+                    <!-- Populated by JS -->
+                    Scanning local units...
+                </div>
+            </section>
+
+            <section id="stages-section" class="tab-section hidden">
+                <h2>Pipeline Stages</h2>
+                <div id="stages-container" class="stages-grid">
+                    <!-- Populated by JS -->
+                    Awaiting telemetry...
+                </div>
+            </section>
+
+            <section id="logs-section" class="tab-section hidden">
+                <h2>Event Stream</h2>
+                <div id="logs-container" class="logs-panel">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

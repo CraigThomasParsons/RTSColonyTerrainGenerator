@@ -1,0 +1,21 @@
+[Unit]
+Description=Pipeline Dashboard (Flask)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Code/RTSColonyTerrainGenerator/Web
+ExecStart=%h/Code/RTSColonyTerrainGenerator/Web/run.sh --port 5001
+Restart=on-failure
+RestartSec=5
+
+Environment=PYTHONUNBUFFERED=1
+
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/Web
+
+[Install]
+WantedBy=default.target

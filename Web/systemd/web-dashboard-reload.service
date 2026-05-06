@@ -1,0 +1,12 @@
+[Unit]
+Description=Rebuild and restart Pipeline Dashboard
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/Code/RTSColonyTerrainGenerator/Web
+ExecStart=/bin/bash -lc 'cd %h/Code/RTSColonyTerrainGenerator/Web && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && systemctl --user restart web-dashboard.service'
+RemainAfterExit=no
+
+[Install]
+WantedBy=default.target

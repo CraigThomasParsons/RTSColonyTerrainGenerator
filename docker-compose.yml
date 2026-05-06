@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # HeightmapAPI - PHP service for enqueueing heightmap jobs
+  heightmap-api:
+    build:
+      context: ./HeightmapApi
+      dockerfile: Dockerfile
+    container_name: heightmap-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8099:8080"
+    volumes:
+      - ./MapGenerator/Heightmap:/app/Heightmap
+    networks:
+      - mapgen
+
+  # MapGenerator Control Panel - Go service for tracking jobs and exposing events
+  mapgen-web:
+    build:
+      context: ./mapgen-web
+      dockerfile: Dockerfile
+    container_name: mapgen-web
+    restart: unless-stopped
+    depends_on:
+      - heightmap-api
+    ports:
+      - "127.0.0.1:5003:5003"
+    environment:
+      - HEIGHTMAP_API_URL=http://heightmap-api:8080
+      - LOG_PATH=/data/minicli.log
+      - LOGS_JOBS_PATH=/data/logs/jobs
+    volumes:
+      - ./MapGenerator:/data/MapGenerator
+      - ./logs:/data/logs
+    networks:
+      - mapgen
+
+  # Web Dashboard - Python Flask service for observing pipelines
+  web-dashboard:
+    build:
+      context: ./Web
+      dockerfile: Dockerfile
+    container_name: web-dashboard
+    restart: unless-stopped
+    depends_on:
+      - heightmap-api
+    ports:
+      - "127.0.0.1:5001:5001"
+    volumes:
+      - ./MapGenerator:/pipelines/MapGenerator
+      - ./logs:/pipelines/logs
+      - ./Web/pipelines:/app/pipelines:ro
+    networks:
+      - mapgen
+
+networks:
+  mapgen:
+    driver: bridge

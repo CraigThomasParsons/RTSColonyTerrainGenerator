@@ -1,0 +1,27 @@
+id: bandcamp-sync
+name: Bandcamp Sync
+root: /home/craigpar/BandcampSync
+
+queues:
+  pending: Sync/inbox/pending
+  in_progress: Sync/inbox/in_progress
+  failed: Sync/inbox/failed
+  done: Sync/inbox/done
+
+logs:
+  - Sync/logs/worker.log
+  - Sync/logs/reconcile.log
+  - Sync/logs/enqueue.log
+
+systemd:
+  user: true
+  units:
+    - bandcamp-sync-reconcile.service
+    - bandcamp-sync-worker.service
+    - bandcamp-sync.path
+    - bandcamp-sync-worker.path
+
+job:
+  extension: ".job"
+  content: text
+  
