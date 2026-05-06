@@ -1,0 +1,11 @@
+[Unit]
+Description=Watch WorldPreview inputs
+
+[Path]
+# Watch for JSONs in PathFinder outbox (the input source)
+PathChanged=%h/Code/RTSColonyTerrainGenerator/MapGenerator/PathFinder/outbox/
+# Also watch local inbox if used manually
+PathChanged=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WorldPreview/inbox/
+
+[Install]
+WantedBy=default.target

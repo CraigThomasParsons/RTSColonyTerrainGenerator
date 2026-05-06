@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch WorldFeatures outputs for playable setup
+
+[Path]
+PathChanged=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WorldFeatures/outbox/
+PathExistsGlob=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WorldFeatures/outbox/*
+PathChanged=%h/Code/RTSColonyTerrainGenerator/MapGenerator/Playable/inbox/
+
+[Install]
+WantedBy=default.target

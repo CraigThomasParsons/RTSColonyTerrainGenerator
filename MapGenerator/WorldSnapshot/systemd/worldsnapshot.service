@@ -1,0 +1,17 @@
+[Unit]
+Description=WorldSnapshot Worker
+After=local-fs.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/Code/RTSColonyTerrainGenerator/.env
+WorkingDirectory=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WorldSnapshot
+ExecStart=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WorldSnapshot/bin/consume_worldsnapshot_job.sh
+
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/logs
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WorldSnapshot
+
+Restart=no
+
+[Install]
+WantedBy=default.target

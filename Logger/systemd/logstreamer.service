@@ -1,0 +1,22 @@
+[Unit]
+Description=MapGenerator LogStreamer (JSONL-aware aggregator)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Code/RTSColonyTerrainGenerator
+ExecStart=%h/Code/RTSColonyTerrainGenerator/Logger/logstreamer.sh
+Restart=always
+RestartSec=2
+
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+# Allow writing aggregated output under logs/
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/logs
+
+[Install]
+WantedBy=default.target

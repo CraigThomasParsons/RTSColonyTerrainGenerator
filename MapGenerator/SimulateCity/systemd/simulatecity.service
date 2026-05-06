@@ -1,0 +1,17 @@
+[Unit]
+Description=SimulateCity Worker
+After=local-fs.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/Code/RTSColonyTerrainGenerator/.env
+WorkingDirectory=%h/Code/RTSColonyTerrainGenerator/MapGenerator/SimulateCity
+ExecStart=%h/Code/RTSColonyTerrainGenerator/MapGenerator/SimulateCity/bin/consume_simulatecity_job.sh
+
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/logs
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/MapGenerator/SimulateCity
+
+Restart=no
+
+[Install]
+WantedBy=default.target

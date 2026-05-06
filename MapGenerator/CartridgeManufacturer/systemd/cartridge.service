@@ -1,0 +1,15 @@
+[Unit]
+Description=CartridgeManufacturer Worker
+After=local-fs.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/Code/RTSColonyTerrainGenerator/.env
+WorkingDirectory=%h/Code/RTSColonyTerrainGenerator/MapGenerator/CartridgeManufacturer
+ExecStart=%h/Code/RTSColonyTerrainGenerator/MapGenerator/CartridgeManufacturer/bin/consume_cartridge_job.sh
+
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/logs
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/MapGenerator/CartridgeManufacturer
+
+[Install]
+WantedBy=default.target

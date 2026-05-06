@@ -1,0 +1,20 @@
+[Unit]
+Description=WorldPreview Generator
+After=local-fs.target
+
+[Service]
+Type=oneshot
+# Adjust environment path if needed
+EnvironmentFile=%h/Code/RTSColonyTerrainGenerator/.env
+WorkingDirectory=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WorldPreview
+# The binary is installed to the module root by install.sh
+ExecStart=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WorldPreview/bin/consume_worldpreview_job.sh
+
+# Grant write access
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/logs
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WorldPreview
+
+Restart=no
+
+[Install]
+WantedBy=default.target

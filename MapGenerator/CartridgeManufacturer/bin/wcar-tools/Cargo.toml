@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+
+members = [
+    "crates/wcar",
+    "crates/wcar_pack",
+    "crates/wcar_export_chk",
+    "crates/wcar_run_stratagus",
+]

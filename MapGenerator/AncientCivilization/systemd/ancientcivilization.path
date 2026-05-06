@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch AncientCivilization inputs for new payloads
+
+[Path]
+PathChanged=%h/Code/RTSColonyTerrainGenerator/MapGenerator/WorldFeatures/outbox/
+PathChanged=%h/Code/RTSColonyTerrainGenerator/MapGenerator/AncientCivilization/inbox/
+
+[Install]
+WantedBy=default.target

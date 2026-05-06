@@ -19,9 +19,9 @@ final class HeightmapJobWriter
      */
     public function __construct(string $inboxDirectory)
     {
-        if (is_dir($this->inboxDirectory) === false) {
+        if (is_dir($inboxDirectory) === false) {
             throw new \RuntimeException(
-                'Inbox directory does not exist: ' . $this->inboxDirectory
+                'Inbox directory does not exist: ' . $inboxDirectory
             );
         }
 

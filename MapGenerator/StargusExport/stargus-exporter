@@ -1,0 +1,811 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import struct
+import shutil
+import subprocess
+import zlib
+from pathlib import Path
+from typing import Dict, Any, List
+
+TILESET_IDS = {
+    "badlands": 0,
+    "space_platform": 1,
+    "installation": 2,
+    "ashworld": 3,
+    "jungle": 4,
+    "desert": 5,
+    "ice": 6,
+    "twilight": 7,
+}
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Export World Payload to StarCraft CHK")
+    parser.add_argument("--job-file", required=True, help="World payload JSON file")
+    parser.add_argument("--output-dir", required=True, help="Output directory")
+    parser.add_argument("--tileset", default="jungle", help="StarCraft tileset name")
+    parser.add_argument(
+        "--tileset-map",
+        default=str(Path(__file__).parent / "tileset_mappings" / "default_badlands.json"),
+        help="Path to terrain→tile mapping JSON",
+    )
+    parser.add_argument(
+        "--map-type",
+        type=int,
+        default=2,
+        help="CHK TYPE value (2=melee by default)",
+    )
+    parser.add_argument(
+        "--chk-version",
+        type=int,
+        default=33,
+        help="CHK VER value (default 33)",
+    )
+    parser.add_argument(
+        "--mpq-tool",
+        default=None,
+        help="Optional MPQ tool path to build .scm (e.g., mpqadd)",
+    )
+    parser.add_argument(
+        "--template-scm",
+        default=None,
+        help="Optional Template.scm to copy and inject scenario.chk into",
+    )
+    parser.add_argument(
+        "--diagnose",
+        action="store_true",
+        help="Print CHK/SCM diagnostics after export",
+    )
+    return parser.parse_args()
+
+
+def load_json(path: Path) -> Dict[str, Any]:
+    with path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def load_tileset_mapping(path: Path) -> Dict[str, Any]:
+    data = load_json(path)
+    terrain_map = data.get("terrain_to_tile", {})
+    default_tile = int(data.get("default_tile", 0))
+    return {"terrain_to_tile": terrain_map, "default_tile": default_tile}
+
+
+def build_tile_grid(width: int, height: int, tiles: List[Dict[str, Any]], mapping: Dict[str, Any]) -> List[int]:
+    total = width * height
+    grid = [mapping["default_tile"] for _ in range(total)]
+
+    for tile in tiles:
+        x = int(tile.get("x", -1))
+        y = int(tile.get("y", -1))
+        if x < 0 or y < 0 or x >= width or y >= height:
+            continue
+        terrain = str(tile.get("terrain", ""))
+        tile_id = mapping["terrain_to_tile"].get(terrain, mapping["default_tile"])
+        grid[y * width + x] = int(tile_id)
+
+    return grid
+
+
+def pack_section(name: str, data: bytes) -> bytes:
+    return name.encode("ascii") + struct.pack("<I", len(data)) + data
+
+
+def build_str_section(strings: List[str]) -> bytes:
+    encoded = [s.encode("utf-8") + b"\x00" for s in strings]
+    offsets: List[int] = []
+    cursor = 0
+    for chunk in encoded:
+        offsets.append(cursor)
+        cursor += len(chunk)
+
+    header = struct.pack("<H", len(strings))
+    header += struct.pack(f"<{len(strings)}H", *offsets) if strings else b""
+    return header + b"".join(encoded)
+
+
+def build_sprp_section(name_id: int, desc_id: int) -> bytes:
+    return struct.pack("<HH", name_id, desc_id)
+
+
+def build_ownr_section() -> bytes:
+    # 12 players: player 1 human, player 2 computer, others unused.
+    # CHK OWNR values used by Stargus: 6=person, 5=computer, 0=unused.
+    owners = [6, 5] + [0] * 10
+    return struct.pack("<12B", *owners)
+
+
+def build_side_section() -> bytes:
+    # 12 players: set players 1-8 to Terran (1), others to Zerg (0).
+    sides = [1] * 8 + [0] * 4
+    return struct.pack("<12B", *sides)
+
+
+def build_forc_section() -> bytes:
+    # 4 forces: empty names, all players assigned to force 0, no flags.
+    force_names = [0, 0, 0, 0]
+    player_forces = [0] * 8
+    force_flags = [0, 0, 0, 0]
+    return struct.pack("<4H8B4B", *force_names, *player_forces, *force_flags)
+
+
+def build_colr_section() -> bytes:
+    # 8 players, default colors 0-7.
+    return struct.pack("<8B", 0, 1, 2, 3, 4, 5, 6, 7)
+
+
+def build_crgb_section() -> bytes:
+    # 8 players: RGB triplets + 8 mode bytes (all zero = use default colors).
+    return bytes(32)
+
+
+def build_upgr_section() -> bytes:
+    # Upgrade restrictions (vanilla/hybrid): 1748 bytes.
+    return bytes(1748)
+
+
+def build_puni_section() -> bytes:
+    # Player unit restrictions: 5700 bytes.
+    return bytes(5700)
+
+
+def build_ptec_section() -> bytes:
+    # Tech restrictions (vanilla/hybrid): 912 bytes.
+    return bytes(912)
+
+
+def build_upgs_section() -> bytes:
+    # Upgrade settings (vanilla/hybrid): 598 bytes.
+    return bytes(598)
+
+
+def build_unis_section() -> bytes:
+    # Unit settings (vanilla/hybrid): 4048 bytes.
+    return bytes(4048)
+
+
+def build_upus_section() -> bytes:
+    # CUWP slots used: 64 bytes.
+    return bytes(64)
+
+
+def build_tecs_section() -> bytes:
+    # Tech settings (vanilla/hybrid): 216 bytes.
+    return bytes(216)
+
+
+def build_uprp_section() -> bytes:
+    # Unit property settings (64 entries × 20 bytes).
+    return bytes(20 * 64)
+
+
+def build_mrgn_section() -> bytes:
+    # Locations: 255 entries × 20 bytes.
+    return bytes(20 * 255)
+
+
+def build_swnm_section() -> bytes:
+    # Switch names: 256 entries × 2 bytes (string IDs).
+    return bytes(256 * 2)
+
+
+def build_wav_section() -> bytes:
+    # WAV string IDs: 512 entries × 2 bytes.
+    return bytes(512 * 2)
+
+
+def build_mask_section(width: int, height: int) -> bytes:
+    return bytes(width * height)
+
+
+def build_unit_section(width: int, height: int) -> bytes:
+    # Add at least two start locations so StarEdit can save the map.
+    # UNIT entry format: 36 bytes per unit.
+    def unit_entry(player_index: int, tile_x: int, tile_y: int, unit_id: int) -> bytes:
+        x = tile_x * 32 + 16
+        y = tile_y * 32 + 16
+        instance_id = 0
+        building_relation = 0
+        valid_abilities = 0
+        valid_properties = 0x0001  # owner
+        owner = player_index
+        health = 0
+        shields = 0
+        energy = 0
+        resources = 0
+        hanger_units = 0
+        ability_states = 0
+        padding = 0
+        unit_relation_id = 0
+        return struct.pack(
+            "<IHHHHHHBBBBIHHII",
+            instance_id,
+            x,
+            y,
+            unit_id,
+            building_relation,
+            valid_abilities,
+            valid_properties,
+            owner,
+            health,
+            shields,
+            energy,
+            resources,
+            hanger_units,
+            ability_states,
+            padding,
+            unit_relation_id,
+        )
+
+    def start_location(player_index: int, tile_x: int, tile_y: int) -> bytes:
+        return unit_entry(player_index, tile_x, tile_y, 214)  # Special_Start_Location
+
+    # Minimal starting units so the game doesn't immediately end in a draw.
+    # Unit IDs follow stargus dataset/units.json.
+    TERRAN_COMMAND_CENTER = 106
+    TERRAN_SCV = 7
+
+    max_x = max(1, width - 2)
+    max_y = max(1, height - 2)
+    player_one_start = (2, 2)
+    player_two_start = (max_x, max_y)
+    return b"".join(
+        [
+            start_location(0, *player_one_start),
+            start_location(1, *player_two_start),
+            unit_entry(0, player_one_start[0] + 1, player_one_start[1] + 1, TERRAN_COMMAND_CENTER),
+            unit_entry(1, player_two_start[0] - 1, player_two_start[1] - 1, TERRAN_COMMAND_CENTER),
+            unit_entry(0, player_one_start[0] + 2, player_one_start[1] + 1, TERRAN_SCV),
+            unit_entry(0, player_one_start[0] + 1, player_one_start[1] + 2, TERRAN_SCV),
+            unit_entry(1, player_two_start[0] - 2, player_two_start[1] - 1, TERRAN_SCV),
+            unit_entry(1, player_two_start[0] - 1, player_two_start[1] - 2, TERRAN_SCV),
+        ]
+    )
+
+
+def build_chk(width: int, height: int, tiles: List[int], tileset_id: int, map_type: int, chk_version: int) -> bytes:
+    sections: List[bytes] = []
+
+    sections.append(pack_section("TYPE", struct.pack("<H", map_type)))
+    sections.append(pack_section("VER ", struct.pack("<H", chk_version)))
+    sections.append(pack_section("IVER", struct.pack("<H", 0)))
+    sections.append(pack_section("IVE2", struct.pack("<H", 0)))
+    sections.append(pack_section("ERA ", struct.pack("<H", tileset_id)))
+    sections.append(pack_section("DIM ", struct.pack("<HH", width, height)))
+
+    mtxm = b"".join(struct.pack("<H", tile_id) for tile_id in tiles)
+    sections.append(pack_section("MTXM", mtxm))
+    sections.append(pack_section("MASK", build_mask_section(width, height)))
+
+    strings = ["", "Stargus Export", "Generated map"]
+    str_section = build_str_section(strings)
+    sections.append(pack_section("STR ", str_section))
+    sections.append(pack_section("SPRP", build_sprp_section(1, 2)))
+
+    sections.append(pack_section("OWNR", build_ownr_section()))
+    sections.append(pack_section("SIDE", build_side_section()))
+    sections.append(pack_section("FORC", build_forc_section()))
+
+    sections.append(pack_section("COLR", build_colr_section()))
+    sections.append(pack_section("CRGB", build_crgb_section()))
+    sections.append(pack_section("UPRP", build_uprp_section()))
+    sections.append(pack_section("MRGN", build_mrgn_section()))
+    sections.append(pack_section("SWNM", build_swnm_section()))
+    sections.append(pack_section("WAV ", build_wav_section()))
+    sections.append(pack_section("UPGR", build_upgr_section()))
+    sections.append(pack_section("PUNI", build_puni_section()))
+    sections.append(pack_section("PTEC", build_ptec_section()))
+    sections.append(pack_section("UPGS", build_upgs_section()))
+    sections.append(pack_section("UNIS", build_unis_section()))
+    sections.append(pack_section("UPUS", build_upus_section()))
+    sections.append(pack_section("TECS", build_tecs_section()))
+    sections.append(pack_section("MBRF", b""))
+    sections.append(pack_section("TRIG", b""))
+
+    # Start locations so the map can be saved/opened in editors.
+    sections.append(pack_section("UNIT", build_unit_section(width, height)))
+    sections.append(pack_section("THG2", b""))
+
+    return b"".join(sections)
+
+
+def parse_chk_sections(data: bytes) -> Dict[str, bytes] | None:
+    offset = 0
+    sections: Dict[str, bytes] = {}
+    length = len(data)
+
+    while offset + 8 <= length:
+        name_bytes = data[offset : offset + 4]
+        if not all(65 <= b <= 90 or 48 <= b <= 57 or b == 32 for b in name_bytes):
+            return None
+        name = name_bytes.decode("ascii", errors="replace")
+        size = struct.unpack_from("<I", data, offset + 4)[0]
+        offset += 8
+        if offset + size > length:
+            return None
+        section_data = data[offset : offset + size]
+        offset += size
+        sections[name] = section_data
+
+    return sections
+
+
+def diagnose_chk(chk_bytes: bytes) -> None:
+    sections = parse_chk_sections(chk_bytes)
+    if sections is None:
+        print("[diagnose] CHK parse failed: invalid section layout")
+        return
+
+    section_names = list(sections.keys())
+    print(f"[diagnose] CHK sections ({len(section_names)}): {section_names}")
+
+    expected_sizes = {
+        "COLR": 8,
+        "CRGB": 32,
+        "UPGR": 1748,
+        "PUNI": 5700,
+        "PTEC": 912,
+        "UPGS": 598,
+        "UNIS": 4048,
+        "UPUS": 64,
+        "TECS": 216,
+    }
+    for name, expected in expected_sizes.items():
+        data = sections.get(name)
+        if data is None:
+            continue
+        if len(data) != expected:
+            print(f"[diagnose] {name} length {len(data)} != expected {expected}")
+
+    common_sections = [
+        "TYPE",
+        "VER ",
+        "IVER",
+        "IVE2",
+        "ERA ",
+        "DIM ",
+        "MTXM",
+        "MASK",
+        "STR ",
+        "SPRP",
+        "OWNR",
+        "SIDE",
+        "FORC",
+        "COLR",
+        "CRGB",
+        "UPGR",
+        "PUNI",
+        "PTEC",
+        "UPGS",
+        "UNIS",
+        "UPUS",
+        "TECS",
+        "MBRF",
+        "TRIG",
+        "UNIT",
+        "THG2",
+    ]
+    missing = [name for name in common_sections if name not in sections]
+    if missing:
+        print(f"[diagnose] Missing common CHK sections: {missing}")
+
+    dim = sections.get("DIM ")
+    mtxm = sections.get("MTXM")
+    if dim and mtxm and len(dim) >= 4:
+        width, height = struct.unpack_from("<HH", dim, 0)
+        expected = width * height * 2
+        if len(mtxm) < expected:
+            print(
+                f"[diagnose] MTXM too short: {len(mtxm)} bytes for {width}x{height} (expected {expected})"
+            )
+        else:
+            print(f"[diagnose] MTXM size OK for {width}x{height}")
+            tile_count = width * height
+            tile_ids = struct.unpack_from(f"<{tile_count}H", mtxm, 0)
+            unique_tiles = len(set(tile_ids))
+            print(f"[diagnose] MTXM unique tiles: {unique_tiles}")
+
+    mask = sections.get("MASK")
+    if dim and mask and len(dim) >= 4:
+        width, height = struct.unpack_from("<HH", dim, 0)
+        expected = width * height
+        if len(mask) != expected:
+            print(f"[diagnose] MASK length {len(mask)} != expected {expected}")
+
+    unit = sections.get("UNIT")
+    if unit is not None and len(unit) % 36 != 0:
+        print(f"[diagnose] UNIT length {len(unit)} is not multiple of 36")
+
+    trig = sections.get("TRIG")
+    if trig is not None and len(trig) % 2400 != 0:
+        print(f"[diagnose] TRIG length {len(trig)} is not multiple of 2400")
+
+    mbrf = sections.get("MBRF")
+    if mbrf is not None and len(mbrf) % 2400 != 0:
+        print(f"[diagnose] MBRF length {len(mbrf)} is not multiple of 2400")
+
+    str_section = sections.get("STR ")
+    if str_section is not None and len(str_section) >= 2:
+        count = struct.unpack_from("<H", str_section, 0)[0]
+        offsets_len = 2 + count * 2
+        if len(str_section) < offsets_len:
+            print("[diagnose] STR length too short for offsets table")
+        else:
+            offsets = struct.unpack_from(f"<{count}H", str_section, 2) if count else []
+            strings_blob = str_section[offsets_len:]
+            for idx, off in enumerate(offsets):
+                if off > len(strings_blob):
+                    print(f"[diagnose] STR offset {idx} out of range: {off}")
+
+
+def diagnose_scm(scm_path: Path) -> None:
+    if not scm_path.exists():
+        print("[diagnose] SCM missing")
+        return
+    data = scm_path.read_bytes()
+    if len(data) < 32 or data[:4] != b"MPQ\x1a":
+        print("[diagnose] SCM missing MPQ header")
+        return
+    header_size, archive_size = struct.unpack_from("<II", data, 4)
+    print(f"[diagnose] MPQ header OK (header_size={header_size}, archive_size={archive_size})")
+
+
+def write_file(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("wb") as handle:
+        handle.write(data)
+
+
+def build_scm_with_tool(chk_path: Path, scm_path: Path, mpq_tool: str) -> bool:
+    tool = shutil.which(mpq_tool) if mpq_tool else None
+    if not tool:
+        return False
+
+    try:
+        subprocess.run([tool, str(scm_path), str(chk_path)], check=True)
+    except subprocess.CalledProcessError:
+        return False
+
+    return scm_path.exists()
+
+
+def _build_crypt_table() -> list[int]:
+    table = [0] * 0x500
+    seed = 0x00100001
+    for index in range(0x100):
+        for i in range(5):
+            seed = (seed * 125 + 3) % 0x2AAAAB
+            temp1 = (seed & 0xFFFF) << 16
+            seed = (seed * 125 + 3) % 0x2AAAAB
+            temp2 = seed & 0xFFFF
+            table[i * 0x100 + index] = temp1 | temp2
+    return table
+
+
+_CRYPT_TABLE = _build_crypt_table()
+
+
+def _hash_string(name: str, hash_type: int) -> int:
+    seed1 = 0x7FED7FED
+    seed2 = 0xEEEEEEEE
+    for ch in name.upper():
+        value = ord(ch)
+        seed1 = _CRYPT_TABLE[(hash_type << 8) + value] ^ (seed1 + seed2)
+        seed1 &= 0xFFFFFFFF
+        seed2 = value + seed1 + seed2 + ((seed2 << 5) & 0xFFFFFFFF) + 3
+        seed2 &= 0xFFFFFFFF
+    return seed1 & 0xFFFFFFFF
+
+
+def _hash_for_table(name: str) -> int:
+    seed1 = 0x7FED7FED
+    seed2 = 0xEEEEEEEE
+    hash_type = 3  # TABLE
+    for ch in name.upper():
+        value = ord(ch)
+        seed1 = _CRYPT_TABLE[(hash_type << 8) + value] ^ (seed1 + seed2)
+        seed1 &= 0xFFFFFFFF
+        seed2 = value + seed1 + seed2 + ((seed2 << 5) & 0xFFFFFFFF) + 3
+        seed2 &= 0xFFFFFFFF
+    return seed1 & 0xFFFFFFFF
+
+
+def _encrypt_table(data: bytes, key: int) -> bytes:
+    seed1 = key & 0xFFFFFFFF
+    seed2 = 0xEEEEEEEE
+    out = bytearray()
+
+    for i in range(0, len(data), 4):
+        seed2 = (seed2 + _CRYPT_TABLE[0x400 + (seed1 & 0xFF)]) & 0xFFFFFFFF
+        value = struct.unpack("<I", data[i : i + 4])[0]
+        encrypted = (value ^ (seed1 + seed2)) & 0xFFFFFFFF
+        seed1 = (((~seed1 << 0x15) + 0x11111111) | (seed1 >> 0x0B)) & 0xFFFFFFFF
+        seed2 = (value + seed2 + ((seed2 << 5) & 0xFFFFFFFF) + 3) & 0xFFFFFFFF
+        out.extend(struct.pack("<I", encrypted))
+
+    return bytes(out)
+
+
+def _decrypt_table(data: bytes, key: int) -> bytes:
+    seed1 = key & 0xFFFFFFFF
+    seed2 = 0xEEEEEEEE
+    out = bytearray()
+    length = len(data) - (len(data) % 4)
+
+    for i in range(0, length, 4):
+        seed2 = (seed2 + _CRYPT_TABLE[0x400 + (seed1 & 0xFF)]) & 0xFFFFFFFF
+        value = struct.unpack("<I", data[i : i + 4])[0]
+        decrypted = (value ^ (seed1 + seed2)) & 0xFFFFFFFF
+        seed1 = (((~seed1 << 0x15) + 0x11111111) | (seed1 >> 0x0B)) & 0xFFFFFFFF
+        seed2 = (decrypted + seed2 + ((seed2 << 5) & 0xFFFFFFFF) + 3) & 0xFFFFFFFF
+        out.extend(struct.pack("<I", decrypted))
+
+    if length < len(data):
+        out.extend(data[length:])
+    return bytes(out)
+
+
+def _encrypt_data(data: bytes, key: int) -> bytes:
+    length = len(data) - (len(data) % 4)
+    if length == 0:
+        return data
+    encrypted = _encrypt_table(data[:length], key)
+    if length < len(data):
+        encrypted += data[length:]
+    return encrypted
+
+
+def _build_hash_table_entries(file_entries: list[tuple[str, int]], entries: int) -> bytes:
+    empty_entry = struct.pack("<IIHHI", 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFF, 0xFFFF, 0xFFFFFFFF)
+    table = [empty_entry for _ in range(entries)]
+
+    for file_name, block_index in file_entries:
+        hash_a = _hash_string(file_name, 1)
+        hash_b = _hash_string(file_name, 2)
+        start = hash_a % entries
+
+        for i in range(entries):
+            idx = (start + i) % entries
+            entry = table[idx]
+            if entry == empty_entry:
+                table[idx] = struct.pack("<IIHHI", hash_a, hash_b, 0, 0, block_index)
+                break
+
+    return b"".join(table)
+
+
+def build_scm_minimal(chk_path: Path, scm_path: Path) -> None:
+    chk_data = chk_path.read_bytes()
+    file_name = "staredit\\scenario.chk"
+    listfile_data = (file_name + "\r\n").encode("ascii")
+
+    def build_sector_payload(data: bytes, sector_size: int = 4096) -> tuple[bytes, list[int]]:
+        sectors = (len(data) + sector_size - 1) // sector_size
+        sector_table_size = (sectors + 1) * 4
+        sector_offsets = [sector_table_size]
+        sector_blobs = []
+
+        for index in range(sectors):
+            start = index * sector_size
+            end = min(start + sector_size, len(data))
+            raw_sector = data[start:end]
+            compressed = zlib.compress(raw_sector, level=9)
+            sector_blob = b"\x02" + compressed
+            sector_blobs.append(sector_blob)
+            sector_offsets.append(sector_offsets[-1] + len(sector_blob))
+
+        table = struct.pack(f"<{len(sector_offsets)}I", *sector_offsets)
+        return table + b"".join(sector_blobs), sector_offsets
+
+    def encrypt_sector_payload(payload: bytes, sector_offsets: list[int], key: int) -> bytes:
+        if not sector_offsets:
+            return payload
+        data = bytearray(payload)
+        table_size = sector_offsets[0]
+        data[:table_size] = _encrypt_data(data[:table_size], key)
+        for index in range(len(sector_offsets) - 1):
+            start = sector_offsets[index]
+            end = sector_offsets[index + 1]
+            data[start:end] = _encrypt_data(data[start:end], key + index)
+        return bytes(data)
+
+    header_size = 32
+    data_offset = header_size
+    chk_payload, chk_offsets = build_sector_payload(chk_data)
+    listfile_payload, listfile_offsets = build_sector_payload(listfile_data)
+
+    chk_offset = data_offset
+    chk_size = len(chk_payload)
+    listfile_offset = chk_offset + chk_size
+    listfile_size = len(listfile_payload)
+
+    hash_table_entries = 1024
+    block_table_entries = 2
+
+    hash_table_offset = listfile_offset + listfile_size
+    hash_table_size = hash_table_entries * 16
+    block_table_offset = hash_table_offset + hash_table_size
+    block_table_size = block_table_entries * 16
+    archive_size = block_table_offset + block_table_size
+
+    sector_size_shift = 3  # 512 << 3 = 4096 bytes
+
+    header = b"".join(
+        [
+            b"MPQ\x1a",
+            struct.pack("<I", header_size),
+            struct.pack("<I", archive_size),
+            struct.pack("<H", 0),  # format version 0
+            struct.pack("<H", sector_size_shift),
+            struct.pack("<I", hash_table_offset),
+            struct.pack("<I", block_table_offset),
+            struct.pack("<I", hash_table_entries),
+            struct.pack("<I", block_table_entries),
+        ]
+    )
+
+    chk_flags = 0x80000000 | 0x00000200 | 0x00010000
+    listfile_flags = 0x80000000 | 0x00000200 | 0x00010000 | 0x00020000
+    block_table = b"".join(
+        [
+            struct.pack(
+                "<IIII",
+                chk_offset,
+                chk_size,
+                len(chk_data),
+                chk_flags,
+            ),
+            struct.pack(
+                "<IIII",
+                listfile_offset,
+                listfile_size,
+                len(listfile_data),
+                listfile_flags,
+            ),
+        ]
+    )
+
+    hash_table = _build_hash_table_entries(
+        [(file_name, 0), ("(listfile)", 1)],
+        hash_table_entries,
+    )
+
+    encrypted_hash_table = _encrypt_table(hash_table, _hash_for_table("(hash table)"))
+    encrypted_block_table = _encrypt_table(block_table, _hash_for_table("(block table)"))
+
+    chk_key = _hash_string(file_name, 3)
+    chk_payload = encrypt_sector_payload(chk_payload, chk_offsets, chk_key)
+
+    listfile_key = _hash_string("(listfile)", 3)
+    listfile_key = (listfile_key + listfile_offset) ^ len(listfile_data)
+    listfile_payload = encrypt_sector_payload(listfile_payload, listfile_offsets, listfile_key)
+
+    with scm_path.open("wb") as handle:
+        handle.write(header)
+        handle.write(chk_payload)
+        handle.write(listfile_payload)
+        handle.write(encrypted_hash_table)
+        handle.write(encrypted_block_table)
+
+
+def build_scm_from_template(chk_path: Path, scm_path: Path, template_path: Path) -> None:
+    chk_data = chk_path.read_bytes()
+    file_name = "staredit\\scenario.chk"
+    listfile_data = (file_name + "\r\n").encode("ascii")
+
+    template = bytearray(template_path.read_bytes())
+    if len(template) < 32 or template[:4] != b"MPQ\x1a":
+        raise ValueError("Template SCM missing MPQ header")
+
+    header_size, archive_size, fmt_ver, sector_shift = struct.unpack_from("<I I H H", template, 4)
+    hash_off, block_off, hash_entries, block_entries = struct.unpack_from("<I I I I", template, 16)
+
+    hash_bytes = bytes(template[hash_off : hash_off + hash_entries * 16])
+    block_bytes = bytes(template[block_off : block_off + block_entries * 16])
+
+    hash_table = _decrypt_table(hash_bytes, _hash_for_table("(hash table)"))
+    block_table = _decrypt_table(block_bytes, _hash_for_table("(block table)"))
+
+    def find_block_index(name: str) -> int:
+        hash_a = _hash_string(name, 1)
+        hash_b = _hash_string(name, 2)
+        start = hash_a % hash_entries
+        for i in range(hash_entries):
+            idx = (start + i) % hash_entries
+            entry = hash_table[idx * 16 : (idx + 1) * 16]
+            ha, hb, _locale, _platform, block_index = struct.unpack("<IIHHI", entry)
+            if ha == hash_a and hb == hash_b and block_index != 0xFFFFFFFF:
+                return block_index
+        raise ValueError(f"Template SCM missing {name}")
+
+    chk_index = find_block_index(file_name)
+    list_index = find_block_index("(listfile)")
+
+    chk_payload = chk_data
+    list_payload = listfile_data
+
+    chk_entry = struct.unpack("<IIII", block_table[chk_index * 16 : (chk_index + 1) * 16])
+    list_entry = struct.unpack("<IIII", block_table[list_index * 16 : (list_index + 1) * 16])
+
+    chk_offset = chk_entry[0]
+    list_offset = list_entry[0]
+
+    if len(chk_payload) > chk_entry[1]:
+        raise ValueError("CHK payload larger than template block")
+
+    replace_listfile = True
+    if len(list_payload) > list_entry[1]:
+        raise ValueError("Listfile payload larger than template block")
+
+    template[chk_offset : chk_offset + len(chk_payload)] = chk_payload
+    if replace_listfile:
+        template[list_offset : list_offset + len(list_payload)] = list_payload
+
+    chk_flags = 0x80000000 | 0x01000000
+    block_table = bytearray(block_table)
+    block_table[chk_index * 16 : (chk_index + 1) * 16] = struct.pack(
+        "<IIII",
+        chk_offset,
+        len(chk_payload),
+        len(chk_data),
+        chk_flags,
+    )
+    if replace_listfile:
+        list_flags = 0x80000000 | 0x01000000
+        block_table[list_index * 16 : (list_index + 1) * 16] = struct.pack(
+            "<IIII",
+            list_offset,
+            len(list_payload),
+            len(listfile_data),
+            list_flags,
+        )
+
+    encrypted_block_table = _encrypt_table(bytes(block_table), _hash_for_table("(block table)"))
+    template[block_off : block_off + len(encrypted_block_table)] = encrypted_block_table
+
+    scm_path.write_bytes(template)
+
+
+def main() -> None:
+    args = parse_args()
+    job_path = Path(args.job_file).expanduser().resolve()
+    output_dir = Path(args.output_dir).expanduser().resolve()
+
+    payload = load_json(job_path)
+    job_id = payload.get("job_id") or job_path.stem
+    width = int(payload["map"]["width_in_cells"])
+    height = int(payload["map"]["height_in_cells"])
+    tiles = payload.get("tiles", [])
+
+    mapping = load_tileset_mapping(Path(args.tileset_map))
+    tileset_id = TILESET_IDS.get(args.tileset, TILESET_IDS["badlands"])
+
+    grid = build_tile_grid(width, height, tiles, mapping)
+    chk_data = build_chk(width, height, grid, tileset_id, args.map_type, args.chk_version)
+
+    chk_path = output_dir / f"{job_id}.chk"
+    write_file(chk_path, chk_data)
+
+    scm_path = output_dir / f"{job_id}.scm"
+    if args.mpq_tool:
+        if not build_scm_with_tool(chk_path, scm_path, args.mpq_tool):
+            if args.template_scm:
+                build_scm_from_template(chk_path, scm_path, Path(args.template_scm))
+            else:
+                build_scm_minimal(chk_path, scm_path)
+    else:
+        if args.template_scm:
+            build_scm_from_template(chk_path, scm_path, Path(args.template_scm))
+        else:
+            build_scm_minimal(chk_path, scm_path)
+
+    if args.diagnose:
+        print(f"[diagnose] CHK: {chk_path}")
+        diagnose_chk(chk_path.read_bytes())
+        print(f"[diagnose] SCM: {scm_path}")
+        diagnose_scm(scm_path)
+
+
+if __name__ == "__main__":
+    main()
