@@ -1,0 +1,4 @@
+# Promotion ledger — behavioural parity (mirrors ThePulseProject's net-ready.tags).
+# One @slice-NN tag per line. A slice is listed only when its Gherkin runs green on the
+# 'net' profile; appending a tag is an explicit, reviewable act in the slice's closing PR.
+# Lines starting with '#' are comments.
