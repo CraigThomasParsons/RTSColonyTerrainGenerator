@@ -152,3 +152,6 @@ MapGenerator/StargusExport/exports/
 node_modules/
 src/**/bin/
 tests/**/bin/
+
+# Local Claude Code project config
+.claude/
