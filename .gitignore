@@ -148,3 +148,7 @@ logs/leftoff_snapshots/
 
 # StargusExport generated SCM map outputs
 MapGenerator/StargusExport/exports/
+# Spec-driven toolkit (feature/spec-driven-toolkit)
+node_modules/
+src/**/bin/
+tests/**/bin/
