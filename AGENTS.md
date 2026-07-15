@@ -242,6 +242,9 @@ The agent should produce:
   as data in `tests/bdd/support/personas.js`;
 - compatibility tests compare logical meaning;
 - every corrected bug receives a regression test.
+- In JavaScript (steps, support, tooling): never coerce to boolean with `!!`. Say what
+  you mean — `Boolean(x)`, an explicit comparison (`x !== undefined`, `x.length > 0`),
+  or a real predicate. Craig will protest every `!!` in review.
 
 ## Dafny-Specific Rules
 
