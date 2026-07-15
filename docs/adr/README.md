@@ -12,6 +12,7 @@ plus vendored upstream ADRs from The-Pulse that shaped them.
 | [0003](0003-cucumber-js-bdd-runner.md) | cucumber-js as the Gherkin runner (dual profiles legacy/net, personas registry), with a planned Serenity/JS Screenplay evolution | Accepted |
 | [0004](0004-ampb-integration-boundary.md) | AgileMedievalPeasantBoard integration boundary: thin HTTP service seam, versioned MapDocument contract in `MapGen.Contracts`, terminal `AgileMedievalExport` stage via the short path; AMPB unchanged | Accepted |
 | [0005](0005-mediator-in-application-layer.md) | Adopt source-generated Mediator (`ISender`/`IRequestHandler<,>` returning `Result<T>`) in the application layer, matching The-Pulse v2; retrofits Epic 1; enables pipeline behaviours (logging first) | Accepted |
+| [0006](0006-gamestart-react-fsd-island.md) | AMPB's world-setup phase as a React (FSD) island behind a Laravel BFF (React → Laravel → MapGen, service token; MapGen stays internal); seamless single-navigation handoff to the Livewire+PixiJS game. Refines ADR 0004; primarily AMPB-side | Proposed |
 
 ## Vendored upstream ADRs
 
