@@ -1,6 +1,7 @@
 using MapGen.Application;
 using MapGen.Contracts;
 using MapGen.Domain;
+using Mediator;
 using NetArchTest.Rules;
 using Xunit;
 
@@ -65,6 +66,21 @@ public class DependencyRuleTests
         var result = Types.InAssembly(typeof(ApplicationAssembly).Assembly)
             .Should()
             .NotHaveDependencyOn("MapGen.Infrastructure")
+            .GetResult();
+
+        Assert.True(result.IsSuccessful, FailureList(result));
+    }
+
+    [Fact]
+    public void Request_handlers_implement_the_mediator_handler_interface()
+    {
+        // ADR 0005: application request handlers are dispatched through Mediator, so every
+        // type named *Handler must implement IRequestHandler<,> — no hand-called handlers.
+        var result = Types.InAssembly(typeof(ApplicationAssembly).Assembly)
+            .That()
+            .HaveNameEndingWith("Handler")
+            .Should()
+            .ImplementInterface(typeof(IRequestHandler<,>))
             .GetResult();
 
         Assert.True(result.IsSuccessful, FailureList(result));
