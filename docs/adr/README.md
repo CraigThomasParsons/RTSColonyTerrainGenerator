@@ -10,7 +10,7 @@ plus vendored upstream ADRs from The-Pulse that shaped them.
 | [0001](0001-specification-driven-mapgen.md) | Adopt a specification-driven architecture for map generation (requirement → BDD → contract → Dafny → CQRS/C# → tests) | Accepted |
 | [0002](0002-dafny-as-verified-model.md) | Dual-reference design: the Legacy Pipeline as the behavioural baseline, Dafny as the Verified Model; promotion via `specs/dafny-ready.tags` | Accepted |
 | [0003](0003-cucumber-js-bdd-runner.md) | cucumber-js as the Gherkin runner (dual profiles legacy/net, personas registry), with a planned Serenity/JS Screenplay evolution | Accepted |
-| [0004](0004-ampb-integration-boundary.md) | AgileMedievalPeasantBoard integration boundary: thin HTTP service seam, versioned MapDocument contract in `MapGen.Contracts`, terminal `AgileMedievalExport` stage via the short path; AMPB unchanged | Proposed |
+| [0004](0004-ampb-integration-boundary.md) | AgileMedievalPeasantBoard integration boundary: thin HTTP service seam, versioned MapDocument contract in `MapGen.Contracts`, terminal `AgileMedievalExport` stage via the short path; AMPB unchanged | Accepted |
 
 ## Vendored upstream ADRs
 

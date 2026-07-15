@@ -1,6 +1,6 @@
 # 0004 — AgileMedievalPeasantBoard integration boundary
 
-Status: Proposed (2026-07-13)
+Status: Accepted (proposed 2026-07-13; accepted on merge of PR #5, 2026-07-14)
 
 ## Context
 
