@@ -3,3 +3,4 @@
 # 'net' profile; appending a tag is an explicit, reviewable act in the slice's closing PR.
 # Lines starting with '#' are comments.
 @slice-01-cell-to-tile
+@slice-02-adjacency-mask
