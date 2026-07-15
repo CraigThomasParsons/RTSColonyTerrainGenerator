@@ -155,3 +155,6 @@ tests/**/bin/
 
 # Local Claude Code project config
 .claude/
+
+# Local editor workspace files at repo root
+/*.code-workspace
