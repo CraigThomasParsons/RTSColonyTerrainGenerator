@@ -6,3 +6,4 @@
 # human approval (AGENTS.md, "Specification Protection").
 # Lines starting with '#' are comments.
 @slice-01-cell-to-tile
+@slice-02-adjacency-mask
