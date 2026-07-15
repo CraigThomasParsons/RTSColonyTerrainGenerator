@@ -1,10 +1,12 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/MapGen.Application/MapGen.Application.csproj" />
+    <Project Path="src/MapGen.Cli/MapGen.Cli.csproj" />
     <Project Path="src/MapGen.Contracts/MapGen.Contracts.csproj" />
     <Project Path="src/MapGen.Domain/MapGen.Domain.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/MapGen.Application.Tests/MapGen.Application.Tests.csproj" />
     <Project Path="tests/MapGen.ArchitectureTests/MapGen.ArchitectureTests.csproj" />
     <Project Path="tests/MapGen.CompatibilityTests/MapGen.CompatibilityTests.csproj" />
     <Project Path="tests/MapGen.Domain.Tests/MapGen.Domain.Tests.csproj" />

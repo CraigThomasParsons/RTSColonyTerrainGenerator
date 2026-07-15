@@ -47,14 +47,16 @@ export class MapGenWorld extends World {
   }
 
   /**
-   * Where a scenario acts against the new implementation, it must fail loudly until the
-   * slice is promoted — a silent fallback to the legacy pipeline would fake parity.
+   * Guard for @net-only steps: they exist only on the new implementation's boundary
+   * (documented asymmetries, e.g. per-cell rejection). Profiles exclude the tag for
+   * the legacy target; this guard makes a mis-tagged scenario fail loudly instead of
+   * silently exercising the wrong backend.
    */
   requireNetTarget(capability) {
-    if (this.target === "net") {
+    if (this.target !== "net") {
       throw new Error(
-        `The 'net' target does not implement "${capability}" yet. ` +
-          `Slices are promoted explicitly via tests/bdd/net-ready.tags.`,
+        `"${capability}" is @net-only — it has no legacy equivalent. ` +
+          `Run it under the net profile (npm run bdd:net).`,
       );
     }
   }
