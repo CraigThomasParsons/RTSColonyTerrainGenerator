@@ -17,7 +17,7 @@ When("I expand the cell at {int},{int}", function (x, y) {
 
 When("I try to expand the cell at {int},{int}", function (x, y) {
   this.requireNetTarget("per-cell rejection");
-  this.expansion = expandViaNet(this.cellMap.width, this.cellMap.height, x, y);
+  this.failure = expandViaNet(this.cellMap.width, this.cellMap.height, x, y);
 });
 
 Then("the tile region contains exactly {int} coordinates", function (count) {
@@ -37,7 +37,9 @@ Then("every tile coordinate is inside a tile map that is {int} tiles wide and {i
   assert.deepEqual(outside, [], `tiles outside ${w}×${h}: ${JSON.stringify(outside)}`);
 });
 
+// Shared rejection step for every slice's @net-only rejection scenario. Each slice's
+// "I try to …" step stores its failure outcome in this.failure as { ok, error }.
 Then("the operation fails because the cell coordinate is outside the cell map", function () {
-  assert.equal(this.expansion.ok, false, "expected the expansion to fail");
-  assert.match(this.expansion.error, /outside the cell map/);
+  assert.equal(this.failure.ok, false, "expected the operation to fail");
+  assert.match(this.failure.error, /outside the cell map/);
 });
