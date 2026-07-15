@@ -1,5 +1,8 @@
 using System.Text.Json;
+using MapGen.Application;
 using MapGen.Application.TileResolution;
+using Mediator;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MapGen.Cli;
 
@@ -14,7 +17,7 @@ namespace MapGen.Cli;
 /// </summary>
 public static class Program
 {
-    public static int Main(string[] args)
+    public static async Task<int> Main(string[] args)
     {
         if (args.Length == 0 || args[0] != "expand-cell")
         {
@@ -39,8 +42,12 @@ public static class Program
             }
         }
 
-        var handler = new ResolveTileRegionHandler();
-        var result = handler.Handle(new ResolveTileRegionCommand(
+        await using var provider = new ServiceCollection()
+            .AddMapGenApplication()
+            .BuildServiceProvider();
+        var sender = provider.GetRequiredService<ISender>();
+
+        var result = await sender.Send(new ResolveTileRegionCommand(
             CellX: options["x"],
             CellY: options["y"],
             MapWidthInCells: options["width"],

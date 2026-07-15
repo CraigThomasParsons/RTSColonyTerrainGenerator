@@ -1,5 +1,6 @@
 using MapGen.Application.Common;
 using MapGen.Domain.TileResolution;
+using Mediator;
 
 namespace MapGen.Application.TileResolution;
 
@@ -10,8 +11,12 @@ namespace MapGen.Application.TileResolution;
 /// No persistence in this slice.
 /// </summary>
 public sealed class ResolveTileRegionHandler
+    : IRequestHandler<ResolveTileRegionCommand, Result<TileRegion>>
 {
-    public Result<TileRegion> Handle(ResolveTileRegionCommand command)
+    public ValueTask<Result<TileRegion>> Handle(ResolveTileRegionCommand command, CancellationToken cancellationToken)
+        => ValueTask.FromResult(Resolve(command));
+
+    private static Result<TileRegion> Resolve(ResolveTileRegionCommand command)
     {
         CellMapDimensions dimensions;
         CellCoordinate cell;
