@@ -5,3 +5,4 @@
 # explicit, reviewable act in the slice's closing PR; weakening a spec to get here requires
 # human approval (AGENTS.md, "Specification Protection").
 # Lines starting with '#' are comments.
+@slice-01-cell-to-tile

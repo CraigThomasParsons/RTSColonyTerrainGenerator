@@ -26,6 +26,7 @@ verify:
 # Gate 4 — domain unit + property tests
 test-unit:
     dotnet test tests/MapGen.Domain.Tests
+    dotnet test tests/MapGen.Application.Tests
 
 # Gate 5 — architecture tests (dependency direction is enforced, not suggested)
 test-architecture:
@@ -55,6 +56,7 @@ quality:
     just test-compatibility
     just bdd-smoke
     just bdd-legacy
+    just bdd-net
 
 # Run the legacy pipeline end to end (filesystem is the source of truth).
 run-legacy width='248' height='248':

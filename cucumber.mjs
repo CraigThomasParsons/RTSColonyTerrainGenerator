@@ -9,7 +9,9 @@ const common = {
   parallel: 2,
 };
 
-export default { ...common };
-export const legacy = { ...common, worldParameters: { target: 'legacy' } };
+// @net-only marks documented profile asymmetries (e.g. per-cell rejection — the legacy
+// stage has no request surface to reject a coordinate). Only the net profile runs them.
+export default { ...common, tags: 'not @wip and not @net-only' };
+export const legacy = { ...common, tags: 'not @wip and not @net-only', worldParameters: { target: 'legacy' } };
 export const net    = { ...common, worldParameters: { target: 'net' } };
 export const smoke  = { ...common, tags: '@slice-00-cross-cutting and not @wip' };
