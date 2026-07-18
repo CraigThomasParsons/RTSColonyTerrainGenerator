@@ -9,7 +9,7 @@ Given("the MapGenerator stage roster", function () {
 });
 
 Then("every stage provides an executable bin lane", function () {
-  const missing = this.roster.filter((s) => !this.stageHasLane(s, "bin"));
+  const missing = this.roster.filter((stageName) => !this.stageHasLane(stageName, "bin"));
   assert.deepEqual(missing, [], `stages missing bin/: ${missing.join(", ")}`);
 });
 
@@ -17,6 +17,6 @@ Then("the core stages are present:", function (table) {
   const missing = table
     .raw()
     .flat()
-    .filter((s) => !this.roster.includes(s));
+    .filter((stageName) => !this.roster.includes(stageName));
   assert.deepEqual(missing, [], `core stages missing from roster: ${missing.join(", ")}`);
 });

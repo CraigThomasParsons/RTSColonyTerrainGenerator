@@ -33,10 +33,10 @@ export const PERSONAS = {
 
 /** Resolve a persona by its friendly name, with a helpful error listing the known cast. */
 export function persona(name) {
-  const p = PERSONAS[name];
-  if (!p) {
-    const known = Object.keys(PERSONAS).map((n) => `"${n}"`).join(", ");
+  const matched = PERSONAS[name];
+  if (!matched) {
+    const known = Object.keys(PERSONAS).map((personaName) => `"${personaName}"`).join(", ");
     throw new Error(`Unknown persona "${name}". Known personas: ${known}.`);
   }
-  return { name, ...p };
+  return { name, ...matched };
 }

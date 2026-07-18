@@ -9,15 +9,15 @@ Given("a cell map that is {int} cells wide and {int} cells high", function (widt
   this.cellMap = { width, height };
 });
 
-When("I expand the cell at {int},{int}", function (x, y) {
+When("I expand the cell at {int},{int}", function (cellX, cellY) {
   const expand = this.viaTarget({ net: expandViaNet, legacy: expandViaLegacy });
-  this.expansion = expand(this.cellMap.width, this.cellMap.height, x, y);
+  this.expansion = expand(this.cellMap.width, this.cellMap.height, cellX, cellY);
   assert.equal(this.expansion.ok, true, `expansion failed: ${this.expansion.error}`);
 });
 
-When("I try to expand the cell at {int},{int}", function (x, y) {
+When("I try to expand the cell at {int},{int}", function (cellX, cellY) {
   this.requireNetTarget("per-cell rejection");
-  this.failure = expandViaNet(this.cellMap.width, this.cellMap.height, x, y);
+  this.failure = expandViaNet(this.cellMap.width, this.cellMap.height, cellX, cellY);
 });
 
 Then("the tile region contains exactly {int} coordinates", function (count) {
@@ -25,16 +25,17 @@ Then("the tile region contains exactly {int} coordinates", function (count) {
     `expected ${count} tiles, got: ${JSON.stringify(this.expansion.tiles)}`);
 });
 
-Then("the tile region contains {int},{int}", function (x, y) {
-  const found = this.expansion.tiles.some((t) => t.x === x && t.y === y);
-  assert.ok(found, `tile (${x},${y}) not in region: ${JSON.stringify(this.expansion.tiles)}`);
+Then("the tile region contains {int},{int}", function (tileX, tileY) {
+  const found = this.expansion.tiles.some((tile) => tile.x === tileX && tile.y === tileY);
+  assert.ok(found, `tile (${tileX},${tileY}) not in region: ${JSON.stringify(this.expansion.tiles)}`);
 });
 
-Then("every tile coordinate is inside a tile map that is {int} tiles wide and {int} tiles high", function (w, h) {
-  assert.equal(this.expansion.tileMap.width, w, "tile map width");
-  assert.equal(this.expansion.tileMap.height, h, "tile map height");
-  const outside = this.expansion.tiles.filter((t) => t.x >= w || t.y >= h || t.x < 0 || t.y < 0);
-  assert.deepEqual(outside, [], `tiles outside ${w}×${h}: ${JSON.stringify(outside)}`);
+Then("every tile coordinate is inside a tile map that is {int} tiles wide and {int} tiles high", function (mapWidth, mapHeight) {
+  assert.equal(this.expansion.tileMap.width, mapWidth, "tile map width");
+  assert.equal(this.expansion.tileMap.height, mapHeight, "tile map height");
+  const outside = this.expansion.tiles.filter(
+    (tile) => tile.x >= mapWidth || tile.y >= mapHeight || tile.x < 0 || tile.y < 0);
+  assert.deepEqual(outside, [], `tiles outside ${mapWidth}×${mapHeight}: ${JSON.stringify(outside)}`);
 });
 
 // Shared rejection step for every slice's @net-only rejection scenario. Each slice's
