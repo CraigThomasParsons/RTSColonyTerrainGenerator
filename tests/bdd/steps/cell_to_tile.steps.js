@@ -10,7 +10,7 @@ Given("a cell map that is {int} cells wide and {int} cells high", function (widt
 });
 
 When("I expand the cell at {int},{int}", function (x, y) {
-  const expand = this.target === "net" ? expandViaNet : expandViaLegacy;
+  const expand = this.viaTarget({ net: expandViaNet, legacy: expandViaLegacy });
   this.expansion = expand(this.cellMap.width, this.cellMap.height, x, y);
   assert.equal(this.expansion.ok, true, `expansion failed: ${this.expansion.error}`);
 });
