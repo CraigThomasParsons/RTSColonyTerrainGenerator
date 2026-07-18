@@ -47,6 +47,22 @@ export class MapGenWorld extends World {
   }
 
   /**
+   * The profile seam: hand in one adapter per target, get back the one for the active
+   * profile. Step files never mention profile names — the world owns dispatch.
+   *   const expand = this.viaTarget({ net: expandViaNet, legacy: expandViaLegacy });
+   */
+  viaTarget(adapters) {
+    const adapter = adapters[this.target];
+    if (!adapter) {
+      throw new Error(
+        `No adapter for target "${this.target}" — got: ${Object.keys(adapters).join(", ")}. ` +
+          `If this step is net-only, tag its scenario @net-only and guard with requireNetTarget.`,
+      );
+    }
+    return adapter;
+  }
+
+  /**
    * Guard for @net-only steps: they exist only on the new implementation's boundary
    * (documented asymmetries, e.g. per-cell rejection). Profiles exclude the tag for
    * the legacy target; this guard makes a mis-tagged scenario fail loudly instead of

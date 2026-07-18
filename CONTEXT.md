@@ -151,6 +151,17 @@ plus a verified Dafny model is the "done" bar for a ported slice.
 _Avoid_: "parity" for visual similarity of rendered maps; claiming parity from unit
 tests alone.
 
+**Probe**:
+A behavioural question asked of the Legacy Pipeline through its real binary and
+artifacts — synthesize a minimal input, run the published stage executable, read the
+answer out of the artifact it writes (e.g. a marker terrain byte revealing a cell's
+tile region; a tile-id low nibble revealing its adjacency mask). The one probe module
+is `tests/bdd/support/legacy_tiler_probe.js`; slice adapters own only their
+interpretation of the probed artifact.
+_Avoid_: "simulation" or "stub" (a probe runs the real legacy executable, never an
+imitation of it); re-implementing legacy behaviour in test code and calling it legacy
+evidence.
+
 **Persona**:
 A named member of the BDD suite's cast — for example an operator submitting a job or
 inspecting a failed lane — defined once as data in `tests/bdd/support/personas.js` and

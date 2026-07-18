@@ -14,7 +14,7 @@ Given("a {int} by {int} terrain grid with rows {string}", function (width, heigh
 });
 
 When("I compute the adjacency mask at {int},{int}", function (x, y) {
-  const compute = this.target === "net" ? maskViaNet : maskViaLegacy;
+  const compute = this.viaTarget({ net: maskViaNet, legacy: maskViaLegacy });
   this.result = compute(this.grid.width, this.grid.height, x, y, this.grid.terrain);
   assert.equal(this.result.ok, true, `mask computation failed: ${this.result.error}`);
 });
