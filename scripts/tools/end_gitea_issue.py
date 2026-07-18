@@ -57,6 +57,12 @@ GITEA_REPO = "RTSColonyTerrainGenerator"
 GITEA_REMOTE = "origin"
 BASE_BRANCH = "main"
 
+# GitHub review mirror (this repo only, per Craig 2026-07-18): every slice-closing PR
+# gets a phone-reviewable twin on GitHub.  Review happens there; the MERGE happens on
+# Gitea, then sync_gitea_to_github.sh refreshes main and the twin is closed.
+GITHUB_REMOTE = "github"
+GITHUB_REPO_SLUG = "CraigThomasParsons/RTSColonyTerrainGenerator"
+
 TOKEN_FILE = Path.home() / ".config" / "pulse" / "gitea_token"
 LOCK_FILE = Path.home() / ".config" / "pulse" / "locks" / f"{REPO_SLUG}.json"
 
@@ -354,6 +360,74 @@ def post_pr_link_comment(issue_number: int, pr_url: str, token: str, dry_run: bo
     info("  ✓ PR link comment posted")
 
 
+# ── Phase 3b: GitHub review mirror ────────────────────────────────────────────
+
+
+def mirror_pr_to_github(
+    branch: str,
+    gitea_pr_url: str,
+    pr_title: str,
+    notes: str,
+    dry_run: bool,
+) -> str | None:
+    """
+    Push the branch to the GitHub remote and open a review-only twin PR there so
+    Craig can review from his phone.  Every failure degrades to a warning — the
+    mirror is a convenience and must never block ending an issue.
+
+    Returns the GitHub PR URL, or None when unavailable or dry-running.
+    """
+    info(f"  → Mirror branch to GitHub remote '{GITHUB_REMOTE}'", dry_run)
+    if dry_run:
+        info(f"  → Would open GitHub twin PR on {GITHUB_REPO_SLUG}", dry_run)
+        return None
+
+    # The mirror needs the github remote to exist in this clone.
+    remote_check = subprocess.run(
+        ["git", "remote", "get-url", GITHUB_REMOTE],
+        capture_output=True, text=True,
+    )
+    if remote_check.returncode != 0:
+        info(f"  ⚠ No '{GITHUB_REMOTE}' remote — GitHub mirror skipped")
+        return None
+
+    push = subprocess.run(
+        ["git", "push", GITHUB_REMOTE, branch],
+        capture_output=True, text=True,
+    )
+    if push.returncode != 0:
+        info(f"  ⚠ Push to GitHub failed — mirror skipped: {push.stderr.strip()[:200]}")
+        return None
+
+    gitea_pr_number = gitea_pr_url.rstrip("/").rsplit("/", 1)[-1]
+    twin_title = f"[Review mirror of Gitea PR #{gitea_pr_number}] {pr_title}"
+    twin_body = (
+        f"**Review-only mirror.** The canonical PR is Gitea #{gitea_pr_number} "
+        f"({gitea_pr_url}) — review and comment here from anywhere, but **do not merge "
+        "on GitHub**; the merge happens on Gitea, after which main is re-synced and "
+        "this twin is closed.\n\n"
+        "## Verification notes\n\n"
+        f"{notes}\n\n"
+        "🤖 Opened by agent automation (end_gitea_issue.py)."
+    )
+    create = subprocess.run(
+        ["gh", "pr", "create",
+         "--repo", GITHUB_REPO_SLUG,
+         "--base", BASE_BRANCH,
+         "--head", branch,
+         "--title", twin_title,
+         "--body", twin_body],
+        capture_output=True, text=True,
+    )
+    if create.returncode != 0:
+        info(f"  ⚠ gh pr create failed — mirror skipped: {create.stderr.strip()[:200]}")
+        return None
+
+    github_pr_url = create.stdout.strip().splitlines()[-1]
+    info(f"  ✓ GitHub review mirror opened: {github_pr_url}")
+    return github_pr_url
+
+
 # ── Phase 4: End comment and lock release ─────────────────────────────────────
 
 
@@ -474,6 +548,12 @@ def main() -> None:
         help="Open a PR to main after pushing",
     )
     parser.add_argument(
+        "--no-github-mirror",
+        action="store_true",
+        dest="no_github_mirror",
+        help="Skip pushing the branch to GitHub and opening the review-mirror twin PR",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print every planned action without mutating state",
@@ -510,6 +590,20 @@ def main() -> None:
         pr_url = open_pull_request(issue_number, branch, issue_title, sprint_key, token, dry_run)
         if pr_url:
             post_pr_link_comment(issue_number, pr_url, token, dry_run)
+
+        # Phase 3b — GitHub review mirror (default ON for this repo; see constants).
+        if not args.no_github_mirror and (pr_url or dry_run):
+            info("\n--- Phase 3b: GitHub review mirror ---")
+            github_pr_url = mirror_pr_to_github(
+                branch, pr_url or "(dry-run)", issue_title, notes, dry_run,
+            )
+            if github_pr_url:
+                post_comment(
+                    issue_number,
+                    f"GitHub review mirror (review there, merge HERE): {github_pr_url}",
+                    token,
+                )
+                info("  ✓ Mirror link cross-posted on the Gitea issue")
 
     # ── Phase 4 ───────────────────────────────────────────────────────────────
     info("\n--- Phase 4: End comment and lock release ---")
