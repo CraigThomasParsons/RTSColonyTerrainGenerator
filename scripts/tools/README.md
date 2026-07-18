@@ -230,7 +230,7 @@ systemctl --user start rtscolony-github-mirror.service
 ## GitHub review mirror (this repo only)
 
 `end_gitea_issue.py --open-pr` also opens a **review-only twin PR on GitHub** (Phase 3b)
-so Craig can review from his phone before Tailscale exists:
+so the maintainer can review on mobile before a VPN into the LAN exists:
 
 1. The feature branch is pushed to the `github` remote.
 2. `gh pr create` opens `[Review mirror of Gitea PR #N] <title>` against `main` on
@@ -238,7 +238,9 @@ so Craig can review from his phone before Tailscale exists:
    do-not-merge-here warning.
 3. The GitHub URL is cross-posted as a comment on the Gitea issue.
 
-Rules: review/comment on GitHub; **merge on Gitea only**. After the Gitea merge, run
+Rules: review/comment on GitHub; **merge on Gitea only**. Twins are opened as **draft
+PRs** so GitHub cannot merge them — by design (a twin was once merged by mistake and
+the forges diverged; drafts make that impossible). After the Gitea merge, run
 `bash scripts/tools/sync_gitea_to_github.sh` (refreshes `main`) and close the twin with
 `gh pr close <n> --repo CraigThomasParsons/RTSColonyTerrainGenerator --delete-branch`.
 Opt out per-run with `--no-github-mirror`. Every mirror failure (missing remote, no gh
