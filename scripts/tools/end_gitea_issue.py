@@ -413,16 +413,23 @@ def mirror_pr_to_github(
     )
     # --draft makes the twin unmergeable on GitHub until someone deliberately marks it
     # ready — the guard that keeps merges on the canonical forge (learned 2026-07-18).
-    create = subprocess.run(
-        ["gh", "pr", "create",
-         "--repo", GITHUB_REPO_SLUG,
-         "--base", BASE_BRANCH,
-         "--head", branch,
-         "--title", twin_title,
-         "--body", twin_body,
-         "--draft"],
-        capture_output=True, text=True,
-    )
+    # A missing gh binary raises OSError rather than returning non-zero, and this phase
+    # must never abort the run (Phase 4 still has to release the lock) — so both the
+    # lookup failure and the non-zero exit degrade to the same warning.
+    try:
+        create = subprocess.run(
+            ["gh", "pr", "create",
+             "--repo", GITHUB_REPO_SLUG,
+             "--base", BASE_BRANCH,
+             "--head", branch,
+             "--title", twin_title,
+             "--body", twin_body,
+             "--draft"],
+            capture_output=True, text=True,
+        )
+    except OSError as error:
+        info(f"  ⚠ GitHub CLI (gh) unavailable — mirror skipped: {error}")
+        return None
     if create.returncode != 0:
         info(f"  ⚠ gh pr create failed — mirror skipped: {create.stderr.strip()[:200]}")
         return None
