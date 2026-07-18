@@ -1,6 +1,6 @@
 # JavaScript / Node Coding Style and Commenting Conventions (Project Standard)
 
-This document defines required JavaScript and Node.js coding style for ArcaneArcadeMachineFactory runtime and tooling.
+This document defines required JavaScript and Node.js coding style for RTSColonyTerrainGenerator tooling and the BDD harness.
 
 The goal is clarity, explicitness, and long-term maintainability.
 
