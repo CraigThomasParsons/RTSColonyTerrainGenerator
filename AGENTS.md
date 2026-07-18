@@ -245,6 +245,9 @@ The agent should produce:
 - In JavaScript (steps, support, tooling): never coerce to boolean with `!!`. Say what
   you mean — `Boolean(x)`, an explicit comparison (`x !== undefined`, `x.length > 0`),
   or a real predicate. Craig will protest every `!!` in review.
+- In JavaScript: the ternary operator (`? :`) is forbidden — use an explicit `if`
+  block so each branch is visually separate and commentable. Full JS rules:
+  `docs/style/javascript_node_style.md`.
 
 ## Dafny-Specific Rules
 

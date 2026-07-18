@@ -12,7 +12,11 @@ export function maskViaNet(width, height, x, y, terrainRowMajor) {
     "--width", String(width), "--height", String(height), "--x", String(x), "--y", String(y),
     "--terrain", terrainRowMajor.join(","),
   ]);
-  return result.ok ? { ok: true, mask: result.mask } : result;
+  // Failures pass through untouched; successes are narrowed to the mask alone.
+  if (!result.ok) {
+    return result;
+  }
+  return { ok: true, mask: result.mask };
 }
 
 export function maskViaLegacy(width, height, x, y, terrainRowMajor) {

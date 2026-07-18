@@ -33,8 +33,8 @@ export class MapGenWorld extends World {
   stageNames() {
     return fs
       .readdirSync(STAGES_ROOT, { withFileTypes: true })
-      .filter((e) => e.isDirectory() && !NON_STAGE_DIRS.has(e.name))
-      .map((e) => e.name)
+      .filter((entry) => entry.isDirectory() && !NON_STAGE_DIRS.has(entry.name))
+      .map((entry) => entry.name)
       .sort();
   }
 

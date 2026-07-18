@@ -171,7 +171,8 @@ if (!fs.existsSync(sourcePath)) {
 
 ## Formatting Rules
 
-- 4 spaces per indentation level
+- 2 spaces per indentation level (amended 2026-07-18 — matches the JS ecosystem default
+  and The-Pulse's JavaScript; this repo's JS was written at 2 and the guide now follows)
 - No tabs
 - One statement per line
 - Blank lines between logical sections
@@ -188,6 +189,12 @@ if (!fs.existsSync(sourcePath)) {
 - Implicit side effects
 - Mixing file I/O and business rules in the same function
 - Silent catch blocks
+- **The ternary operator (`? :`)** — it collapses conditional logic onto one line and
+  forces the reader to parse the branch meaning inline. Use an explicit `if` block so
+  the two cases are visually separated and can each be commented. (Imported from
+  The-Pulse `docs/standards/javascript_typescript.md`.)
+- **Boolean coercion with `!!`** — say what you mean: `Boolean(x)`, an explicit
+  comparison (`x !== undefined`, `x.length > 0`), or a named predicate (AGENTS.md).
 
 ---
 
