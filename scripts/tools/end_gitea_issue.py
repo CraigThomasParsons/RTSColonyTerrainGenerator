@@ -57,8 +57,8 @@ GITEA_REPO = "RTSColonyTerrainGenerator"
 GITEA_REMOTE = "origin"
 BASE_BRANCH = "main"
 
-# GitHub review mirror (this repo only, per Craig 2026-07-18): every slice-closing PR
-# gets a phone-reviewable twin on GitHub.  Review happens there; the MERGE happens on
+# GitHub review mirror (this repo only, adopted 2026-07-18): every slice-closing PR
+# gets a mobile-reviewable twin on GitHub.  Review happens there; the MERGE happens on
 # Gitea, then sync_gitea_to_github.sh refreshes main and the twin is closed.
 GITHUB_REMOTE = "github"
 GITHUB_REPO_SLUG = "CraigThomasParsons/RTSColonyTerrainGenerator"
@@ -372,7 +372,7 @@ def mirror_pr_to_github(
 ) -> str | None:
     """
     Push the branch to the GitHub remote and open a review-only twin PR there so
-    Craig can review from his phone.  Every failure degrades to a warning — the
+    the maintainer can review on mobile.  Every failure degrades to a warning — the
     mirror is a convenience and must never block ending an issue.
 
     Returns the GitHub PR URL, or None when unavailable or dry-running.
@@ -402,23 +402,34 @@ def mirror_pr_to_github(
     gitea_pr_number = gitea_pr_url.rstrip("/").rsplit("/", 1)[-1]
     twin_title = f"[Review mirror of Gitea PR #{gitea_pr_number}] {pr_title}"
     twin_body = (
-        f"**Review-only mirror.** The canonical PR is Gitea #{gitea_pr_number} "
-        f"({gitea_pr_url}) — review and comment here from anywhere, but **do not merge "
-        "on GitHub**; the merge happens on Gitea, after which main is re-synced and "
-        "this twin is closed.\n\n"
+        f"**Review-only mirror — draft on purpose.** This PR stays a draft so GitHub "
+        "cannot merge it; that is by design, not an oversight. The canonical PR is "
+        f"Gitea #{gitea_pr_number} ({gitea_pr_url}) — review and comment here from "
+        "anywhere; the merge happens on Gitea, after which main is re-synced and this "
+        "twin is closed.\n\n"
         "## Verification notes\n\n"
         f"{notes}\n\n"
         "🤖 Opened by agent automation (end_gitea_issue.py)."
     )
-    create = subprocess.run(
-        ["gh", "pr", "create",
-         "--repo", GITHUB_REPO_SLUG,
-         "--base", BASE_BRANCH,
-         "--head", branch,
-         "--title", twin_title,
-         "--body", twin_body],
-        capture_output=True, text=True,
-    )
+    # --draft makes the twin unmergeable on GitHub until someone deliberately marks it
+    # ready — the guard that keeps merges on the canonical forge (learned 2026-07-18).
+    # A missing gh binary raises OSError rather than returning non-zero, and this phase
+    # must never abort the run (Phase 4 still has to release the lock) — so both the
+    # lookup failure and the non-zero exit degrade to the same warning.
+    try:
+        create = subprocess.run(
+            ["gh", "pr", "create",
+             "--repo", GITHUB_REPO_SLUG,
+             "--base", BASE_BRANCH,
+             "--head", branch,
+             "--title", twin_title,
+             "--body", twin_body,
+             "--draft"],
+            capture_output=True, text=True,
+        )
+    except OSError as error:
+        info(f"  ⚠ GitHub CLI (gh) unavailable — mirror skipped: {error}")
+        return None
     if create.returncode != 0:
         info(f"  ⚠ gh pr create failed — mirror skipped: {create.stderr.strip()[:200]}")
         return None
@@ -615,7 +626,7 @@ def main() -> None:
     print(f"\n{'[DRY RUN] ' if dry_run else ''}✓ Issue #{issue_number} ended.")
     if pr_url:
         print(f"  PR: {pr_url}")
-    print("  Lock released. Issue is ready for Craig to merge and close.")
+    print("  Lock released. Issue is ready for the maintainer to merge and close.")
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
