@@ -87,5 +87,9 @@ Use an incremental strangler approach:
 - `08-first-epic-verified-cell-to-tile.md` — the first concrete implementation epic.
 - `09-agent-operating-rules.md` — constraints for coding agents.
 - `10-adr-001-specification-driven-mapgen.md` — architecture decision record.
+- `13-cross-project-conversion-playbook.md` — reusable conversion lanes and
+  trust rules shared with The Pulse without coupling application code.
+- `14-priority-tracer-deterministic-pipeline-lifecycle.md` — the temporary M5
+  tracer used to prove the conversion method across a pipeline boundary.
 
 A combined version is also included as `MapGen-Spec-Driven-Planning-Bible.md`.

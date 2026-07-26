@@ -42,7 +42,7 @@ REPO = "RTSColonyTerrainGenerator"
 
 # Milestone to attach new sprint issues to, resolved by title at runtime.
 # Set to None to create issues without a milestone.
-MILESTONE_TITLE: str | None = None
+MILESTONE_TITLE: str | None = "M5 Verified pipeline lifecycle"
 
 # House labels applied to every new sprint issue, resolved by name at runtime.
 # Labels missing from the repo are skipped with a warning.
@@ -53,22 +53,24 @@ TOKEN_FILE = Path.home() / ".config" / "pulse" / "gitea_token"
 # slug per sprint, used for the tracker path reference.
 # Fill in as sprints are defined in docs/plan/.
 SLUGS = {
-    1: "sprint-01-example-terrain-slice",
+    5: "sprint-05-deterministic-pipeline-lifecycle-tracer",
 }
 
 # num, title, existing_issue (None = create new), goal, what, acceptance[], blocked_by[]
 #
-# TEMPLATE — replace the example row with real sprints from docs/plan/.
-# The tuple shape and the generated body sections are the contract; keep them.
 SPRINTS = [
-    (1, "Example Terrain Slice", None,
-     "Replace this with the sprint goal: one sentence describing the observable "
-     "outcome when the sprint is done.",
-     "Replace this with what to build: the concrete scope across src/, tests/, "
-     "specs/, and features/ for this vertical slice of the terrain pipeline.",
-     ["`just quality` and `dotnet test` are green.",
-      "The new stage/spec is promoted in `specs/dafny-ready.tags`.",
-      "Replace with sprint-specific acceptance criteria."],
+    (5, "Deterministic Pipeline Lifecycle Tracer", 23,
+     "Prove the reusable conversion method on one deterministic end-to-end "
+     "pipeline lifecycle before broader stage migration or AMPB integration.",
+     "Author and prove a behavior-level contract against the legacy pipeline, "
+     "then drive a narrow .NET path from a pinned input through the converted "
+     "tile-resolution operations to a validated deterministic artifact.",
+     ["The BDD contract is green against the pinned legacy oracle before target work.",
+      "The .NET target records red, then reaches green through xUnit TDD.",
+      "Two identical runs produce the same canonical artifact hash.",
+      "Invalid output is never promoted as a complete artifact.",
+      "`just quality` passes without changing Golden Jobs or weakening proofs.",
+      "No AMPB code or final MapDocument schema is introduced."],
      []),
 ]
 
@@ -152,7 +154,7 @@ def new_issue_body(num, goal, what, acceptance, blocked) -> str:
     """Assemble the full body for a NEW sprint issue."""
     lines = [
         "## Parent", "",
-        f"RTSColonyTerrainGenerator roadmap. Plan: `docs/plan/`. "
+        f"RTSColonyTerrainGenerator roadmap. Plan: `mapgen-spec-driven-planning/`. "
         f"Tracker: `docs/sprint_tasks/{SLUGS[num]}/`.",
         "", "## Sprint Goal", "", goal,
         "", "## What to build", "", what,
@@ -168,7 +170,8 @@ def comment_body(num, title, goal, acceptance) -> str:
     """Assemble the Sprint-Goal comment for an EXISTING issue."""
     lines = [
         f"### Sprint {num} — {title} (augmentation)",
-        f"_Tracked in `docs/plan/`; tracker `docs/sprint_tasks/{SLUGS[num]}/`._",
+        f"_Tracked in `mapgen-spec-driven-planning/`; "
+        f"tracker `docs/sprint_tasks/{SLUGS[num]}/`._",
         "", "**Sprint Goal:** " + goal, "", "**Acceptance criteria:**",
     ]
     lines += [f"- [ ] {item}" for item in acceptance]

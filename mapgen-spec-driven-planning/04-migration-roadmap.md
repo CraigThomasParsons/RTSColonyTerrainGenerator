@@ -116,6 +116,15 @@ The C# Tile Resolution stage can replace the legacy Tiler for controlled jobs.
 
 ## Phase 4 — Pipeline Lifecycle Context
 
+### Priority Tracer Before Broad Migration
+
+Before migrating the complete lifecycle context, run the deterministic pipeline
+lifecycle tracer defined in
+`14-priority-tracer-deterministic-pipeline-lifecycle.md`. This is a temporary
+priority insertion assigned to Gitea milestone M5. It proves the cross-project
+conversion method and one narrow artifact lifecycle; it does not satisfy the
+full Phase 4 exit criteria.
+
 ### Objectives
 
 Make job and stage state transitions explicit and safe.
