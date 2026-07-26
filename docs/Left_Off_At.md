@@ -21,6 +21,10 @@
 - Added the sprint tracker and configured `create_sprint_issue.py` for issue #23.
 - Corrected the sprint helper's planning-pack path.
 - Claimed issue #23 through `start_gitea_issue.py`.
+- Proposed Golden Job `43860dcf-6469-42a7-9843-4e33abeacfac` as the tracer
+  seam in a `[Contract Seam Proposal]` comment on issue #23. Its `.heightmap`
+  header carries seed `15407391665125024496`; the expected `.maptiles` hash is
+  `sha256:a41e7e26439eb2497d1d85eca433dfbaaa1a5d819ecccfabc2d88e7342af8f68`.
 
 ### Verification
 
@@ -33,18 +37,10 @@
 
 ### Exact Next Step
 
-From `/home/craig/Code/RTSColonyTerrainGenerator-codex`, inspect:
-
-```bash
-sed -n '1,260p' tests/fixtures/golden/README.md \
-  tests/MapGen.CompatibilityTests/GoldenFixtures.cs \
-  tests/bdd/support/legacy_tiler_probe.js \
-  tests/bdd/support/net_cli.js
-```
-
-Then propose one pinned Golden Job and its observable input/output seam for
-human approval. The agent that authors and proves the BDD contract must not also
-implement the .NET target for this slice.
+Review and approve or revise the `[Contract Seam Proposal]` on Gitea issue #23.
+After approval, dispatch a contract-author lane to write and prove the BDD
+against the published legacy Tiler. The agent that authors and proves that
+contract must not also implement the .NET target for this slice.
 
 ### Recovery Notes
 

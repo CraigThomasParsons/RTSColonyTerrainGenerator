@@ -43,9 +43,10 @@ pipeline lifecycle without beginning AMPB integration or broad stage migration.
 
 ## Exact Next Step
 
-Inspect the available Golden Jobs and legacy stage entry points, then propose the
-smallest pinned input/output seam to the human contract owner. Do not author the
-BDD contract and consume it in the same agent lane.
+Review the `[Contract Seam Proposal]` on Gitea issue #23. It proposes Golden Job
+`43860dcf-6469-42a7-9843-4e33abeacfac`, the published legacy Tiler, and its
+canonical `.maptiles` hash. After human approval, dispatch a contract-author
+lane. Do not author the BDD contract and consume it in the same agent lane.
 
 ## References
 
