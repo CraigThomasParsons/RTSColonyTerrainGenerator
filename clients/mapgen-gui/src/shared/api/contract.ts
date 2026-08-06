@@ -3,7 +3,7 @@
  *
  * Hand-written on purpose (ADR 0006's codegen question stays open; this slice is too small
  * to justify a codegen step) and concentrated in this one module so the later swap to a
- * generated type — or to a Laravel BFF transport — is cheap. Phase 2 asserts the raw JSON
+ * generated type — or to a Laravel BFF (Backend For Frontend) transport — is cheap. Phase 2 asserts the raw JSON
  * server-side, so a renamed field fails there rather than hiding here.
  *
  * Field names are snake_case because the wire is snake_case: AMPB consumes the map document

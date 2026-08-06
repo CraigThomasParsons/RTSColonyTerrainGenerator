@@ -18,7 +18,7 @@ dotnet run --project src/MapGen.Api      # http://127.0.0.1:5187/api/v1
 
 **Internal by construction.** Kestrel binds `127.0.0.1` only (`appsettings.json`)
 and CORS allows exactly the Vite dev origins. There is no auth, which is safe
-*only* because nothing off-host can reach it. In Phase 2 the Laravel BFF becomes
+*only* because nothing off-host can reach it. In Phase 2 the Laravel BFF (Backend For Frontend) becomes
 the only caller and holds the internal service token.
 
 The OpenAPI document (`/openapi/v1.json`) is served in Development only.

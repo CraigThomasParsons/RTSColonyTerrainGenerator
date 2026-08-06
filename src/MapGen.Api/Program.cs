@@ -10,7 +10,7 @@ using MapGen.Application.WorldGeneration;
 // and maps the result onto a status code.
 //
 // It is internal by construction — Kestrel binds loopback only (appsettings.json) and CORS
-// allows exactly the Vite dev origin. In Phase 2 the Laravel BFF becomes the only caller.
+// allows exactly the Vite dev origin. In Phase 2 the Laravel BFF (Backend For Frontend) becomes the only caller.
 var builder = WebApplication.CreateBuilder(args);
 
 // Registered before AddMapGenApplication so its TryAdd defaults defer to the host's real
