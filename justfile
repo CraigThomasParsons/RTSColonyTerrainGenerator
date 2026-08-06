@@ -32,6 +32,10 @@ test-unit:
 test-architecture:
     dotnet test tests/MapGen.ArchitectureTests
 
+# Gate 6 — HTTP endpoint tests (MapGen.Api against the real application layer)
+test-api:
+    dotnet test tests/MapGen.Api.Tests
+
 # Gate 7 — legacy-vs-replacement compatibility
 test-compatibility:
     dotnet test tests/MapGen.CompatibilityTests
@@ -53,6 +57,7 @@ quality:
     just verify
     just test-unit
     just test-architecture
+    just test-api
     just test-compatibility
     just bdd-smoke
     just bdd-legacy
