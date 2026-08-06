@@ -46,7 +46,7 @@ export interface MapGenClientOptions {
 
 /**
  * The only place this client speaks HTTP. Everything above it (entities, features) works in
- * contract types, so Phase 2's swap to a Laravel BFF transport replaces this module alone.
+ * contract types, so Phase 2's swap to a Laravel BFF (Backend For Frontend) transport replaces this module alone.
  */
 export interface MapGenClient {
   submitWorld(request: GenerateWorldRequest): Promise<JobAccepted>;

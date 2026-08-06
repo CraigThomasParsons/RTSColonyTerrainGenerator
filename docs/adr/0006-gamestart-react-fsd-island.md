@@ -58,7 +58,7 @@ how the editor island already behaves.
 
 ## Scope and ownership
 
-This is **primarily AMPB-side work** (a React feature, Laravel BFF routes, an Echo
+This is **primarily AMPB-side work** (a React feature, Laravel BFF (Backend For Frontend) routes, an Echo
 channel). It lives as an ADR in *this* repository because it refines ADR 0004 — the
 integration boundary this programme owns — and because the CQRS shape of the Laravel BFF
 endpoints should mirror `MapGen.Api`'s contract. The verified-C# conversion is unaffected;
