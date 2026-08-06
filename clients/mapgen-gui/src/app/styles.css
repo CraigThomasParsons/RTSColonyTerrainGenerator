@@ -1,0 +1,28 @@
+:root {
+  --surface: #141922;
+  --surface-sunk: #0d1118;
+  --edge: #2a3342;
+  --text: #e7ecf3;
+  --text-dim: #93a0b4;
+  --accent: #8fd14f;
+  --danger: #e05252;
+
+  color-scheme: dark;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background: #0b0e13;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}
