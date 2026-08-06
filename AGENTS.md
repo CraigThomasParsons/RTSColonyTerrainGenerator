@@ -260,9 +260,34 @@ The agent should produce:
   `verification-report.md` (template: `docs/specs/templates/verification-report.md`).
 
 <!-- BEGIN BEADS INTEGRATION -->
-## Issue Tracking with bd (beads)
+## Slice Tracking with Gitea, Markdown, and bd (beads)
 
-**IMPORTANT**: This project uses **bd (beads)** for ALL issue tracking. Do NOT use markdown TODOs, task lists, or other tracking methods.
+**IMPORTANT**: Every executable Slice has exactly one Gitea Issue, one Planning
+Document in this repository, and one top-level Bead. These are linked records with
+different authority, not interchangeable issue trackers:
+
+- Gitea owns approved scope, acceptance criteria, human status, and PR linkage.
+- The Planning Document owns durable requirements, design, and verification context.
+- Beads owns dependency relationships and machine-readable readiness.
+- A NightCrew Job, when present, is only a runtime claim and execution record.
+
+Do not create a runnable Bead until its Gitea Issue and Planning Document exist.
+
+### Human Approval Gate
+
+Only Craig applying the Gitea label `night-crew: approved` authorizes Night Crew
+execution. `status: planned`, `bd ready`, and a queued NightCrew Job do not imply
+approval. Agents and Workers must never apply this label.
+
+Before claim, fail closed unless the Gitea Issue is open with both required labels,
+contains acceptance criteria, links an existing Planning Document, and agrees with a
+ready top-level Bead. Unavailable Gitea, Beads, document, or identity evidence means
+the Slice is not eligible.
+
+Approval queues:
+
+- awaiting approval: `http://192.168.2.48:3000/craigpars/RTSColonyTerrainGenerator/issues?type=all&state=open&labels=89,-98`
+- approved and waiting: `http://192.168.2.48:3000/craigpars/RTSColonyTerrainGenerator/issues?type=all&state=open&labels=89,98`
 
 ### Why bd?
 
@@ -282,8 +307,11 @@ bd ready --json
 **Create new issues:**
 
 ```bash
-bd create "Issue title" --description="Detailed context" -t bug|feature|task -p 0-4 --json
-bd create "Issue title" --description="What this issue is about" -p 1 --deps discovered-from:bd-123 --json
+bd create "Issue title" \
+  --description="Mirrors Gitea #<number>" \
+  --external-ref="gitea-<number>" \
+  --spec-id="docs/<planning-document>.md" \
+  -t bug|feature|task -p 0-4 --json
 ```
 
 **Claim and update:**
@@ -317,12 +345,15 @@ bd close bd-42 --reason "Completed" --json
 
 ### Workflow for AI Agents
 
-1. **Check ready work**: `bd ready` shows unblocked issues
-2. **Claim your task atomically**: `bd update <id> --claim`
-3. **Work on it**: Implement, test, document
-4. **Discover new work?** Create linked issue:
-   - `bd create "Found bug" --description="Details about what was found" -p 1 --deps discovered-from:<parent-id>`
-5. **Complete**: `bd close <id> --reason "Done"`
+1. **Check ready work**: `bd ready` shows dependency-unblocked Slices.
+2. **Validate identity**: confirm the Bead's `external_ref` names an open, approved
+   Gitea Issue and its `spec_id` names the corresponding Planning Document.
+3. **Claim the Slice atomically**: `bd update <id> --claim --json`.
+4. **Work on it**: implement and verify only the approved scope.
+5. **Discover new work?** Create a Gitea Issue with acceptance criteria and a
+   Planning Document, then create its linked Bead with a `discovered-from`
+   dependency. Do not execute the discovered work as part of the current Slice.
+6. **Complete**: close the Bead only under the agreed completion rules.
 
 ### Auto-Sync
 
@@ -334,13 +365,14 @@ bd automatically syncs via Dolt:
 
 ### Important Rules
 
-- ✅ Use bd for ALL task tracking
-- ✅ Always use `--json` flag for programmatic use
-- ✅ Link discovered work with `discovered-from` dependencies
-- ✅ Check `bd ready` before asking "what should I work on?"
-- ❌ Do NOT create markdown TODO lists
-- ❌ Do NOT use external issue trackers
-- ❌ Do NOT duplicate tracking systems
+- Use `--json` for programmatic Beads operations.
+- Link every top-level Bead to one Gitea Issue with `external_ref` and one Planning
+  Document with `spec_id`.
+- Link discovered Slices with `discovered-from` dependencies after all three records
+  exist.
+- Check `bd ready` before asking what to work on.
+- Do not use Markdown TODO lists as an execution queue.
+- Do not duplicate scope or acceptance criteria into Beads as a competing authority.
 
 For more details, see README.md and docs/QUICKSTART.md.
 

@@ -134,6 +134,48 @@ are: Pipeline Lifecycle, Terrain Generation, Weather Analysis, Tile Resolution,
 Vegetation Planning, World Features, Traversal and Access, and Artifact Registry.
 _Avoid_: one-context-per-stage mapping; a shared "Map" model spanning contexts.
 
+## Overnight delivery
+
+**TheNightCrew**:
+The coordinator that decides which approved work is available to which Worker and
+records claims and progress. It does not execute repository work.
+_Avoid_: "runner", "agent", or using TheNightCrew for the whole delivery system.
+
+**MapGen Night-Crew Worker**:
+The repository-aware executor that claims approved MapGen work, performs it in
+isolation, and reports progress and evidence to TheNightCrew.
+_Avoid_: "TheNightCrew" when referring to the process that edits or tests code.
+
+**Night Crew system**:
+The complete overnight delivery capability formed by TheNightCrew and one or more
+MapGen Night-Crew Workers.
+_Avoid_: "TheNightCrew" for the combined coordinator-and-worker capability.
+
+**Gitea Issue**:
+The human-facing agreement for one Slice's approved scope, acceptance criteria, and
+delivery lifecycle.
+_Avoid_: "Bead" or "NightCrew Job" for approved scope and acceptance criteria.
+
+**Planning Document**:
+The versioned repository record that explains one Slice's requirements, design, and
+verification expectations.
+_Avoid_: chat history, a Bead description, or an issue comment as the durable design.
+
+**Bead**:
+The dependency and readiness representation of exactly one approved Slice. It points
+to its Gitea Issue and Planning Document but does not redefine their scope.
+_Avoid_: using a Bead as an independently executable task without its linked records.
+
+**NightCrew Job**:
+The runtime claim and execution record for one eligible Slice. It is not a backlog
+item and cannot change the Slice's approved scope or acceptance criteria.
+_Avoid_: bare "Job", which means a map-generation request in this context.
+
+**Approved Slice**:
+A planned Slice that Craig has explicitly authorized the Night Crew system to execute.
+Planning completeness and dependency readiness do not imply approval.
+_Avoid_: "ready" without distinguishing human approval from dependency readiness.
+
 ## Evidence
 
 **Compatibility Test**:

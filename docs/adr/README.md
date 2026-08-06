@@ -13,6 +13,9 @@ plus vendored upstream ADRs from The-Pulse that shaped them.
 | [0004](0004-ampb-integration-boundary.md) | AgileMedievalPeasantBoard integration boundary: thin HTTP service seam, versioned MapDocument contract in `MapGen.Contracts`, terminal `AgileMedievalExport` stage via the short path; AMPB unchanged | Accepted |
 | [0005](0005-mediator-in-application-layer.md) | Adopt source-generated Mediator (`ISender`/`IRequestHandler<,>` returning `Result<T>`) in the application layer, matching The-Pulse v2; retrofits Epic 1; enables pipeline behaviours (logging first) | Accepted |
 | [0006](0006-gamestart-react-fsd-island.md) | AMPB's world-setup phase as a React (FSD) island behind a Laravel BFF (React → Laravel → MapGen, service token; MapGen stays internal); seamless single-navigation handoff to the Livewire+PixiJS game. Refines ADR 0004; primarily AMPB-side | Proposed |
+| [0007](0007-night-crew-coordinator-worker-boundary.md) | Move TheNightCrew ownership into this repository while keeping coordination separate from MapGen execution | Accepted |
+| [0008](0008-slice-record-authority.md) | Give every executable Slice one Gitea Issue, one Planning Document, and one top-level Bead with separate authority | Accepted |
+| [0009](0009-explicit-night-crew-approval.md) | Require Craig's explicit Gitea label before Night Crew execution and fail closed when approval evidence is unavailable | Accepted |
 
 ## Vendored upstream ADRs
 
