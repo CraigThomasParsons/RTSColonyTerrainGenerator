@@ -26,11 +26,15 @@ export const TERRAIN_COLORS: Record<string, string> = {
 /** A palette name this client has not been taught. Flagged, never dropped. */
 export const UNKNOWN_TERRAIN_COLOR = "#ff00ff";
 
+/**
+ * Harvestable types this client has a colour for. No oil: that is a Warcraft 2 resource and
+ * has no place in this game's economy. The generator currently emits only `wood` and `ore`;
+ * `gold` and `stone` are held for the economy this game does have.
+ */
 const RESOURCE_COLORS: Record<string, string> = {
   wood: "#2f8f4f",
   gold: "#e0b23c",
   stone: "#b8b2a6",
-  oil: "#1c1c22",
 };
 
 const UNKNOWN_RESOURCE_COLOR = "#ff00ff";
