@@ -193,16 +193,14 @@ function countTrees(array $tiles): int
     $treeCount = 0;
 
     foreach ($tiles as $tile) {
-        if (!isset($tile['decorations']) || !is_array($tile['decorations'])) {
+        // Why: decorations is optional on an unplanted tile.
+        $decorations = $tile['decorations'] ?? null;
+        if (!is_array($decorations)) {
             continue;
         }
 
-        foreach ($tile['decorations'] as $decoration) {
-            if (!is_array($decoration)) {
-                continue;
-            }
-
-            if (($decoration['type'] ?? null) === 'tree') {
+        foreach ($decorations as $decoration) {
+            if (is_array($decoration) && ($decoration['type'] ?? null) === 'tree') {
                 $treeCount++;
             }
         }
