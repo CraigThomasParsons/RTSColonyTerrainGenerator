@@ -17,9 +17,17 @@ export default defineConfig({
     },
   },
   server: {
-    // MapGen.Api binds loopback only and its CORS allows exactly these dev origins.
+    // MapGen.Api binds loopback only and its CORS allows exactly this origin, so the port
+    // here and MapGen:DevClientOrigins in appsettings.json must move together.
+    //
+    // 127.0.0.1 rather than the default: binding to localhost resolves to IPv6 [::1] only,
+    // which makes http://127.0.0.1 refuse the connection, and switching the browser to
+    // localhost then trips CORS instead.
+    //
+    // 5190 rather than Vite's usual 5173: that port and 5174 are taken by an unrelated
+    // local application, and strictPort means a collision is a hard failure, not a fallback.
     host: "127.0.0.1",
-    port: 5173,
+    port: 5190,
     strictPort: true,
   },
   test: {
