@@ -193,7 +193,14 @@ describe("drawPreview", () => {
       { tileSize: TILE_SIZE },
     );
 
-    const lastTreeIndex = rects.findLastIndex((rect) => rect.fillStyle === TREE_COLOR);
+    // Walk backwards: the last canopy rect must still precede the first marker.
+    let lastTreeIndex = -1;
+    for (let index = rects.length - 1; index >= 0; index -= 1) {
+      if (rects[index]?.fillStyle === TREE_COLOR) {
+        lastTreeIndex = index;
+        break;
+      }
+    }
     const firstMarkerIndex = rects.findIndex((rect) => rect.w !== TILE_SIZE);
 
     expect(lastTreeIndex).toBeGreaterThanOrEqual(0);
