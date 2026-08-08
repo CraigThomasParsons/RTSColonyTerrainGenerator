@@ -66,6 +66,19 @@ export function drawPreview(
     );
   }
 
+  // Back to front. The order is the contract: the two grid layers go down first, so a
+  // forest can never hide the start zones and resource clusters the preview exists to show.
+  drawTerrain(ctx, preview, tileSize);
+  drawCanopy(ctx, preview, tileSize);
+  drawResourceClusters(ctx, preview, tileSize);
+  drawStartZones(ctx, preview, tileSize);
+}
+
+function drawTerrain(
+  ctx: CanvasRenderingContext2D,
+  preview: MapPreview,
+  tileSize: number,
+): void {
   const colors = preview.terrain_palette.map(
     (name) => TERRAIN_COLORS[name] ?? UNKNOWN_TERRAIN_COLOR,
   );
@@ -77,16 +90,12 @@ export function drawPreview(
       ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
     }
   }
-
-  drawCanopy(ctx, preview, tileSize);
-  drawResourceClusters(ctx, preview, tileSize);
-  drawStartZones(ctx, preview, tileSize);
 }
 
 /**
  * The canopy is a grid layer, not a set of markers: each planted tile is covered exactly,
- * at terrain scale. It goes down after the terrain and before the markers, so a forest can
- * never hide the start zones and resource clusters the preview exists to show.
+ * at terrain scale — which is why it sits beside `drawTerrain` in the layer order above
+ * rather than among the markers.
  */
 function drawCanopy(
   ctx: CanvasRenderingContext2D,
