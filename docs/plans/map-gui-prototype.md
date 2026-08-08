@@ -271,7 +271,7 @@ requires:
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "job_id": "43860dcf-6469-42a7-9843-4e33abeacfac",
   "seed": 1234567890,
   "generator_version": "0.1.0-prototype",
@@ -308,20 +308,26 @@ Rules that are not negotiable in this slice:
   **present and possibly empty** — never omitted, never `null`. (`default_forest.json`
   ships `"human_workers": []`; `goldshire.json` omits `mines` entirely. The contract
   picks the strict reading so the client needs no null-coalescing.)
+- **`trees` is TreePlanter's canopy**, read from the job's `.worldpayload` and halved
+  onto the 64×64 grid. It was briefly the `wood` resource clusters filtered by type —
+  those are the few harvest sites Playable marks near each start, so a whole map
+  exported with two trees. Positions are distinct: four tile positions collapse onto
+  one grid cell.
 - `version` is an integer that increments on any shape change (`AGENTS.md`: no
-  silent shape changes). The client asserts `version === 1` and refuses anything else
+  silent shape changes). The client asserts `version === 2` and refuses anything else
   loudly rather than parsing leniently.
 
 #### `GET /worlds/{job_id}/preview` — response (`MapPreview`)
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "job_id": "43860dcf-6469-42a7-9843-4e33abeacfac",
   "width": 128,
   "height": 128,
   "terrain_palette": ["deep_water", "water", "dirt", "grass", "rock", "mountain"],
   "terrain": [3, 3, 2, 0, "… width*height row-major palette indices …"],
+  "trees":             [ { "x": 43, "y": 0 } ],
   "start_zones":       [ { "id": "start_1", "x": 43, "y": 80 } ],
   "resource_clusters": [ { "id": "start_1_wood", "type": "wood", "x": 49, "y": 84, "start_id": "start_1" } ]
 }
@@ -331,6 +337,11 @@ Rules that are not negotiable in this slice:
   the same row-major convention `TerrainGrid` already uses (`index = y*width + x`)
   and the same terrain vocabulary `.worldpayload` already emits. Palette indices
   rather than strings keeps a 128×128 preview at ~16 KB of JSON instead of ~100 KB.
+- `trees` is the same canopy the map document carries, at tile resolution and before
+  the halving — the renderer paints it over the terrain, beneath the markers. It is a
+  position list rather than a row-major mask alongside `terrain`: the replayed jobs
+  plant 745–1551 of 16 384 tiles, which leaves the whole response around 45 KB. A
+  canopy over roughly a third of the grid is where the mask starts paying.
 - `start_zones` and `resource_clusters` mirror `.playable.json` verbatim minus the
   fields the renderer has no use for (`slope`, `settlement_labels`).
 - Coordinates here are **tile x/y**, matching `.playable.json`. This is the one place
