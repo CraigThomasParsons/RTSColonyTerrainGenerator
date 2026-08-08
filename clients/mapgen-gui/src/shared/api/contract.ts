@@ -91,12 +91,18 @@ export interface NamedStructure extends GridPosition {
 }
 
 /**
- * The document shape this client understands. Anything else is refused loudly.
+ * The shape version this client understands, for both collect payloads. Anything else is
+ * refused loudly.
  *
- * Version 2 is the replayed canopy: `MapPreview` gained a `trees` layer, and this document's
- * `trees` stopped being the `wood` resource clusters and became TreePlanter's forest.
+ * One constant, because the server stamps both payloads from one
+ * (`WorldProjection.DocumentVersion`). Mirroring it as a pair would let a bump land on the
+ * map document and not the preview, and the client would then refuse half the contract.
+ *
+ * Version 2 is the replayed canopy: `MapPreview` gained a `trees` layer, and the map
+ * document's `trees` stopped being the `wood` resource clusters and became TreePlanter's
+ * forest.
  */
-export const MAP_DOCUMENT_VERSION = 2;
+export const MAP_CONTRACT_VERSION = 2;
 
 export interface MapDocument {
   version: number;
@@ -148,8 +154,6 @@ export interface PreviewTree {
   x: number;
   y: number;
 }
-
-export const MAP_PREVIEW_VERSION = 2;
 
 export interface MapPreview {
   version: number;
