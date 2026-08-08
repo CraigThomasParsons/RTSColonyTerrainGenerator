@@ -57,24 +57,27 @@ public class GoldenJobFileSourceTests
     [Fact]
     public void A_job_without_a_worldpayload_replays_with_an_empty_canopy()
     {
-        // TreePlanter runs downstream of the three artifacts a Golden Job is discovered by,
-        // so its artifact is optional: a fixture captured before this slice must still
-        // replay, as a map with no forest rather than a failed job.
+        // TreePlanter runs downstream of the artifacts a Golden Job is discovered by, so its
+        // artifact is optional: a fixture captured before this slice must still replay, as a
+        // map with no forest rather than a failed job.
+        //
+        // Only the files Read() opens are copied — .heightmap and .weather are unused here.
         string root = Path.Combine(Path.GetTempPath(), $"mapgen-golden-{Guid.NewGuid():N}");
         string jobDirectory = Path.Combine(root, JobId);
+        string sourceDirectory = Path.Combine(FixturesRoot(), JobId);
         Directory.CreateDirectory(jobDirectory);
 
         try
         {
-            foreach (string suffix in new[] { ".heightmap", ".maptiles", ".weather", ".playable.json" })
+            foreach (string name in new[]
+                     {
+                         $"{JobId}.maptiles",
+                         $"{JobId}.playable.json",
+                         "input.job.json",
+                     })
             {
-                File.Copy(
-                    Path.Combine(FixturesRoot(), JobId, $"{JobId}{suffix}"),
-                    Path.Combine(jobDirectory, $"{JobId}{suffix}"));
+                File.Copy(Path.Combine(sourceDirectory, name), Path.Combine(jobDirectory, name));
             }
-            File.Copy(
-                Path.Combine(FixturesRoot(), JobId, "input.job.json"),
-                Path.Combine(jobDirectory, "input.job.json"));
 
             Assert.Empty(new GoldenJobFileSource(root).Read(JobId).Trees);
         }
@@ -86,6 +89,8 @@ public class GoldenJobFileSourceTests
 
     private static string FixturesRoot()
     {
+        // Same walk CompatibilityTests.GoldenFixtures uses; kept local so this assembly does
+        // not take a project reference for eight lines of path arithmetic.
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MapGen.slnx")))
         {
