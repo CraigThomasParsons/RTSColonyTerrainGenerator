@@ -5,12 +5,13 @@ import type { MapPreview } from "~/shared/api/contract.ts";
 import { MapPreviewPanel } from "./MapPreviewPanel.tsx";
 
 const PREVIEW: MapPreview = {
-  version: 1,
+  version: 2,
   job_id: "43860dcf-6469-42a7-9843-4e33abeacfac",
   width: 2,
   height: 2,
   terrain_palette: ["water", "grass"],
   terrain: [0, 1, 1, 0],
+  trees: [],
   start_zones: [],
   resource_clusters: [],
 };

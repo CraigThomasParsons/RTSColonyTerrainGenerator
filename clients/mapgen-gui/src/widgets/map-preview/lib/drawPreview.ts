@@ -27,6 +27,12 @@ export const TERRAIN_COLORS: Record<string, string> = {
 export const UNKNOWN_TERRAIN_COLOR = "#ff00ff";
 
 /**
+ * TreePlanter's canopy. Darker than `grass` so a forest reads as a forest against the
+ * clearings around it, and desaturated enough that the resource markers still carry.
+ */
+export const TREE_COLOR = "#22421c";
+
+/**
  * Harvestable types this client has a colour for. No oil: that is a Warcraft 2 resource and
  * has no place in this game's economy. The generator currently emits only `wood` and `ore`;
  * `gold` and `stone` are held for the economy this game does have.
@@ -72,8 +78,26 @@ export function drawPreview(
     }
   }
 
+  drawCanopy(ctx, preview, tileSize);
   drawResourceClusters(ctx, preview, tileSize);
   drawStartZones(ctx, preview, tileSize);
+}
+
+/**
+ * The canopy is a grid layer, not a set of markers: each planted tile is covered exactly,
+ * at terrain scale. It goes down after the terrain and before the markers, so a forest can
+ * never hide the start zones and resource clusters the preview exists to show.
+ */
+function drawCanopy(
+  ctx: CanvasRenderingContext2D,
+  preview: MapPreview,
+  tileSize: number,
+): void {
+  ctx.fillStyle = TREE_COLOR;
+
+  for (const tree of preview.trees) {
+    ctx.fillRect(tree.x * tileSize, tree.y * tileSize, tileSize, tileSize);
+  }
 }
 
 function drawResourceClusters(

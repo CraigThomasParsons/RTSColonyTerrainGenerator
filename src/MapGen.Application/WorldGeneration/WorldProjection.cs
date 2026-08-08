@@ -10,8 +10,12 @@ namespace MapGen.Application.WorldGeneration;
 /// </summary>
 public static class WorldProjection
 {
-    /// <summary>The current shape version of both collect payloads.</summary>
-    public const int DocumentVersion = 1;
+    /// <summary>
+    /// The current shape version of both collect payloads. Version 2 adds the replayed
+    /// canopy: <c>MapPreview</c> gains a <c>trees</c> layer, and <c>MapDocument.Trees</c>
+    /// stops being the <c>wood</c> resource clusters and becomes TreePlanter's forest.
+    /// </summary>
+    public const int DocumentVersion = 2;
 
     /// <summary>
     /// The <c>.worldpayload</c> terrain vocabulary, in the order the preview indexes into.
@@ -59,6 +63,9 @@ public static class WorldProjection
             Height: artifacts.TileHeight,
             TerrainPalette: TerrainPalette,
             Terrain: terrain,
+            Trees: artifacts.Trees
+                .Select(tree => new PreviewTree(tree.X, tree.Y))
+                .ToArray(),
             StartZones: artifacts.StartZones
                 .Select(zone => new PreviewStartZone(zone.Id, zone.X, zone.Y))
                 .ToArray(),
@@ -99,9 +106,13 @@ public static class WorldProjection
             })
             .ToArray();
 
-        var trees = artifacts.ResourceClusters
-            .Where(cluster => cluster.Type == "wood")
-            .Select(cluster => ToGridPosition(cluster.X, cluster.Y, gridWidth, gridHeight))
+        // TreePlanter's canopy, not the `wood` resource clusters it used to be filtered out
+        // of: those are the handful of harvest sites Playable marks near each start, so a
+        // 128×128 map exported with as many trees as it had wood piles. Four tile positions
+        // collapse onto one 64×64 grid cell, so the projection distinguishes them once.
+        var trees = artifacts.Trees
+            .Select(tree => ToGridPosition(tree.X, tree.Y, gridWidth, gridHeight))
+            .Distinct()
             .ToArray();
 
         string name = string.IsNullOrWhiteSpace(job.Name) ? DefaultName(job.JobId) : job.Name!;

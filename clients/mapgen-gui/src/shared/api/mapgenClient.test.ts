@@ -131,12 +131,13 @@ describe("getJobStatus", () => {
 describe("collecting a finished job", () => {
   const preview = (overrides: Record<string, unknown> = {}) =>
     JSON.stringify({
-      version: 1,
+      version: 2,
       job_id: JOB_ID,
       width: 2,
       height: 2,
       terrain_palette: ["deep_water", "water", "dirt", "grass"],
       terrain: [3, 3, 2, 0],
+      trees: [{ x: 0, y: 1 }],
       start_zones: [{ id: "start_1", x: 43, y: 80 }],
       resource_clusters: [
         { id: "start_1_wood", type: "wood", x: 49, y: 84, start_id: "start_1" },
@@ -152,25 +153,26 @@ describe("collecting a finished job", () => {
     expect(lastCall()[0]).toBe(`${BASE_URL}/worlds/${JOB_ID}/preview`);
     expect(map.terrain).toEqual([3, 3, 2, 0]);
     expect(map.terrain_palette[3]).toBe("grass");
+    expect(map.trees).toEqual([{ x: 0, y: 1 }]);
     expect(map.start_zones).toEqual([{ id: "start_1", x: 43, y: 80 }]);
   });
 
   it("refuses an unknown document version loudly rather than parsing leniently", async () => {
     // `version` increments on any shape change (AGENTS.md: no silent shape changes). A
-    // client that shrugs at version 2 renders a map it does not understand.
-    fetchMock.mockResolvedValue(jsonResponse(200, preview({ version: 2 })));
+    // client that shrugs at version 3 renders a map it does not understand.
+    fetchMock.mockResolvedValue(jsonResponse(200, preview({ version: 3 })));
 
     const failure = await clientUnderTest()
       .getMapPreview(JOB_ID)
       .catch((error: unknown) => error);
 
     expect(failure).toBeInstanceOf(Error);
-    expect((failure as Error).message).toMatch(/version 2/i);
+    expect((failure as Error).message).toMatch(/version 3/i);
   });
 
   it("reads the map document in row/col, refusing an unknown version too", async () => {
     const document = {
-      version: 1,
+      version: 2,
       job_id: JOB_ID,
       seed: 1234567890,
       generator_version: "0.1.0-prototype",

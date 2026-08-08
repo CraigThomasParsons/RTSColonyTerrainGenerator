@@ -38,6 +38,7 @@ public sealed class GoldenJobFileSource : IGoldenJobSource
         var (startZones, resourceClusters) =
             ReadPlayable(Path.Combine(jobDirectory, $"{jobId}.playable.json"));
         var (cellWidth, cellHeight) = ReadJobSpec(Path.Combine(jobDirectory, "input.job.json"));
+        var trees = ReadCanopy(Path.Combine(jobDirectory, $"{jobId}.worldpayload"));
 
         return new GoldenJobArtifacts(
             JobId: jobId,
@@ -47,7 +48,8 @@ public sealed class GoldenJobFileSource : IGoldenJobSource
             TileHeight: tileHeight,
             TerrainClassByTile: terrainClassByTile,
             StartZones: startZones,
-            ResourceClusters: resourceClusters);
+            ResourceClusters: resourceClusters,
+            Trees: trees);
     }
 
     private IReadOnlyList<string> DiscoverJobIds()
@@ -126,6 +128,85 @@ public sealed class GoldenJobFileSource : IGoldenJobSource
             element.GetProperty("start_id").GetString()!));
 
         return (startZones, resourceClusters);
+    }
+
+    /// <summary>
+    /// <c>.worldpayload</c>: TreePlanter's JSON tile list, one entry per tile, each carrying
+    /// its terrain, its weather sample, and a <c>decorations</c> array. A tile is planted
+    /// when one of those decorations is of type <c>tree</c>.
+    ///
+    /// A missing file yields an empty canopy rather than an error: Golden Jobs are discovered
+    /// by their <c>.maptiles</c>, and TreePlanter runs downstream of it, so a fixture pinned
+    /// before its canopy was captured must still replay — as a map with no forest, which is
+    /// the truth about that fixture.
+    /// </summary>
+    private static GoldenTree[] ReadCanopy(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return Array.Empty<GoldenTree>();
+        }
+
+        try
+        {
+            // JsonDocument is the right altitude for a fixture reader: the golden
+            // .worldpayloads are a few megabytes and only the planted positions leave this
+            // method. A hand-rolled Utf8JsonReader walk is not simpler, only more code.
+            using var document = JsonDocument.Parse(ReadAllBytes(path));
+            if (!document.RootElement.TryGetProperty("tiles", out var tiles)
+                || tiles.ValueKind != JsonValueKind.Array)
+            {
+                throw new InvalidDataException($"'{path}' has no 'tiles' array.");
+            }
+
+            var trees = new List<GoldenTree>();
+            foreach (var tile in tiles.EnumerateArray())
+            {
+                if (!TileHasTree(tile))
+                {
+                    continue;
+                }
+
+                // Missing coordinates default to 0: the previous token walk did the same,
+                // and a real TreePlanter artifact always carries both.
+                int x = tile.TryGetProperty("x", out var xElement) && xElement.ValueKind == JsonValueKind.Number
+                    ? xElement.GetInt32()
+                    : 0;
+                int y = tile.TryGetProperty("y", out var yElement) && yElement.ValueKind == JsonValueKind.Number
+                    ? yElement.GetInt32()
+                    : 0;
+                trees.Add(new GoldenTree(x, y));
+            }
+
+            return trees.ToArray();
+        }
+        catch (JsonException e)
+        {
+            throw new InvalidDataException($"'{path}' is not readable as JSON: {e.Message}", e);
+        }
+    }
+
+    /// <summary>Whether a tile's <c>decorations</c> array holds a <c>tree</c>.</summary>
+    private static bool TileHasTree(JsonElement tile)
+    {
+        if (!tile.TryGetProperty("decorations", out var decorations)
+            || decorations.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        foreach (var decoration in decorations.EnumerateArray())
+        {
+            if (decoration.ValueKind == JsonValueKind.Object
+                && decoration.TryGetProperty("type", out var type)
+                && type.ValueKind == JsonValueKind.String
+                && type.ValueEquals("tree"))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static (int Width, int Height) ReadJobSpec(string path)
