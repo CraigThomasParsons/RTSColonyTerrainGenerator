@@ -193,14 +193,7 @@ describe("drawPreview", () => {
       { tileSize: TILE_SIZE },
     );
 
-    const treeIndices: number[] = [];
-    rects.forEach((rect, index) => {
-      if (rect.fillStyle === TREE_COLOR) {
-        treeIndices.push(index);
-      }
-    });
-
-    const lastTreeIndex = treeIndices[treeIndices.length - 1] ?? -1;
+    const lastTreeIndex = rects.findLastIndex((rect) => rect.fillStyle === TREE_COLOR);
     const firstMarkerIndex = rects.findIndex((rect) => rect.w !== TILE_SIZE);
 
     expect(lastTreeIndex).toBeGreaterThanOrEqual(0);
