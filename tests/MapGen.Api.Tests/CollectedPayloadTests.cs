@@ -43,7 +43,7 @@ public class CollectedPayloadTests
             "trees", "stones", "roads",
         }, document.PropertyNames());
 
-        Assert.Equal(1, document.GetProperty("version").GetInt32());
+        Assert.Equal(2, document.GetProperty("version").GetInt32());
         Assert.Equal(1234567890L, document.GetProperty("seed").GetInt64());
         Assert.Equal("0.1.0-prototype", document.GetProperty("generator_version").GetString());
         Assert.Equal("Default Forest", document.GetProperty("name").GetString());
@@ -106,10 +106,10 @@ public class CollectedPayloadTests
         Assert.Equal(new[]
         {
             "version", "job_id", "width", "height",
-            "terrain_palette", "terrain", "start_zones", "resource_clusters",
+            "terrain_palette", "terrain", "trees", "start_zones", "resource_clusters",
         }, preview.PropertyNames());
 
-        Assert.Equal(1, preview.GetProperty("version").GetInt32());
+        Assert.Equal(2, preview.GetProperty("version").GetInt32());
         Assert.Equal(
             new[] { "deep_water", "water", "dirt", "grass", "rock", "mountain" },
             preview.GetProperty("terrain_palette").EnumerateArray().Select(entry => entry.GetString()).ToArray());
@@ -154,6 +154,76 @@ public class CollectedPayloadTests
         {
             Assert.Equal(new[] { "id", "type", "x", "y", "start_id" }, cluster.PropertyNames());
         }
+    }
+
+    [Fact]
+    public async Task The_preview_carries_TreePlanters_canopy_in_tile_x_y()
+    {
+        using var factory = new MapGenApiFactory();
+        using var client = factory.CreateClient();
+
+        var preview = await Collect(client, "preview");
+
+        int width = preview.GetProperty("width").GetInt32();
+        int height = preview.GetProperty("height").GetInt32();
+
+        var trees = preview.GetProperty("trees").EnumerateArray().ToArray();
+
+        // The canopy is a forest, not the two wood clusters the preview used to show. A
+        // handful of trees here would mean the .worldpayload was not read.
+        Assert.True(trees.Length > 100, $"the replayed canopy should be a forest, not {trees.Length} trees.");
+
+        foreach (var tree in trees)
+        {
+            // The preview is the one document that speaks x/y, and these are tile
+            // coordinates on the same grid the terrain array is indexed by.
+            Assert.Equal(new[] { "x", "y" }, tree.PropertyNames());
+            Assert.InRange(tree.GetProperty("x").GetInt32(), 0, width - 1);
+            Assert.InRange(tree.GetProperty("y").GetInt32(), 0, height - 1);
+        }
+    }
+
+    [Fact]
+    public async Task The_preview_stays_small_enough_to_carry_the_canopy_as_positions()
+    {
+        // The canopy is a position list rather than a row-major mask alongside the terrain.
+        // That holds while the forest is sparse; this is the tripwire for when it stops
+        // holding, because at that point the mask is the cheaper shape.
+        using var factory = new MapGenApiFactory();
+        using var client = factory.CreateClient();
+
+        string jobId = (await client.SubmitWorld()).JobId();
+        var response = await client.GetAsync($"/api/v1/worlds/{jobId}/preview");
+        long bytes = (await response.Content.ReadAsByteArrayAsync()).LongLength;
+
+        Assert.True(bytes < 1024 * 1024, $"the preview is {bytes} bytes; a canopy bitmask would be cheaper.");
+    }
+
+    [Fact]
+    public async Task The_map_document_carries_the_real_canopy_not_the_wood_clusters()
+    {
+        using var factory = new MapGenApiFactory();
+        using var client = factory.CreateClient();
+
+        var document = await Collect(client, "map-document");
+        var preview = await Collect(client, "preview");
+
+        var trees = document.GetProperty("trees").EnumerateArray().ToArray();
+        int woodClusters = preview.GetProperty("resource_clusters").EnumerateArray()
+            .Count(cluster => cluster.GetProperty("type").GetString() == "wood");
+
+        // The bug this replaces: trees were the resource clusters filtered by type, so a
+        // 128x128 map exported with as many trees as it had wood piles.
+        Assert.True(
+            trees.Length > woodClusters * 10,
+            $"the document canopy ({trees.Length}) should not be the {woodClusters} wood clusters.");
+
+        // Four tile positions collapse onto one 64x64 grid cell, so a repeat would be a
+        // position AMPB has no use for twice.
+        var positions = trees
+            .Select(tree => (tree.GetProperty("row").GetInt32(), tree.GetProperty("col").GetInt32()))
+            .ToArray();
+        Assert.Equal(positions.Length, positions.Distinct().Count());
     }
 
     [Fact]

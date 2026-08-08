@@ -14,7 +14,7 @@ import { createPreviewSurface, PREVIEW_TILE_PIXELS } from "./previewSurface.ts";
  * point of the test — the pixels are the browser's business; the wiring is ours.
  */
 const PREVIEW: MapPreview = {
-  version: 1,
+  version: 2,
   job_id: "43860dcf-6469-42a7-9843-4e33abeacfac",
   width: 4,
   height: 4,
@@ -25,6 +25,7 @@ const PREVIEW: MapPreview = {
     1, 2, 3, 1, //
     0, 1, 1, 0,
   ],
+  trees: [],
   start_zones: [{ id: "start_1", x: 2, y: 2 }],
   resource_clusters: [],
 };

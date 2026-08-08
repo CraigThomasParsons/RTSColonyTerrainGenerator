@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { MapPreview } from "~/shared/api/contract.ts";
-import { drawPreview, TERRAIN_COLORS, UNKNOWN_TERRAIN_COLOR } from "./drawPreview.ts";
+import { drawPreview, TERRAIN_COLORS, TREE_COLOR, UNKNOWN_TERRAIN_COLOR } from "./drawPreview.ts";
 
 /**
  * The seam under test is the draw call: given a `MapPreview` and a 2D context, what gets
@@ -67,6 +67,7 @@ const previewOf = (overrides: Partial<MapPreview> = {}): MapPreview => ({
   terrain_palette: ["deep_water", "water", "dirt", "grass", "rock", "mountain"],
   // Row 0: deep_water, water, dirt   Row 1: grass, rock, mountain
   terrain: [0, 1, 2, 3, 4, 5],
+  trees: [],
   start_zones: [],
   resource_clusters: [],
   ...overrides,
@@ -152,6 +153,59 @@ describe("drawPreview", () => {
     const markers = rects.filter((rect) => rect.w !== TILE_SIZE);
     expect(markers).toHaveLength(2);
     expect(markers[0]?.fillStyle).not.toBe(markers[1]?.fillStyle);
+  });
+
+  it("paints each tree over its own terrain tile, at terrain scale", () => {
+    const { ctx, rects } = recordingContext();
+
+    drawPreview(
+      ctx,
+      previewOf({
+        trees: [
+          { x: 1, y: 0 },
+          { x: 2, y: 1 },
+        ],
+      }),
+      { tileSize: TILE_SIZE },
+    );
+
+    // Trees are a grid layer, not a marker: one covers exactly the tile it grows on.
+    const canopy = rects.filter((rect) => rect.fillStyle === TREE_COLOR);
+    expect(canopy).toEqual([
+      { fillStyle: TREE_COLOR, x: 1 * TILE_SIZE, y: 0, w: TILE_SIZE, h: TILE_SIZE },
+      { fillStyle: TREE_COLOR, x: 2 * TILE_SIZE, y: 1 * TILE_SIZE, w: TILE_SIZE, h: TILE_SIZE },
+    ]);
+  });
+
+  it("paints the canopy under the resource and start-zone markers", () => {
+    // A forest that covered the start zones would hide exactly what the preview is for.
+    const { ctx, rects, arcs } = recordingContext();
+
+    drawPreview(
+      ctx,
+      previewOf({
+        trees: [{ x: 1, y: 1 }],
+        resource_clusters: [
+          { id: "start_1_wood", type: "wood", x: 1, y: 1, start_id: "start_1" },
+        ],
+        start_zones: [{ id: "start_1", x: 1, y: 1 }],
+      }),
+      { tileSize: TILE_SIZE },
+    );
+
+    const treeIndices: number[] = [];
+    rects.forEach((rect, index) => {
+      if (rect.fillStyle === TREE_COLOR) {
+        treeIndices.push(index);
+      }
+    });
+
+    const lastTreeIndex = treeIndices[treeIndices.length - 1] ?? -1;
+    const firstMarkerIndex = rects.findIndex((rect) => rect.w !== TILE_SIZE);
+
+    expect(lastTreeIndex).toBeGreaterThanOrEqual(0);
+    expect(firstMarkerIndex).toBeGreaterThan(lastTreeIndex);
+    expect(arcs).toHaveLength(1);
   });
 
   it("refuses a terrain array whose length disagrees with width * height", () => {

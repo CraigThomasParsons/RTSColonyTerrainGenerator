@@ -99,6 +99,18 @@ public sealed record PreviewStartZone(string Id, int X, int Y);
 public sealed record PreviewResourceCluster(string Id, string Type, int X, int Y, string StartId);
 
 /// <summary>
+/// One tile of TreePlanter's canopy, from <c>.worldpayload</c>. Coordinates are tile x/y on
+/// the same grid <see cref="MapPreview.Terrain"/> is indexed by.
+///
+/// Carried as a position list rather than a row-major bitmask alongside the terrain. The
+/// replayed jobs plant 745–1551 of a 128×128 grid's 16 384 tiles, which keeps the whole
+/// preview at ~45 KB — nowhere near the size at which the wire would rather have a mask, and
+/// a list says what it means. A canopy over roughly a third of the grid is the point at
+/// which the mask becomes the cheaper shape; a test guards that boundary.
+/// </summary>
+public sealed record PreviewTree(int X, int Y);
+
+/// <summary>
 /// The renderable preview. A <see cref="MapDocument"/> is entity placements and carries no
 /// terrain grid at all, so the renderer cannot draw a map from one; extending it would
 /// break ADR 0004's "v1 requires zero AMPB changes" rule. Hence a separate,
@@ -108,6 +120,9 @@ public sealed record PreviewResourceCluster(string Id, string Type, int X, int Y
 /// <c>TerrainGrid</c> already uses), of length <c>Width * Height</c>, holding indices into
 /// <see cref="TerrainPalette"/>. Indices rather than strings keep a 128×128 preview at
 /// ~16 KB of JSON instead of ~100 KB.
+///
+/// <see cref="Trees"/> follows the terrain because it is the other grid-scale layer and is
+/// painted directly on top of it, beneath the zone and cluster markers.
 /// </summary>
 public sealed record MapPreview(
     int Version,
@@ -116,5 +131,6 @@ public sealed record MapPreview(
     int Height,
     IReadOnlyList<string> TerrainPalette,
     IReadOnlyList<int> Terrain,
+    IReadOnlyList<PreviewTree> Trees,
     IReadOnlyList<PreviewStartZone> StartZones,
     IReadOnlyList<PreviewResourceCluster> ResourceClusters);

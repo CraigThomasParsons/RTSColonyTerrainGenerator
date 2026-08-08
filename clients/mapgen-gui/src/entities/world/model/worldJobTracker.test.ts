@@ -28,12 +28,13 @@ const statusOf = (overrides: Partial<JobStatus> = {}): JobStatus => ({
 });
 
 const PREVIEW: MapPreview = {
-  version: 1,
+  version: 2,
   job_id: JOB_ID,
   width: 2,
   height: 2,
   terrain_palette: ["deep_water", "water", "dirt", "grass"],
   terrain: [3, 3, 2, 0],
+  trees: [],
   start_zones: [],
   resource_clusters: [],
 };

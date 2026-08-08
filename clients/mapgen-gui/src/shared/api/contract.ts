@@ -90,8 +90,13 @@ export interface NamedStructure extends GridPosition {
   tile_size: number;
 }
 
-/** The document shape this client understands. Anything else is refused loudly. */
-export const MAP_DOCUMENT_VERSION = 1;
+/**
+ * The document shape this client understands. Anything else is refused loudly.
+ *
+ * Version 2 is the replayed canopy: `MapPreview` gained a `trees` layer, and this document's
+ * `trees` stopped being the `wood` resource clusters and became TreePlanter's forest.
+ */
+export const MAP_DOCUMENT_VERSION = 2;
 
 export interface MapDocument {
   version: number;
@@ -109,6 +114,7 @@ export interface MapDocument {
   human_workers: GridPosition[];
   orc_buildings: OrcBuilding[];
   mines: NamedStructure[];
+  /** TreePlanter's canopy, halved onto the 64x64 grid and distinct: one entry per cell. */
   trees: GridPosition[];
   stones: GridPosition[];
   roads: GridPosition[];
@@ -131,7 +137,19 @@ export interface PreviewResourceCluster {
   start_id: string;
 }
 
-export const MAP_PREVIEW_VERSION = 1;
+/**
+ * One tile of TreePlanter's canopy, on the same tile grid `terrain` is indexed by.
+ *
+ * A position list rather than a row-major mask alongside the terrain: the replayed jobs
+ * plant on the order of a thousand of a 128x128 grid's 16384 tiles, which keeps the whole
+ * preview around 45 KB. A mask only pays once the forest covers roughly a third of the grid.
+ */
+export interface PreviewTree {
+  x: number;
+  y: number;
+}
+
+export const MAP_PREVIEW_VERSION = 2;
 
 export interface MapPreview {
   version: number;
@@ -141,6 +159,8 @@ export interface MapPreview {
   terrain_palette: string[];
   /** Row-major (`index = y * width + x`), length `width * height`, indices into the palette. */
   terrain: number[];
+  /** Painted over the terrain, beneath the zone and cluster markers. Possibly empty. */
+  trees: PreviewTree[];
   start_zones: PreviewStartZone[];
   resource_clusters: PreviewResourceCluster[];
 }
