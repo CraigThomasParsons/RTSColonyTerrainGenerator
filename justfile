@@ -40,7 +40,12 @@ test-api:
 test-compatibility:
     dotnet test tests/MapGen.CompatibilityTests
 
-# Gate 8 — BDD acceptance (cucumber-js; same Gherkin, either target)
+# Gate 8 — legacy PHP stages. Only TreePlanter has a suite today; it exists because the
+# stage silently decoded the .weather artifact wrong for want of one (issue 39).
+test-php:
+    cd MapGenerator/TreePlanter && ./vendor/bin/phpunit
+
+# Gate 9 — BDD acceptance (cucumber-js; same Gherkin, either target)
 bdd-smoke:
     npm run bdd:smoke
 
@@ -59,6 +64,7 @@ quality:
     just test-architecture
     just test-api
     just test-compatibility
+    just test-php
     just bdd-smoke
     just bdd-legacy
     just bdd-net
