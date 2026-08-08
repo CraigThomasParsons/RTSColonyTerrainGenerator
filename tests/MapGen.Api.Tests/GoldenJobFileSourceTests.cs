@@ -87,21 +87,9 @@ public class GoldenJobFileSourceTests
         }
     }
 
+    // The host's own answer to "which fixtures are we replaying?", asked from the test
+    // assembly's bin instead of a content root. Re-deriving it here would let this test pass
+    // against a directory the running API would never read.
     private static string FixturesRoot()
-    {
-        // Same walk CompatibilityTests.GoldenFixtures uses; kept local so this assembly does
-        // not take a project reference for eight lines of path arithmetic.
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MapGen.slnx")))
-        {
-            directory = directory.Parent;
-        }
-
-        if (directory is null)
-        {
-            throw new InvalidOperationException("Could not locate the repository root above the test assembly.");
-        }
-
-        return Path.Combine(directory.FullName, "tests", "fixtures", "golden");
-    }
+        => GoldenFixtures.ResolveRoot(configuredRoot: null, AppContext.BaseDirectory);
 }
