@@ -147,143 +147,66 @@ public sealed class GoldenJobFileSource : IGoldenJobSource
             return Array.Empty<GoldenTree>();
         }
 
-        // The artifact is multi-megabyte and is read on every replayed query, so it is
-        // streamed rather than turned into a document: only the bytes and the canopy live
-        // in memory, not a DOM of 16k tiles nothing else reads.
-        var reader = new Utf8JsonReader(ReadAllBytes(path));
-        var trees = new List<GoldenTree>();
-
         try
         {
-            if (!AdvanceToTiles(ref reader))
+            // JsonDocument is the right altitude for a fixture reader: the golden
+            // .worldpayloads are a few megabytes and only the planted positions leave this
+            // method. A hand-rolled Utf8JsonReader walk is not simpler, only more code.
+            using var document = JsonDocument.Parse(ReadAllBytes(path));
+            if (!document.RootElement.TryGetProperty("tiles", out var tiles)
+                || tiles.ValueKind != JsonValueKind.Array)
             {
                 throw new InvalidDataException($"'{path}' has no 'tiles' array.");
             }
 
-            ReadTiles(ref reader, trees);
+            var trees = new List<GoldenTree>();
+            foreach (var tile in tiles.EnumerateArray())
+            {
+                if (!TileHasTree(tile))
+                {
+                    continue;
+                }
+
+                // Missing coordinates default to 0: the previous token walk did the same,
+                // and a real TreePlanter artifact always carries both.
+                int x = tile.TryGetProperty("x", out var xElement) && xElement.ValueKind == JsonValueKind.Number
+                    ? xElement.GetInt32()
+                    : 0;
+                int y = tile.TryGetProperty("y", out var yElement) && yElement.ValueKind == JsonValueKind.Number
+                    ? yElement.GetInt32()
+                    : 0;
+                trees.Add(new GoldenTree(x, y));
+            }
+
+            return trees.ToArray();
         }
         catch (JsonException e)
         {
             throw new InvalidDataException($"'{path}' is not readable as JSON: {e.Message}", e);
         }
-
-        return trees.ToArray();
     }
 
-    /// <summary>Positions the reader on the root object's <c>tiles</c> array.</summary>
-    private static bool AdvanceToTiles(ref Utf8JsonReader reader)
+    /// <summary>Whether a tile's <c>decorations</c> array holds a <c>tree</c>.</summary>
+    private static bool TileHasTree(JsonElement tile)
     {
-        if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject)
+        if (!tile.TryGetProperty("decorations", out var decorations)
+            || decorations.ValueKind != JsonValueKind.Array)
         {
             return false;
         }
 
-        while (reader.Read())
+        foreach (var decoration in decorations.EnumerateArray())
         {
-            if (reader.TokenType == JsonTokenType.EndObject)
+            if (decoration.ValueKind == JsonValueKind.Object
+                && decoration.TryGetProperty("type", out var type)
+                && type.ValueKind == JsonValueKind.String
+                && type.ValueEquals("tree"))
             {
-                return false;
+                return true;
             }
-
-            bool isTiles = reader.TokenType == JsonTokenType.PropertyName
-                && reader.ValueTextEquals("tiles");
-
-            if (!reader.Read())
-            {
-                return false;
-            }
-
-            if (isTiles)
-            {
-                return reader.TokenType == JsonTokenType.StartArray;
-            }
-
-            // Every other root member — version, job_id, map — is of no interest here.
-            reader.Skip();
         }
 
         return false;
-    }
-
-    /// <summary>Collects the planted tiles from a reader positioned on the tile array's start.</summary>
-    private static void ReadTiles(ref Utf8JsonReader reader, List<GoldenTree> trees)
-    {
-        while (reader.Read() && reader.TokenType == JsonTokenType.StartObject)
-        {
-            int x = 0;
-            int y = 0;
-            bool isPlanted = false;
-
-            while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
-            {
-                bool isX = reader.ValueTextEquals("x");
-                bool isY = reader.ValueTextEquals("y");
-                bool isDecorations = reader.ValueTextEquals("decorations");
-
-                reader.Read();
-
-                if (isX)
-                {
-                    x = reader.GetInt32();
-                }
-                else if (isY)
-                {
-                    y = reader.GetInt32();
-                }
-                else if (isDecorations)
-                {
-                    isPlanted = ContainsTree(ref reader);
-                }
-                else
-                {
-                    reader.Skip();
-                }
-            }
-
-            if (isPlanted)
-            {
-                trees.Add(new GoldenTree(x, y));
-            }
-        }
-    }
-
-    /// <summary>Whether a decorations array, which the reader is positioned on, holds a tree.</summary>
-    private static bool ContainsTree(ref Utf8JsonReader reader)
-    {
-        if (reader.TokenType != JsonTokenType.StartArray)
-        {
-            reader.Skip();
-            return false;
-        }
-
-        bool found = false;
-
-        while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
-        {
-            if (reader.TokenType != JsonTokenType.StartObject)
-            {
-                reader.Skip();
-                continue;
-            }
-
-            while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
-            {
-                bool isType = reader.ValueTextEquals("type");
-
-                reader.Read();
-
-                if (isType && reader.TokenType == JsonTokenType.String && reader.ValueTextEquals("tree"))
-                {
-                    found = true;
-                }
-                else
-                {
-                    reader.Skip();
-                }
-            }
-        }
-
-        return found;
     }
 
     private static (int Width, int Height) ReadJobSpec(string path)
