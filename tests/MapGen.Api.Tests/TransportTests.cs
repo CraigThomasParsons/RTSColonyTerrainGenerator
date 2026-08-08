@@ -26,9 +26,17 @@ public class TransportTests
         using var client = factory.CreateClient();
 
         var allowed = new HttpRequestMessage(HttpMethod.Get, "/api/v1/worlds");
-        allowed.Headers.Add("Origin", "http://localhost:5173");
+        allowed.Headers.Add("Origin", "http://localhost:5190");
         var allowedResponse = await client.SendAsync(allowed);
-        Assert.Equal("http://localhost:5173", allowedResponse.Headers.GetValues("Access-Control-Allow-Origin").Single());
+        Assert.Equal("http://localhost:5190", allowedResponse.Headers.GetValues("Access-Control-Allow-Origin").Single());
+
+        // The loopback literal is a distinct origin from localhost, and it is the one the
+        // browser actually sends when the client is opened at http://127.0.0.1. Allowing
+        // only the hostname form is indistinguishable from working until a browser tries.
+        var loopback = new HttpRequestMessage(HttpMethod.Get, "/api/v1/worlds");
+        loopback.Headers.Add("Origin", "http://127.0.0.1:5190");
+        var loopbackResponse = await client.SendAsync(loopback);
+        Assert.Equal("http://127.0.0.1:5190", loopbackResponse.Headers.GetValues("Access-Control-Allow-Origin").Single());
 
         var rejected = new HttpRequestMessage(HttpMethod.Get, "/api/v1/worlds");
         rejected.Headers.Add("Origin", "https://example.com");

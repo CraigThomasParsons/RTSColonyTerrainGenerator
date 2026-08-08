@@ -40,8 +40,12 @@ builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 
 const string DevClientCorsPolicy = "vite-dev-client";
+// 5190 rather than Vite's usual 5173: that port and 5174 are taken by an unrelated local
+// application, so a client pinned there cannot start at all. This fallback must stay in step
+// with the client's server.port in vite.config.ts — when they drift, every browser request
+// fails preflight while curl keeps reporting the API healthy.
 string[] devClientOrigins = builder.Configuration.GetSection("MapGen:DevClientOrigins").Get<string[]>()
-    ?? new[] { "http://localhost:5173", "http://127.0.0.1:5173" };
+    ?? new[] { "http://localhost:5190", "http://127.0.0.1:5190" };
 
 builder.Services.AddCors(options => options.AddPolicy(
     DevClientCorsPolicy,
