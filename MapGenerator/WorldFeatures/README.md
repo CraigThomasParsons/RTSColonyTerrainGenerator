@@ -36,6 +36,12 @@ World feature generation service for placing special terrain elements.
 - Rivers, this will break my original goal of making the map player however
   - The next stage in the pipeline called "PathFinder" will be building bridges through them.
 
+## CivicOverreach Merge
+
+WorldFeatures can merge CivicOverreach output (bridges, roads, buildings)
+as feature markers when a matching civic payload exists.
+Set `--civic-outbox` to override the default CivicOverreach outbox.
+
 
 ### Output
  - Keep things in the payload format that the Tree Planter started.

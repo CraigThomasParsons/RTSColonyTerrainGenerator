@@ -45,6 +45,7 @@ STAGE_DIRECTORY_MAP = {
     "tiler": "Tiler",
     "weather": "WeatherAnalyses",
     "treeplanter": "TreePlanter",
+    "simulatecity": "SimulateCity",
 }
 
 

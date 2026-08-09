@@ -1,0 +1,17 @@
+[Unit]
+Description=TransportTycoonDeluxe Worker
+After=local-fs.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/Code/RTSColonyTerrainGenerator/.env
+WorkingDirectory=%h/Code/RTSColonyTerrainGenerator/MapGenerator/TransportTycoonDeluxe
+ExecStart=%h/Code/RTSColonyTerrainGenerator/MapGenerator/TransportTycoonDeluxe/bin/run_transport_tycoon.sh
+
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/logs
+ReadWritePaths=%h/Code/RTSColonyTerrainGenerator/MapGenerator/TransportTycoonDeluxe
+
+Restart=no
+
+[Install]
+WantedBy=default.target

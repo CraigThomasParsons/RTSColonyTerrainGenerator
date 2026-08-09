@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+#
+# Cleaner: remove generated logs and pipeline artifacts for RTSColonyTerrainGenerator.
+#
+# This script is intentionally conservative: it only touches known output locations
+# (logs, generated content, stage inbox/outbox/archive/failed/debug folders, and
+# build targets for the WCAR toolchain). Source files and configs are never removed.
+#
+# Usage:
+#   tools/cleaner [--dry-run] [--yes]
+#
+# Options:
+#   --dry-run   Show what would be removed, but do not delete anything.
+#   --yes       Skip the confirmation prompt.
+#
+# Examples:
+#   tools/cleaner --dry-run
+#   tools/cleaner --yes
+#
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+DRY_RUN=false
+ASSUME_YES=false
+
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run)
+      DRY_RUN=true
+      ;;
+    --yes)
+      ASSUME_YES=true
+      ;;
+    -h|--help)
+      echo "Usage: tools/cleaner [--dry-run] [--yes]"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $arg" >&2
+      exit 1
+      ;;
+  esac
+  shift || true
+ done
+
+log() {
+  printf "%s\n" "$*"
+}
+
+# Remove all contents of a directory, preserving the directory itself.
+clear_dir_contents() {
+  local dir="$1"
+  if [[ ! -d "$dir" ]]; then
+    return 0
+  fi
+
+  if $DRY_RUN; then
+    log "[dry-run] clear contents: $dir"
+    return 0
+  fi
+
+  shopt -s dotglob nullglob
+  rm -rf "${dir}"/*
+  shopt -u dotglob nullglob
+}
+
+# Remove an entire directory tree.
+remove_dir_tree() {
+  local dir="$1"
+  if [[ ! -e "$dir" ]]; then
+    return 0
+  fi
+
+  if $DRY_RUN; then
+    log "[dry-run] remove tree: $dir"
+    return 0
+  fi
+
+  rm -rf "$dir"
+}
+
+# Collect directories to clean.
+TARGET_DIRS=()
+
+# Top-level generated/log outputs.
+TARGET_DIRS+=("$ROOT_DIR/logs")
+TARGET_DIRS+=("$ROOT_DIR/generated")
+
+# Stage artifact folders.
+MAPGEN_DIR="$ROOT_DIR/MapGenerator"
+STAGE_OUTPUT_FOLDERS=(inbox outbox archive failed debug)
+
+if [[ -d "$MAPGEN_DIR" ]]; then
+  while IFS= read -r -d '' stage_dir; do
+    for subdir in "${STAGE_OUTPUT_FOLDERS[@]}"; do
+      TARGET_DIRS+=("$stage_dir/$subdir")
+    done
+  done < <(find "$MAPGEN_DIR" -mindepth 1 -maxdepth 1 -type d -print0)
+fi
+
+# WCAR toolchain build artifacts.
+TARGET_DIRS+=("$ROOT_DIR/MapGenerator/CartridgeManufacturer/bin/wcar-tools/target")
+
+if ! $ASSUME_YES; then
+  log "This will remove logs and generated artifacts in:"
+  for dir in "${TARGET_DIRS[@]}"; do
+    log "  - $dir"
+  done
+  log ""
+  read -r -p "Continue? [y/N] " reply
+  case "$reply" in
+    y|Y|yes|YES) ;;
+    *)
+      log "Aborted."
+      exit 0
+      ;;
+  esac
+fi
+
+# Perform cleanup.
+for dir in "${TARGET_DIRS[@]}"; do
+  # For known artifact folders, clear contents; for target/ remove tree.
+  if [[ "$dir" == */target ]]; then
+    remove_dir_tree "$dir"
+  else
+    clear_dir_contents "$dir"
+  fi
+ done
+
+if $DRY_RUN; then
+  log "Cleanup complete (dry-run)."
+  exit 0
+fi
+
+# Ensure the canonical log file exists after cleanup.
+mkdir -p "$ROOT_DIR/logs"
+touch "$ROOT_DIR/logs/mapgen.log"
+
+log "Cleanup complete."

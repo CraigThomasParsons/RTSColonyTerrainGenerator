@@ -138,3 +138,23 @@ MapGenerator/**/.gradle/
 RTSColonyTerrainGenerator.sln
 
 logs/jobs
+
+# ============================
+# Runtime / generated outputs
+# ============================
+
+# Autosaved "where I left off" session snapshots (generated, not source)
+logs/leftoff_snapshots/
+
+# StargusExport generated SCM map outputs
+MapGenerator/StargusExport/exports/
+# Spec-driven toolkit (feature/spec-driven-toolkit)
+node_modules/
+src/**/bin/
+tests/**/bin/
+
+# Local Claude Code project config
+.claude/
+
+# Local editor workspace files at repo root
+/*.code-workspace
