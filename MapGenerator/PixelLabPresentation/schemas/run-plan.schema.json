@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rtscolony.local/schemas/pixellab/run-plan-v1.json",
+  "title": "PixelLab Candidate Run Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["planId", "contractVersion", "planVersion", "mode", "source", "controls", "budget", "candidates", "explorationOnly", "warnings"],
+  "properties": {
+    "planId": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "contractVersion": {"const": "1.0"},
+    "planVersion": {"const": "1"},
+    "mode": {"enum": ["offline", "live"]},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "fileName", "type"],
+      "properties": {
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "fileName": {"type": "string", "minLength": 1},
+        "type": {"const": "worldpayload-json"}
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["directory", "endpoint", "cacheKey", "inputs"],
+      "properties": {
+        "directory": {"const": "controls"},
+        "endpoint": {"const": "/create-image-pixflux-background"},
+        "cacheKey": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "inputs": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidateBudget", "requestedCandidateCount", "submissionsPerCandidate"],
+      "properties": {
+        "candidateBudget": {"type": "integer", "minimum": 0, "maximum": 8},
+        "requestedCandidateCount": {"type": "integer", "minimum": 1, "maximum": 8},
+        "submissionsPerCandidate": {"const": 1}
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidateIndex", "seed", "directory", "state"],
+        "properties": {
+          "candidateIndex": {"type": "integer", "minimum": 0},
+          "seed": {"type": "integer"},
+          "directory": {"type": "string", "pattern": "^candidates/candidate-[0-9]{3}$"},
+          "state": {"const": "planned"}
+        }
+      }
+    },
+    "explorationOnly": {"type": "boolean"},
+    "warnings": {"type": "array", "items": {"type": "string"}}
+  }
+}
