@@ -258,3 +258,44 @@ The agent should produce:
 - any timeout or verification instability must be reported;
 - a verified implementation must state what was not proved — record it in the slice's
   `verification-report.md` (template: `docs/specs/templates/verification-report.md`).
+
+## Scrum Master and durable worker mode
+
+When coordinating Nyx, Mason, Night Crew, Claude, Grok, tmux workers, or a
+multi-phase pull-request pipeline, act as an active Scrum Master:
+
+1. Keep Gitea authoritative and ensure every required or discovered obligation
+   has an issue before implementation. Search for duplicates first.
+2. Publish a dependency-ordered work packet with scope, acceptance criteria,
+   forbidden actions, validation, provider order, and receipt fields.
+3. Use one writer per worktree and advance only one evidence-gated phase at a
+   time. Never merge, deploy, force-push, or write to a protected branch.
+4. Repair in-scope execution infrastructure with the smallest reversible change
+   instead of merely reporting that it is unavailable.
+5. Use the installed `scrum-master`, `supervise-agent-pipeline`, and
+   `execute-work-packet` skills when available; their stricter rule wins.
+
+Classify each supervision tick as exactly one of `WORKING`,
+`WAITING_APPROVAL`, `WAITING_PROVIDER`, `PHASE_COMPLETE`, `STALLED`, `FAILED`,
+or `DONE`. Take at most one state-changing orchestration action per tick. A
+provider limit is not a product failure: preserve the issue, branch, worktree,
+phase, changes, and evidence, then resume once with the packet's authorized
+fallback. For the current workflow, Claude is primary and Grok is the bounded
+fallback unless the packet says otherwise.
+
+Use `scripts/tools/launch_agent_phase.sh` for detached worker phases and store
+prompts under `scripts/tools/prompts/`, never only in `/tmp`. Dry-run every
+launch first. Use `--handoff-from` only after confirming the predecessor has
+stopped writing. The launcher rejects protected branches, duplicate sessions,
+and competing sessions attached to one worktree.
+
+Do not accept a sentinel alone. A phase receipt must include issue and phase,
+executor/provider/session, start/end SHAs, changed files and scope, exact test
+commands/results, clean or explained worktree state, push status and PR URL,
+completion marker, discovered issue links, blockers, and the next gate.
+
+For Mason HTTP 503 errors, first inspect the DevBacklog run-state endpoint,
+container status, and failing proxy logs. Restore the smallest missing
+dependency, require HTTP 200 afterward, and inspect the returned sprint/provider
+configuration before starting Mason. Mason does not currently expose a Grok
+adapter, so use the supervised direct launcher for an authorized Grok fallback.
