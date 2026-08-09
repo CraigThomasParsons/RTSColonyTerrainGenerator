@@ -1,0 +1,66 @@
+{
+  "artifacts": {
+    "MapGenerator/Heightmap/archive/43860dcf-6469-42a7-9843-4e33abeacfac.json": {
+      "bytes": 163,
+      "kind": "json",
+      "logical_sha256": "sha256:563c8df79aa7a332ddf72714ed1c6f70eebecd6c1f4347027d34682429ff22a7"
+    },
+    "MapGenerator/PathFinder/outbox/43860dcf-6469-42a7-9843-4e33abeacfac.json": {
+      "bytes": 4739596,
+      "kind": "json",
+      "logical_sha256": "sha256:b6bf1176039eee36bc1d209f9d91e5eee18dc54c33328397343e67a1c18e7368"
+    },
+    "MapGenerator/Playable/outbox/43860dcf-6469-42a7-9843-4e33abeacfac.playable.json": {
+      "bytes": 1051,
+      "kind": "playable.json",
+      "logical_sha256": "sha256:2942a5bd528dd3fb507844028122bf194d997e5e01b1c83157d39d5c7ec5566e"
+    },
+    "MapGenerator/Playable/outbox/43860dcf-6469-42a7-9843-4e33abeacfac.worldpayload": {
+      "bytes": 3376733,
+      "kind": "worldpayload",
+      "logical_sha256": "sha256:d9b7c403ffa934808481b81ffcc345d421009880bf9a0b5ca9ad2f671d02dbda"
+    },
+    "MapGenerator/StargusExport/outbox/43860dcf-6469-42a7-9843-4e33abeacfac.chk": {
+      "bytes": 33942,
+      "kind": "chk",
+      "logical_sha256": "sha256:bb28c9029b1f77957293a232a0dddbcd875944cb7733a7e114f950a7d90162a2"
+    },
+    "MapGenerator/StargusExport/outbox/43860dcf-6469-42a7-9843-4e33abeacfac.scm": {
+      "bytes": 17204,
+      "kind": "scm",
+      "logical_sha256": "sha256:293f89e631b245fae605010ad9e7729748566a060ea7d17032ef9cc922a22b84"
+    },
+    "MapGenerator/Tiler/outbox/43860dcf-6469-42a7-9843-4e33abeacfac.maptiles": {
+      "bytes": 32800,
+      "kind": "maptiles",
+      "logical_sha256": "sha256:a41e7e26439eb2497d1d85eca433dfbaaa1a5d819ecccfabc2d88e7342af8f68"
+    },
+    "MapGenerator/TreePlanter/outbox/43860dcf-6469-42a7-9843-4e33abeacfac.worldpayload": {
+      "bytes": 5187173,
+      "kind": "worldpayload",
+      "logical_sha256": "sha256:f4802f6415a74a78342b55e7d7664d2212d4ddbef7306e5f6f4713d57be0ae46"
+    },
+    "MapGenerator/WeatherAnalyses/archive/43860dcf-6469-42a7-9843-4e33abeacfac.heightmap": {
+      "bytes": 8208,
+      "kind": "heightmap",
+      "logical_sha256": "sha256:a8fa0f3b073bcc95c1192da6a52d293e742f28c8285c52345b00f21586fca630"
+    },
+    "MapGenerator/WeatherAnalyses/outbox/43860dcf-6469-42a7-9843-4e33abeacfac.weather": {
+      "bytes": 28688,
+      "kind": "weather",
+      "logical_sha256": "sha256:3f019859695189bbb18fd4a8380c47613c356df0ec375a96323030ec74cdc074"
+    },
+    "MapGenerator/WorldFeatures/outbox/43860dcf-6469-42a7-9843-4e33abeacfac.worldpayload": {
+      "bytes": 4728122,
+      "kind": "worldpayload",
+      "logical_sha256": "sha256:4289c7536c9b77773b87cddfb6444c6404012ad1542eb4c2fd552020bc338c2b"
+    },
+    "MapGenerator/WorldSnapshot/outbox/43860dcf-6469-42a7-9843-4e33abeacfac.png": {
+      "bytes": 222616,
+      "kind": "png",
+      "logical_sha256": "sha256:ab55e3d31ed4446a5d0674b5a34d9eb5cbcc86b9f8ba6e34f89f6af065303e3d"
+    }
+  },
+  "job_id": "43860dcf-6469-42a7-9843-4e33abeacfac",
+  "missing": []
+}

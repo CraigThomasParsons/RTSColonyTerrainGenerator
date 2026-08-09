@@ -1,0 +1,8 @@
+[Unit]
+Description=Watch TransportTycoonDeluxe inbox for new jobs
+
+[Path]
+PathChanged=%h/Code/RTSColonyTerrainGenerator/MapGenerator/TransportTycoonDeluxe/inbox/
+
+[Install]
+WantedBy=default.target

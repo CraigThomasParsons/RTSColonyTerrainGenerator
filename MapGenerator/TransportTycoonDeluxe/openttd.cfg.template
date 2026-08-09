@@ -1,0 +1,17 @@
+[misc]
+fullscreen = false
+language = english.lng
+
+[video]
+fullscreen = false
+
+[gui]
+autosave = 0
+
+[game_creation]
+map_x = {{MAP_X}}
+map_y = {{MAP_Y}}
+water_level = {{WATER_LEVEL}}
+
+[network]
+server_port = 0

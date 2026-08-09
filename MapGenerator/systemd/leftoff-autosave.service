@@ -1,0 +1,7 @@
+[Unit]
+Description=MapGenerator LeftOff auto-save snapshot
+After=default.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/Code/RTSColonyTerrainGenerator/MapGenerator/bin/save_leftoff.sh "autosave"

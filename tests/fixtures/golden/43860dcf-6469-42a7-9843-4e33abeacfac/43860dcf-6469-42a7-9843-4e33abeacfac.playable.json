@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "job_id": "43860dcf-6469-42a7-9843-4e33abeacfac",
+  "start_zones": [
+    {
+      "id": "start_1",
+      "x": 43,
+      "y": 80,
+      "slope": -32768
+    },
+    {
+      "id": "start_2",
+      "x": 106,
+      "y": 114,
+      "slope": -32768
+    }
+  ],
+  "resource_clusters": [
+    {
+      "id": "start_1_wood",
+      "type": "wood",
+      "x": 49,
+      "y": 84,
+      "start_id": "start_1"
+    },
+    {
+      "id": "start_1_ore",
+      "type": "ore",
+      "x": 37,
+      "y": 76,
+      "start_id": "start_1"
+    },
+    {
+      "id": "start_2_wood",
+      "type": "wood",
+      "x": 112,
+      "y": 118,
+      "start_id": "start_2"
+    },
+    {
+      "id": "start_2_ore",
+      "type": "ore",
+      "x": 100,
+      "y": 110,
+      "start_id": "start_2"
+    }
+  ],
+  "settlement_labels": [
+    {
+      "id": "start_1",
+      "type": "start",
+      "x": 43,
+      "y": 80
+    },
+    {
+      "id": "start_2",
+      "type": "start",
+      "x": 106,
+      "y": 114
+    }
+  ],
+  "notes": "playable labels generated from passable tiles"
+}
