@@ -6,7 +6,7 @@ import type {
   MapPreview,
   ProblemDetails,
 } from "./contract.ts";
-import { MAP_DOCUMENT_VERSION, MAP_PREVIEW_VERSION } from "./contract.ts";
+import { MAP_CONTRACT_VERSION } from "./contract.ts";
 import { parseJsonWithInt64, stringifyJsonWithInt64 } from "./int64.ts";
 
 /**
@@ -83,14 +83,14 @@ export function createMapGenClient({
     getMapDocument: async (jobId) =>
       assertVersion(
         "map document",
-        MAP_DOCUMENT_VERSION,
+        MAP_CONTRACT_VERSION,
         await send<MapDocument>(`/worlds/${encodeURIComponent(jobId)}/map-document`),
       ),
 
     getMapPreview: async (jobId) =>
       assertVersion(
         "map preview",
-        MAP_PREVIEW_VERSION,
+        MAP_CONTRACT_VERSION,
         await send<MapPreview>(`/worlds/${encodeURIComponent(jobId)}/preview`),
       ),
   };

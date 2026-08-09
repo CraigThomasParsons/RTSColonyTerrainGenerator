@@ -156,5 +156,8 @@ tests/**/bin/
 # Local Claude Code project config
 .claude/
 
+# Local agent worktrees and Beads runtime state
+.worktrees/
+
 # Local editor workspace files at repo root
 /*.code-workspace
