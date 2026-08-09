@@ -120,7 +120,7 @@ export interface MapDocument {
   human_workers: GridPosition[];
   orc_buildings: OrcBuilding[];
   mines: NamedStructure[];
-  /** TreePlanter's canopy, halved onto the 64x64 grid and distinct: one entry per cell. */
+  /** TreePlanter's canopy, halved onto the 64×64 grid; Distinct after halving. */
   trees: GridPosition[];
   stones: GridPosition[];
   roads: GridPosition[];
@@ -144,11 +144,9 @@ export interface PreviewResourceCluster {
 }
 
 /**
- * One tile of TreePlanter's canopy, on the same tile grid `terrain` is indexed by.
- *
- * A position list rather than a row-major mask alongside the terrain: the replayed jobs
- * plant on the order of a thousand of a 128x128 grid's 16384 tiles, which keeps the whole
- * preview around 45 KB. A mask only pays once the forest covers roughly a third of the grid.
+ * One tile of TreePlanter's canopy, on the same tile grid as `terrain`.
+ * Position list (not a row-major mask): ~1k of 16384 tiles keeps the preview ~45 KB.
+ * A mask pays around one-third canopy coverage.
  */
 export interface PreviewTree {
   x: number;

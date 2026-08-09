@@ -149,9 +149,8 @@ public sealed class GoldenJobFileSource : IGoldenJobSource
 
         try
         {
-            // JsonDocument is the right altitude for a fixture reader: the golden
-            // .worldpayloads are a few megabytes and only the planted positions leave this
-            // method. A hand-rolled Utf8JsonReader walk is not simpler, only more code.
+            // Fixture reader altitude: multi-MB golden .worldpayloads; only planted
+            // positions leave this method. Utf8JsonReader is not simpler here.
             using var document = JsonDocument.Parse(ReadAllBytes(path));
             if (!document.RootElement.TryGetProperty("tiles", out var tiles)
                 || tiles.ValueKind != JsonValueKind.Array)
@@ -167,9 +166,7 @@ public sealed class GoldenJobFileSource : IGoldenJobSource
                     continue;
                 }
 
-                // A planted tile without numeric x/y is malformed data, not an origin tree.
-                // Other fixture readers already throw InvalidDataException for bad bytes;
-                // defaulting missing coordinates to (0, 0) would silently plant at the origin.
+                // Planted without numeric x/y is bad data — never invent (0, 0).
                 if (!tile.TryGetProperty("x", out var xElement) || xElement.ValueKind != JsonValueKind.Number)
                 {
                     throw new InvalidDataException(

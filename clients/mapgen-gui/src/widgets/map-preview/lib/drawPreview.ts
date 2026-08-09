@@ -92,11 +92,7 @@ function drawTerrain(
   }
 }
 
-/**
- * The canopy is a grid layer, not a set of markers: each planted tile is covered exactly,
- * at terrain scale — which is why it sits beside `drawTerrain` in the layer order above
- * rather than among the markers.
- */
+/** Grid layer at terrain scale (with `drawTerrain`), not a marker. */
 function drawCanopy(
   ctx: CanvasRenderingContext2D,
   preview: MapPreview,
