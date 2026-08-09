@@ -50,12 +50,14 @@ const START_ZONE_RING_COLOR = "#12121a";
 export interface DrawPreviewOptions {
   /** Pixel size of one preview tile. The world is `width * tileSize` pixels across. */
   tileSize: number;
+  /** Present only for an explicitly human-approved candidate. */
+  approvedBackground?: CanvasImageSource | undefined;
 }
 
 export function drawPreview(
   ctx: CanvasRenderingContext2D,
   preview: MapPreview,
-  { tileSize }: DrawPreviewOptions,
+  { tileSize, approvedBackground }: DrawPreviewOptions,
 ): void {
   const expected = preview.width * preview.height;
   if (preview.terrain.length !== expected) {
@@ -68,8 +70,12 @@ export function drawPreview(
 
   // Back to front. The order is the contract: the two grid layers go down first, so a
   // forest can never hide the start zones and resource clusters the preview exists to show.
-  drawTerrain(ctx, preview, tileSize);
-  drawCanopy(ctx, preview, tileSize);
+  if (approvedBackground) {
+    ctx.drawImage(approvedBackground, 0, 0, preview.width * tileSize, preview.height * tileSize);
+  } else {
+    drawTerrain(ctx, preview, tileSize);
+    drawCanopy(ctx, preview, tileSize);
+  }
   drawResourceClusters(ctx, preview, tileSize);
   drawStartZones(ctx, preview, tileSize);
 }

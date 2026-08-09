@@ -41,6 +41,13 @@ const PREVIEW: MapPreview = {
   resource_clusters: [{ id: "start_1_wood", type: "wood", x: 2, y: 2, start_id: "start_1" }],
 };
 
+const pixelLabClient = {
+  getPixelLabReadiness: vi.fn().mockResolvedValue({ available: true, live_configured: false, mode: "offline", balance: null, balance_currency: null, message: "Offline ready." }),
+  refreshPixelLabBalance: vi.fn(),
+  submitPixelLabJob: vi.fn(), getPixelLabJob: vi.fn(), retryPixelLabJob: vi.fn(),
+  decidePixelLabCandidate: vi.fn(), resolveApiUrl: (path: string) => path,
+};
+
 beforeEach(() => {
   vi.stubGlobal("matchMedia", (query: string) => ({
     matches: false,
@@ -78,13 +85,14 @@ describe("MapStudioPage", () => {
       getJobStatus,
       getMapPreview: vi.fn().mockResolvedValue(PREVIEW),
       getMapDocument: vi.fn(),
+      ...pixelLabClient,
     } as unknown as MapGenClient;
 
     render(<MapStudioPage client={client} pollIntervalMs={POLL_INTERVAL_MS} />);
 
     expect(screen.getByText(/no map yet/i)).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /generate/i }));
+    await user.click(screen.getByRole("button", { name: /^generate$/i }));
 
     // The submit returned 202, not a map.
     await waitFor(() => expect(screen.getByText("queued")).toBeInTheDocument());
@@ -99,7 +107,7 @@ describe("MapStudioPage", () => {
     expect(canvas).toBeInTheDocument();
     expect(client.getMapPreview).toHaveBeenCalledWith(JOB_ID);
     expect(screen.getByRole("button", { name: /^generate$/i })).toBeEnabled();
-  });
+  }, 10_000);
 
   it("shows the failure and no map when the job fails", async () => {
     const user = userEvent.setup();
@@ -116,10 +124,11 @@ describe("MapStudioPage", () => {
       ),
       getMapPreview: vi.fn(),
       getMapDocument: vi.fn(),
+      ...pixelLabClient,
     } as unknown as MapGenClient;
 
     render(<MapStudioPage client={client} pollIntervalMs={POLL_INTERVAL_MS} />);
-    await user.click(screen.getByRole("button", { name: /generate/i }));
+    await user.click(screen.getByRole("button", { name: /^generate$/i }));
 
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent(

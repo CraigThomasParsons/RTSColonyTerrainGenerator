@@ -5,6 +5,10 @@ import type {
   MapDocument,
   MapPreview,
   ProblemDetails,
+  CreatePixelLabJobRequest,
+  PixelLabDecisionRequest,
+  PixelLabJob,
+  PixelLabReadiness,
 } from "./contract.ts";
 import { MAP_CONTRACT_VERSION } from "./contract.ts";
 import { parseJsonWithInt64, stringifyJsonWithInt64 } from "./int64.ts";
@@ -53,6 +57,13 @@ export interface MapGenClient {
   getJobStatus(jobId: string): Promise<JobStatus>;
   getMapDocument(jobId: string): Promise<MapDocument>;
   getMapPreview(jobId: string): Promise<MapPreview>;
+  getPixelLabReadiness(): Promise<PixelLabReadiness>;
+  refreshPixelLabBalance(): Promise<PixelLabReadiness>;
+  submitPixelLabJob(request: CreatePixelLabJobRequest): Promise<PixelLabJob>;
+  getPixelLabJob(jobId: string): Promise<PixelLabJob>;
+  retryPixelLabJob(jobId: string): Promise<PixelLabJob>;
+  decidePixelLabCandidate(jobId: string, candidateIndex: number, decision: "approve" | "reject", request: PixelLabDecisionRequest): Promise<PixelLabJob>;
+  resolveApiUrl(path: string): string;
 }
 
 export function createMapGenClient({
@@ -93,6 +104,23 @@ export function createMapGenClient({
         MAP_CONTRACT_VERSION,
         await send<MapPreview>(`/worlds/${encodeURIComponent(jobId)}/preview`),
       ),
+
+    getPixelLabReadiness: () => send<PixelLabReadiness>("/pixellab/readiness"),
+    refreshPixelLabBalance: () => send<PixelLabReadiness>("/pixellab/readiness/balance", { method: "POST" }),
+    submitPixelLabJob: (request) => send<PixelLabJob>("/pixellab/jobs", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request),
+    }),
+    getPixelLabJob: (jobId) => send<PixelLabJob>(`/pixellab/jobs/${encodeURIComponent(jobId)}`),
+    retryPixelLabJob: (jobId) => send<PixelLabJob>(`/pixellab/jobs/${encodeURIComponent(jobId)}/retry`, { method: "POST" }),
+    decidePixelLabCandidate: (jobId, candidateIndex, decision, request) =>
+      send<PixelLabJob>(`/pixellab/jobs/${encodeURIComponent(jobId)}/candidates/${candidateIndex}/${decision}`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request),
+      }),
+    resolveApiUrl: (path) => {
+      let normalizedPath = path;
+      if (!normalizedPath.startsWith("/")) normalizedPath = `/${normalizedPath}`;
+      return `${baseUrl}${normalizedPath}`;
+    },
   };
 }
 
