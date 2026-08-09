@@ -11,4 +11,5 @@ public sealed class PixelLabOptions
     public string ClientPath { get; init; } =
         "MapGenerator/PixelLabPresentation/bin/pixellab_client.py";
     public string TokenEnvironmentVariable { get; init; } = "PIXELLAB_API_TOKEN";
+    public bool UseFakeTransport { get; init; }
 }

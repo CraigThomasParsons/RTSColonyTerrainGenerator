@@ -7,6 +7,17 @@ namespace MapGen.Api.Tests;
 public class PixelLabEndpointTests
 {
     [Fact]
+    public async Task Development_host_announces_the_credit_free_interactive_transport()
+    {
+        using var factory = new MapGenApiFactory { Environment = "Development" };
+        using var client = factory.CreateClient();
+        JsonElement readiness = await (await client.GetAsync("/api/v1/pixellab/readiness")).ReadJson();
+        Assert.Equal("development-fake", readiness.GetProperty("mode").GetString());
+        Assert.Equal("fake credits", readiness.GetProperty("balance_currency").GetString());
+        Assert.Contains("no PixelLab request", readiness.GetProperty("message").GetString());
+    }
+
+    [Fact]
     public async Task Fake_transport_runs_submit_review_approve_without_leaking_a_secret()
     {
         var fake = new FakePixelLabProcessExecutor();

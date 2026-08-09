@@ -36,8 +36,14 @@ builder.Services.AddSingleton(new PixelLabOptions
     GoldenFixturesRoot = fixturesRoot,
     RunsRoot = Path.GetFullPath(builder.Configuration["MapGen:PixelLab:RunsRoot"]
         ?? Path.Combine(repositoryRoot, ".runtime", "pixellab")),
+    UseFakeTransport = builder.Environment.IsDevelopment()
+        && builder.Configuration.GetValue("MapGen:PixelLab:UseFakeTransport", false),
 });
-builder.Services.AddSingleton<IPixelLabProcessExecutor, PixelLabProcessExecutor>();
+if (builder.Environment.IsDevelopment()
+    && builder.Configuration.GetValue("MapGen:PixelLab:UseFakeTransport", false))
+    builder.Services.AddSingleton<IPixelLabProcessExecutor, FakePixelLabProcessExecutor>();
+else
+    builder.Services.AddSingleton<IPixelLabProcessExecutor, PixelLabProcessExecutor>();
 builder.Services.AddSingleton<IPixelLabJobService, PixelLabJobService>();
 
 // snake_case across the whole surface: the map document must be snake_case because AMPB

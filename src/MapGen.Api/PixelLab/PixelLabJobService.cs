@@ -45,6 +45,9 @@ public sealed class PixelLabJobService(
 
     public PixelLabReadiness Readiness()
     {
+        if (options.UseFakeTransport)
+            return new PixelLabReadiness(true, false, "development-fake", 999, "fake credits",
+                "Development fake transport: no PixelLab request or credit spend is possible.");
         bool available = File.Exists(Path.Combine(options.RepositoryRoot, options.OrchestratorPath));
         bool liveConfigured = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(
             options.TokenEnvironmentVariable));
