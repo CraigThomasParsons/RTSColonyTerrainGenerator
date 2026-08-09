@@ -178,3 +178,55 @@ export interface ProblemDetails {
   detail?: string;
   instance?: string;
 }
+
+// ── PixelLab presentation jobs ──────────────────────────────────────────────────────
+
+export interface CreatePixelLabJobRequest {
+  world_job_id: string;
+  candidate_count: number;
+  candidate_budget: number;
+  mode: "offline" | "live";
+  enable_live_calls: boolean;
+  confirm_credit_spend: boolean;
+}
+
+export interface PixelLabReadiness {
+  available: boolean;
+  live_configured: boolean;
+  mode: string;
+  balance: number | null;
+  balance_currency: string | null;
+  message: string | null;
+}
+
+export interface PixelLabCandidate {
+  candidate_index: number;
+  seed: number;
+  state: "planned" | "dry-run" | "processing" | "generated" | "rejected" | "human-approved";
+  structurally_valid: boolean;
+  eligible_for_approval: boolean;
+  cache_hit: boolean;
+  failures: string[];
+  image_url: string | null;
+}
+
+export interface PixelLabJob {
+  job_id: string;
+  world_job_id: string;
+  status: "queued" | "running" | "succeeded" | "failed";
+  stage: string;
+  pct: number;
+  mode: string;
+  candidate_budget: number;
+  submissions: number;
+  cache_hits: number;
+  submitted_at_utc: string;
+  completed_at_utc: string | null;
+  error: string | null;
+  candidates: PixelLabCandidate[];
+}
+
+export interface PixelLabDecisionRequest {
+  actor: string;
+  reason: string;
+}

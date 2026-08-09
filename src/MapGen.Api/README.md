@@ -23,6 +23,25 @@ the only caller and holds the internal service token.
 
 The OpenAPI document (`/openapi/v1.json`) is served in Development only.
 
+## PixelLab presentation jobs
+
+Map Studio uses `/api/v1/pixellab/*` to run the repository-owned candidate
+orchestrator. The browser sends a completed world-job ID, never an input path or
+an API token. The server resolves the golden `.worldpayload`, stores durable job
+state beneath `.runtime/pixellab/`, and starts Python with an argument list and
+`UseShellExecute=false`.
+
+Generation defaults to `offline`, a zero-network dry-run. Live execution is
+refused unless the request selects `live` and sets both explicit confirmations;
+the token remains a server environment variable. Candidate images are available
+for comparison after structural validation, but the map renderer activates one
+only after an operator records an approval with their name and reason. Start-zone
+and resource overlays remain authoritative and are always painted above it.
+
+The API integration suite replaces the process executor with a fake transport.
+It covers success, cache hit, failure, retry, approval, image collection, and
+secret non-disclosure without contacting PixelLab or spending credits.
+
 ## What backs the world endpoints
 
 `MapGen.Application` has no generation handler — its whole surface is the two

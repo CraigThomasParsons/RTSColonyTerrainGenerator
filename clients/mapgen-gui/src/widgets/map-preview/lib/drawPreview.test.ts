@@ -28,6 +28,7 @@ const recordingContext = () => {
   const rects: DrawnRect[] = [];
   const arcs: DrawnArc[] = [];
   let pendingArc: Omit<DrawnArc, "fillStyle"> | null = null;
+  const events: string[] = [];
 
   const ctx = {
     fillStyle: "",
@@ -39,8 +40,11 @@ const recordingContext = () => {
     closePath: () => {},
     stroke: () => {},
     clearRect: () => {},
+    drawImage: () => { events.push("background"); },
     fillRect(x: number, y: number, w: number, h: number) {
       rects.push({ fillStyle: ctx.fillStyle, x, y, w, h });
+      if (w === TILE_SIZE && h === TILE_SIZE) events.push("grid");
+      else events.push("marker");
     },
     strokeRect: () => {},
     arc(x: number, y: number, radius: number) {
@@ -54,7 +58,7 @@ const recordingContext = () => {
     },
   };
 
-  return { ctx: ctx as unknown as CanvasRenderingContext2D, rects, arcs };
+  return { ctx: ctx as unknown as CanvasRenderingContext2D, rects, arcs, events };
 };
 
 const TILE_SIZE = 8;
@@ -206,6 +210,19 @@ describe("drawPreview", () => {
     expect(lastTreeIndex).toBeGreaterThanOrEqual(0);
     expect(firstMarkerIndex).toBeGreaterThan(lastTreeIndex);
     expect(arcs).toHaveLength(1);
+  });
+
+  it("renders an approved candidate as the background and keeps authoritative markers above it", () => {
+    const { ctx, rects, events } = recordingContext();
+    const approved = {} as CanvasImageSource;
+    drawPreview(ctx, previewOf({ trees: [{ x: 0, y: 0 }], resource_clusters: [
+      { id: "ore", type: "gold", x: 1, y: 1, start_id: "start" },
+    ] }), { tileSize: TILE_SIZE, approvedBackground: approved });
+
+    expect(events[0]).toBe("background");
+    expect(events).not.toContain("grid");
+    expect(rects).toHaveLength(1);
+    expect(events.at(-1)).toBe("marker");
   });
 
   it("refuses a terrain array whose length disagrees with width * height", () => {

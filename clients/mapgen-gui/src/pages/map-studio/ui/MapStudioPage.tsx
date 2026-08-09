@@ -1,7 +1,9 @@
+import { useCallback, useState } from "react";
 import { useWorldJob } from "~/entities/world";
 import { GenerateWorldForm } from "~/features/generate-world";
 import type { MapGenClient } from "~/shared/api/mapgenClient.ts";
 import { MapPreviewPanel } from "~/widgets/map-preview";
+import { PixelLabPanel } from "~/features/pixellab-presentation/PixelLabPanel.tsx";
 
 import styles from "./MapStudioPage.module.css";
 
@@ -17,11 +19,13 @@ export interface MapStudioPageProps {
 
 export function MapStudioPage({ client, pollIntervalMs }: MapStudioPageProps) {
   const { snapshot, generate } = useWorldJob(client, pollIntervalMs);
+  const [approvedImageUrl, setApprovedImageUrl] = useState<string | null>(null);
+  const handleApprovedImage = useCallback((url: string | null) => setApprovedImageUrl(url), []);
 
   return (
     <main className={styles.page}>
       <section className={styles.stage}>
-        <MapPreviewPanel preview={snapshot.preview} />
+        <MapPreviewPanel preview={snapshot.preview} approvedBackgroundUrl={approvedImageUrl} />
       </section>
 
       <aside className={styles.rail}>
@@ -33,6 +37,9 @@ export function MapStudioPage({ client, pollIntervalMs }: MapStudioPageProps) {
         </header>
 
         <GenerateWorldForm snapshot={snapshot} onGenerate={generate} />
+
+        <PixelLabPanel client={client} worldJobId={snapshot.jobId} worldReady={snapshot.status?.status === "succeeded"}
+          pollIntervalMs={pollIntervalMs} onApprovedImage={handleApprovedImage} />
 
         {snapshot.jobId && (
           <footer className={styles.jobId}>

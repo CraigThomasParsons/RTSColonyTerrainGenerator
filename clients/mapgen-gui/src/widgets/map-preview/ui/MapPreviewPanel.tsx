@@ -11,9 +11,10 @@ import styles from "./MapPreviewPanel.module.css";
  */
 export interface MapPreviewPanelProps {
   preview: MapPreview | null;
+  approvedBackgroundUrl?: string | null;
 }
 
-export function MapPreviewPanel({ preview }: MapPreviewPanelProps) {
+export function MapPreviewPanel({ preview, approvedBackgroundUrl }: MapPreviewPanelProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -22,9 +23,18 @@ export function MapPreviewPanel({ preview }: MapPreviewPanelProps) {
       return;
     }
 
-    const surface = createPreviewSurface(canvas, preview);
-    return () => surface.destroy();
-  }, [preview]);
+    let surface: ReturnType<typeof createPreviewSurface> | undefined;
+    let cancelled = false;
+    if (!approvedBackgroundUrl) {
+      surface = createPreviewSurface(canvas, preview);
+    } else {
+      const image = new Image();
+      image.onload = () => { if (!cancelled) surface = createPreviewSurface(canvas, preview, image); };
+      image.onerror = () => { if (!cancelled) surface = createPreviewSurface(canvas, preview); };
+      image.src = approvedBackgroundUrl;
+    }
+    return () => { cancelled = true; surface?.destroy(); };
+  }, [preview, approvedBackgroundUrl]);
 
   if (!preview) {
     return (

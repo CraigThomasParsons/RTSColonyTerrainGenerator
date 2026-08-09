@@ -42,6 +42,7 @@ MapGenerator/Heightmap/bin/heightmap-engine
 
 *.log
 *.tmp
+.runtime/
 *.pyc
 **/__pycache__/
 tools/ai_test/last_run_report.json
