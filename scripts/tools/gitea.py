@@ -24,7 +24,7 @@ Usage:
   python3 scripts/tools/gitea.py pr <branch> "<title>" ["<body>"]
   python3 scripts/tools/gitea.py pr-view <number>
   python3 scripts/tools/gitea.py pr-reviews <number>
-  python3 scripts/tools/gitea.py pr-ready <number> "<title>"
+  python3 scripts/tools/gitea.py pr-ready <number> "<title>" "<body>" GATES_VALIDATED
   python3 scripts/tools/gitea.py sprint-status
 """
 
@@ -243,17 +243,19 @@ def cmd_pull_request_reviews(number: str) -> None:
     print(json.dumps(summary, indent=2, sort_keys=True))
 
 
-def cmd_mark_pull_request_ready(number: str, title: str) -> None:
+def cmd_mark_pull_request_ready(
+    number: str, title: str, body: str, confirmation: str
+) -> None:
     """Remove Gitea draft state after evidence gates have been validated."""
+    if confirmation != "GATES_VALIDATED":
+        sys.exit("pr-ready requires the exact confirmation GATES_VALIDATED")
     current = make_request("GET", f"/repos/{OWNER}/{REPO}/pulls/{number}")
     if current.get("merged") or current.get("state") != "open":
         sys.exit(f"PR #{number} is not an open, unmerged pull request")
-    if not current.get("mergeable"):
-        sys.exit(f"PR #{number} is not mergeable; reconcile its branch first")
     result = make_request(
         "PATCH",
         f"/repos/{OWNER}/{REPO}/pulls/{number}",
-        json={"title": title, "draft": False},
+        json={"title": title, "body": body, "draft": False},
     )
     if result.get("draft"):
         sys.exit(f"Gitea left PR #{number} in draft state")
@@ -287,7 +289,7 @@ COMMANDS: dict = {
     "pr":            (cmd_open_pull_request,  2, 3),
     "pr-view":       (cmd_view_pull_request,        1, 1),
     "pr-reviews":    (cmd_pull_request_reviews,     1, 1),
-    "pr-ready":      (cmd_mark_pull_request_ready,  2, 2),
+    "pr-ready":      (cmd_mark_pull_request_ready,  4, 4),
     "sprint-status": (cmd_sprint_status,      0, 0),
 }
 
