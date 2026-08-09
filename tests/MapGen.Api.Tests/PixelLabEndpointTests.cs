@@ -32,11 +32,18 @@ public class PixelLabEndpointTests
         Assert.Equal("succeeded", job.GetProperty("status").GetString());
         Assert.Equal(1, job.GetProperty("cache_hits").GetInt32());
         Assert.Equal(1, job.GetProperty("submissions").GetInt32());
+        Assert.StartsWith("/pixellab/jobs/",
+            job.GetProperty("candidates")[0].GetProperty("image_url").GetString());
 
+        await client.PostJson($"/api/v1/pixellab/jobs/{jobId}/candidates/1/approve",
+            """{"actor":"Craig","reason":"First comparison choice."}""");
         var approvedResponse = await client.PostJson($"/api/v1/pixellab/jobs/{jobId}/candidates/0/approve",
             """{"actor":"Craig","reason":"Compared in Map Studio."}""");
         JsonElement approved = await approvedResponse.ReadJson();
         Assert.Equal("human-approved", approved.GetProperty("candidates")[0].GetProperty("state").GetString());
+        Assert.Equal("rejected", approved.GetProperty("candidates")[1].GetProperty("state").GetString());
+        Assert.Single(approved.GetProperty("candidates").EnumerateArray(), candidate =>
+            candidate.GetProperty("state").GetString() == "human-approved");
         Assert.DoesNotContain(FakePixelLabProcessExecutor.FakeSecret, approved.GetRawText());
         var image = await client.GetAsync($"/api/v1/pixellab/jobs/{jobId}/candidates/0/image");
         Assert.Equal("image/png", image.Content.Headers.ContentType?.MediaType);
