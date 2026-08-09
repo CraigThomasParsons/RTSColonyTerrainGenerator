@@ -106,10 +106,9 @@ public static class WorldProjection
             })
             .ToArray();
 
-        // TreePlanter's canopy, not the `wood` resource clusters it used to be filtered out
-        // of: those are the handful of harvest sites Playable marks near each start, so a
-        // 128×128 map exported with as many trees as it had wood piles. Four tile positions
-        // collapse onto one 64×64 grid cell, so the projection distinguishes them once.
+        // TreePlanter's canopy — not the wood resource clusters this used to export (the few
+        // harvest sites Playable marks near each start). Four tile positions collapse onto
+        // one 64×64 grid cell, so Distinct once.
         var trees = artifacts.Trees
             .Select(tree => ToGridPosition(tree.X, tree.Y, gridWidth, gridHeight))
             .Distinct()

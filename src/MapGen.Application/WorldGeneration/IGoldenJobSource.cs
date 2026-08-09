@@ -29,10 +29,8 @@ public sealed record GoldenJobArtifacts(
 public sealed record GoldenStartZone(string Id, int X, int Y);
 
 /// <summary>
-/// One tile TreePlanter planted, from the <c>.worldpayload</c> tile entry that carries a
-/// <c>tree</c> decoration. Coordinates are tile x/y, the grid TreePlanter itself works on.
-/// The variety is dropped: the prototype paints one canopy colour, and a field nothing
-/// reads is a second vocabulary with nothing to say.
+/// One tile TreePlanter planted (<c>.worldpayload</c> entry with a <c>tree</c> decoration).
+/// Tile x/y. Variety is dropped: the prototype paints one canopy colour.
 /// </summary>
 public sealed record GoldenTree(int X, int Y);
 

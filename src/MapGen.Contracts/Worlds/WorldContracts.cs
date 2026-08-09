@@ -99,14 +99,10 @@ public sealed record PreviewStartZone(string Id, int X, int Y);
 public sealed record PreviewResourceCluster(string Id, string Type, int X, int Y, string StartId);
 
 /// <summary>
-/// One tile of TreePlanter's canopy, from <c>.worldpayload</c>. Coordinates are tile x/y on
-/// the same grid <see cref="MapPreview.Terrain"/> is indexed by.
-///
-/// Carried as a position list rather than a row-major bitmask alongside the terrain. The
-/// replayed jobs plant 745–1551 of a 128×128 grid's 16 384 tiles, which keeps the whole
-/// preview at ~45 KB — nowhere near the size at which the wire would rather have a mask, and
-/// a list says what it means. A canopy over roughly a third of the grid is the point at
-/// which the mask becomes the cheaper shape; a test guards that boundary.
+/// One tile of TreePlanter's canopy from <c>.worldpayload</c>. Tile x/y on the same grid as
+/// <see cref="MapPreview.Terrain"/>. Position list rather than a row-major mask: the
+/// replayed jobs plant ~1k of 16 384 tiles (~45 KB preview). A mask pays around one-third
+/// canopy coverage; a test guards that boundary.
 /// </summary>
 public sealed record PreviewTree(int X, int Y);
 
