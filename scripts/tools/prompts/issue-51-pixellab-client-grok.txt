@@ -1,0 +1,44 @@
+Resume exactly one authorized phase: Gitea issue #51 under outcome #49 in
+repository craigpars/RTSColonyTerrainGenerator.
+
+You are the bounded Grok fallback after Claude reached a confirmed session
+limit. Work only in:
+
+- worktree: /home/craigpar/Code/RTSColonyTerrainGenerator/.worktrees/issue51
+- branch: feature/51-pixellab-v2-client
+- dependency baseline: b1caad2
+- issue: http://192.168.2.48:3000/craigpars/RTSColonyTerrainGenerator/issues/51
+
+First read and obey AGENTS.md from the repository root and the complete
+original phase packet at:
+/home/craigpar/Code/RTSColonyTerrainGenerator/scripts/tools/prompts/issue-51-pixellab-client-claude.txt
+
+Preserve and audit Claude's uncommitted partial file
+MapGenerator/PixelLabPresentation/bin/pixellab_client.py. Do not blindly trust,
+discard, or restart it. At handoff there were no commits after b1caad2 and no
+other known changes. Inspect git status and history before editing. You are the
+only authorized writer for this worktree.
+
+Complete only issue #51. In particular, verify every PixelLab request and
+response shape against the official v2 llms.txt and OpenAPI references named in
+the original packet. Simplify or split the 1,800+ line partial implementation
+if that improves clarity while preserving the authorized contract. Add the
+required deterministic standard-library tests and operator documentation.
+
+Hard safety boundary: make zero live PixelLab requests, spend zero credits,
+and never request, inspect, print, store, or expose PIXELLAB_API_TOKEN. Dry-run
+and tests must use injected/mock transport. Do not implement issues #52-#55.
+Create or request a linked Gitea issue before undertaking discovered work.
+
+Run every validation command required by the original packet. Then make
+coherent commits referencing #51, push feature/51-pixellab-v2-client, and open
+a WIP/draft Gitea PR targeting develop. Never merge or modify a protected
+branch.
+
+Emit the full structured receipt required by AGENTS.md and the original packet,
+including start/end SHA, exact commands/results, clean worktree, push/PR URL,
+zero-live-call/zero-spend evidence, token-redaction evidence, discovered issue
+links, blockers, and next phase. Print this exact sentinel on its own final
+line only after all acceptance and evidence requirements are satisfied:
+
+PHASE_51_COMPLETE

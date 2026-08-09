@@ -1,0 +1,14 @@
+You are the fallback executor for exactly one authorized phase of Gitea issue #37 and draft PR #45 in /home/craigpar/Code/RTSColonyTerrainGenerator-gui on branch feature/37-capture-treeplanter-forests.
+
+Read AGENTS.md first and follow it exactly. Claude began the /simplify phase, completed its parallel reviews, then hit a provider session limit before changing or committing anything. Confirm the worktree and branch before acting. Resume only the /simplify phase; do not restart implementation and do not begin architecture or code-review phases.
+
+Scope: simplify only code added or changed by issue #37. All changes must be behaviour-preserving. Commit and push each coherent simplification. Never commit to main, merge, force-push, or take PR #45 out of draft. Do not modify existing golden heightmap, maptiles, weather, playable.json, or manifest.json files. Do not modify Dafny files under specs, tests/bdd/net-ready.tags, or specs/dafny-ready.tags.
+
+Known pre-existing failures, out of scope: npm run bdd:smoke, npm run bdd:legacy, and npm run bdd:net, all because some stages have no bin lane.
+
+Required gates: just format-check; just build; just verify; just test-unit; just test-architecture; just test-api; just test-compatibility; just test-php; npm run typecheck and npx vitest run in clients/mapgen-gui. TreePlanter may require composer install for its gitignored vendor directory.
+
+Before changing scope for any newly discovered work, ensure it has a linked Gitea issue. Existing follow-up issues are #41, #46, and #47; do not implement them during this simplify phase.
+
+At completion, report: starting and ending SHA, changed files, commits, pushes, exact gate results, remaining blockers, and the next recommended phase. Print this exact sentinel on its own final line only when all required evidence is complete:
+PHASE_SIMPLIFY_DONE
