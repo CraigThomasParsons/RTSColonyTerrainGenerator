@@ -1,0 +1,22 @@
+Act as an independent validation executor for exactly the completed `/simplify` phase of Gitea issue #37 and draft PR #45 in /home/craigpar/Code/RTSColonyTerrainGenerator-gui.
+
+Read AGENTS.md first and follow it exactly. Do not edit any file, create a commit, push, merge, change the PR draft state, or begin another phase. Grok replaced a rate-limited Claude worker and pushed five behaviour-preserving simplification commits from exclusive start SHA 51cb2d1 through end SHA f88c51b. Your job is to audit and validate that completed phase only.
+
+Inspect the full diff and each commit in 51cb2d1..f88c51b. Confirm the changes remain within issue #37 scope and preserve behaviour. Check that the branch is feature/37-capture-treeplanter-forests, HEAD is f88c51b, origin contains that SHA, and the worktree is clean before and after validation.
+
+Run these required gates without changing tracked files:
+- just format-check
+- just build
+- just verify
+- just test-unit
+- just test-architecture
+- just test-api
+- just test-compatibility
+- just test-php
+- npm run typecheck in clients/mapgen-gui
+- npx vitest run in clients/mapgen-gui
+
+Do not run or fix the known pre-existing bdd:smoke, bdd:legacy, or bdd:net failures. If a required gate cannot run because of missing gitignored dependencies, report it precisely; do not install packages during this read-only validation.
+
+Return a structured receipt containing: issue/phase, provider, starting and ending SHA, inspected commits/files, scope verdict, exact gate commands/results, final worktree and push state, blockers, discovered work with Gitea issue links, and recommended next action. Do not claim completion if any required evidence is absent. Print this exact sentinel on its own final line only if the phase is fully validated:
+PHASE_SIMPLIFY_VALIDATED
