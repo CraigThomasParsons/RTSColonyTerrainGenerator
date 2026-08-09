@@ -11,7 +11,8 @@ traversability, starts, resources, or export data.
 | --- | --- |
 | #50 | Deterministic VisualBrief, semantic/protected/decoration masks, generation-manifest template |
 | #51 | Opt-in PixelLab v2 async adapter, content-addressed cache, candidate provenance |
-| #52–#54 | Candidate orchestration, WorldPreview composition, evaluation (not this package yet) |
+| #52 | Deterministic run plans, bounded candidate batches, structural validation, explicit human approval |
+| #53–#54 | WorldPreview composition, evaluation gallery and go/no-go (not this package yet) |
 
 ## Issue #50: control artifacts
 
@@ -196,6 +197,225 @@ python3 -m unittest \
 token redaction, cache hit/no request, accepted async flow, poll timeout, and
 representative HTTP failures. Every test injects a mock transport; none of them
 contact `api.pixellab.ai`.
+
+## Issue #52: candidate orchestration
+
+`candidate_orchestrator.py` is the operator entry point. It turns one strict
+`.worldpayload` into the issue #50 controls plus a small, explicitly bounded
+batch of issue #51 candidates, validates what came back, and lets a human — and
+only a human — approve or reject it. **This phase (#52) made zero live PixelLab
+requests, zero balance requests, and spent zero credits.** It never reads
+`PIXELLAB_API_TOKEN`; only `pixellab_client.py` does, and only during an
+explicitly authorized live run.
+
+The orchestration layer adds no contract, token, transport, cache, or polling
+logic of its own. It composes the existing modules:
+
+| Module | Responsibility |
+| --- | --- |
+| `candidate_plan.py` | Deterministic run plan: candidate indices, seeds, directories, budget |
+| `candidate_state.py` | The candidate lifecycle and which transitions automation may perform |
+| `candidate_validation.py` | Offline structural checks and protected-landmark evidence |
+| `candidate_approval.py` | Explicit operator decisions with actor, time, reason, and evidence |
+| `candidate_orchestrator.py` | The CLI that composes the above with `visual_contract` and `pixellab_client` |
+| `pixellab_modules.py` | Loads the `bin/` scripts as importable modules |
+
+### Run directory layout
+
+```text
+<run-root>/
+  run-plan.json                     deterministic plan, self-verifying via planId
+  controls/                         issue #50 artifacts (read-only after planning)
+    visual-brief.json
+    semantic-control.png
+    protected-mask.png
+    decoration-mask.png
+    generation-manifest.template.json
+  candidates/
+    candidate-000/
+      generation-manifest.json      issue #51 provenance
+      candidate.png                 only after a live run or a cache hit
+      validation.json               deterministic structural report
+      approval.json                 only after an explicit operator decision
+    candidate-001/
+      ...
+```
+
+### Candidate states
+
+| State | Meaning |
+| --- | --- |
+| `planned` | In the run plan; nothing written yet |
+| `dry-run` | Request built entirely offline; no socket, no credit |
+| `processing` | Submitted and accepted remotely, not yet collected |
+| `generated` | Image present and passing every automated structural check |
+| `rejected` | Automated validation failed, or an operator rejected it |
+| `human-approved` | An operator explicitly approved it, on the record |
+
+Automated validation may move a candidate to `rejected`. **It can never produce
+`human-approved`** — `candidate_state.require_transition` refuses that
+transition for an automation actor, so the restriction is structural rather than
+a convention someone has to remember.
+
+### Offline operator workflow (always do this first)
+
+1. **Plan.** Decide the batch before anything is written.
+
+   ```bash
+   python3 MapGenerator/PixelLabPresentation/bin/candidate_orchestrator.py plan \
+     --input MapGenerator/Playable/outbox/<id>.worldpayload \
+     --output MapGenerator/PixelLabPresentation/runs/<id> \
+     --cache MapGenerator/PixelLabPresentation/cache \
+     --seed 11 --candidates 3 --candidate-budget 3
+   ```
+
+   This writes `controls/` and `run-plan.json` and prints the plan identifier,
+   candidate count, and budget. It makes no network request.
+
+2. **Run offline.** The default mode; identical to `plan` plus one dry-run
+   candidate manifest and validation report per candidate.
+
+   ```bash
+   python3 MapGenerator/PixelLabPresentation/bin/candidate_orchestrator.py run \
+     --input MapGenerator/Playable/outbox/<id>.worldpayload \
+     --output MapGenerator/PixelLabPresentation/runs/<id> \
+     --cache MapGenerator/PixelLabPresentation/cache \
+     --seed 11 --candidates 3 --candidate-budget 3
+   ```
+
+   The summary reports `"networkTransportAttempts": 0`. That number is the run's
+   own evidence: offline mode installs a transport factory that counts and
+   refuses every attempt, so a non-zero value would have failed the run.
+
+   Re-running an identical offline plan is byte-stable. Nothing an offline run
+   writes contains a clock reading, an absolute path, or environment data.
+
+3. **Review.** Re-validate and read every candidate's current state.
+
+   ```bash
+   python3 MapGenerator/PixelLabPresentation/bin/candidate_orchestrator.py validate \
+     --output MapGenerator/PixelLabPresentation/runs/<id>
+   ```
+
+4. **Decide.** Approval and rejection are separate, explicit, attributed acts.
+
+   ```bash
+   python3 MapGenerator/PixelLabPresentation/bin/candidate_orchestrator.py approve \
+     --output MapGenerator/PixelLabPresentation/runs/<id> \
+     --candidate 0 --actor "<your name>" --reason "<what you checked>"
+
+   python3 MapGenerator/PixelLabPresentation/bin/candidate_orchestrator.py reject \
+     --output MapGenerator/PixelLabPresentation/runs/<id> \
+     --candidate 1 --actor "<your name>" --reason "<what was wrong>"
+   ```
+
+   Both re-run validation first, so a candidate edited since generation cannot
+   be approved. Decisions are appended, never replaced: superseding an earlier
+   decision keeps it in the record with its own reason and timestamp.
+
+### Live workflow (separately gated, not exercised in this phase)
+
+A live run needs four things at once, and each is deliberately separate:
+`--mode live`, `--enable-live-calls`, `--confirm-credit-spend`, and a
+`PIXELLAB_API_TOKEN` exported in that shell. Run the issue #51 `balance` mode
+first to confirm credits.
+
+```bash
+export PIXELLAB_API_TOKEN='…'   # never commit, never pass as a CLI flag
+python3 MapGenerator/PixelLabPresentation/bin/pixellab_client.py --mode balance --enable-live-calls
+
+python3 MapGenerator/PixelLabPresentation/bin/candidate_orchestrator.py run \
+  --input MapGenerator/Playable/outbox/<id>.worldpayload \
+  --output MapGenerator/PixelLabPresentation/runs/<id> \
+  --cache MapGenerator/PixelLabPresentation/cache \
+  --seed 11 --candidates 3 --candidate-budget 3 \
+  --mode live --enable-live-calls --confirm-credit-spend
+```
+
+Budget rules, all enforced *before* the first submission:
+
+- The budget is a hard ceiling of at most
+  `candidate_plan.MAXIMUM_CANDIDATE_BUDGET` and may never exceed the candidate
+  count, because one candidate is at most one submission.
+- Cache state for every candidate is computed offline first. If the number of
+  cache misses exceeds the budget, the run fails with exit code 7 and submits
+  nothing at all — not even the first candidate.
+- **Cache hits do not consume the budget.** Replaying a fully cached batch is
+  runnable with `--candidate-budget 0`.
+- Generation is never resubmitted automatically. A second image always requires
+  a new explicit invocation.
+
+### Fail-closed rules
+
+| Condition | Behaviour |
+| --- | --- |
+| Declared/tile dimension mismatch (Gitea #55) | Run fails; no controls, no candidates |
+| `--allow-exploration-dimensions` (Gitea #55) | Controls only. **No candidate is planned**, so none can be submitted or approved |
+| Map edge outside 16–400 (Gitea #60) | Run fails before any candidate directory is created |
+| Candidate image hash, MIME, or dimensions wrong | Candidate is `rejected`; approval refused |
+| Control artifact edited after planning | Validation refuses outright |
+| Run plan edited after generation | `planId` re-derivation refuses to load it |
+
+### What validation does and does not claim
+
+Validation checks contract and plan versions, immutable control-input hashes,
+the candidate manifest's inputs and endpoint, candidate index and seed against
+the plan, cache-key and request-body reproducibility, the PixelLab image-size
+bound, mask dimension agreement, and the candidate PNG's signature, recorded
+MIME, hash, and header dimensions.
+
+Protected-landmark alignment evidence is derived **from `protected-mask.png`
+only** — its cell count, its coordinate digest, and the fact that the candidate
+raster shares the mask's grid exactly, so every protected cell is addressable
+one-to-one. Validation never reads a single generated pixel. It cannot and does
+not claim that the artwork drew a road in the right place; that judgement is a
+human's, recorded through `approve`/`reject`.
+
+### Rollback and deletion safety
+
+- The lane is opt-in. Deleting a whole run directory returns the pipeline to its
+  existing deterministic output; nothing downstream depends on a candidate.
+- Candidates never overwrite authoritative inputs. The orchestrator writes only
+  under its run root and the cache root, and the issue #51 adapter refuses to
+  use the controls directory as an output directory.
+- `controls/` is written once during planning and is read-only afterwards. Any
+  later edit is caught by hash re-verification rather than silently accepted.
+- Deleting `cache/` is safe: it only forces a future live run to pay again.
+  Deleting a candidate directory is safe once its manifest, validation report,
+  and approval record have been retained per the eventual #54 runbook.
+- A rejected candidate can never become the active preview. Issue #53 must
+  consume `approval.json` with `currentState` equal to `human-approved`, and
+  nothing else.
+
+### Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Success |
+| 2 | Contract, plan, validation, or approval refusal |
+| 3 | Live mode not fully authorized |
+| 6 | `validate` found at least one structurally invalid candidate |
+| 7 | Run would exceed the explicit candidate budget |
+
+### Tests for this phase
+
+```bash
+python3 -m unittest \
+  MapGenerator/PixelLabPresentation/tests/test_visual_contract.py \
+  MapGenerator/PixelLabPresentation/tests/test_pixellab_client.py \
+  MapGenerator/PixelLabPresentation/tests/test_candidate_plan.py \
+  MapGenerator/PixelLabPresentation/tests/test_candidate_validation.py \
+  MapGenerator/PixelLabPresentation/tests/test_candidate_approval.py \
+  MapGenerator/PixelLabPresentation/tests/test_candidate_orchestrator.py
+```
+
+The issue #52 tests cover deterministic and byte-stable plans, zero-network
+offline runs across three representative maps, bounded candidate counts and
+budgets, cache reuse with a zero budget, validation rejection, the #55 and #60
+fail-closed paths, and explicit human approval and rejection transitions. Every
+client boundary is injected: offline runs use a refusing transport factory and
+live-mode tests use a fake submission boundary, so no test can reach
+`api.pixellab.ai`.
 
 ## Safety boundary
 
