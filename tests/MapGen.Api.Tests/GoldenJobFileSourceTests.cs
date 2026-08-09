@@ -64,22 +64,49 @@ public class GoldenJobFileSourceTests
         // Only the files Read() opens are copied — .heightmap and .weather are unused here.
         string root = Path.Combine(Path.GetTempPath(), $"mapgen-golden-{Guid.NewGuid():N}");
         string jobDirectory = Path.Combine(root, JobId);
-        string sourceDirectory = Path.Combine(FixturesRoot(), JobId);
         Directory.CreateDirectory(jobDirectory);
 
         try
         {
-            foreach (string name in new[]
-                     {
-                         $"{JobId}.maptiles",
-                         $"{JobId}.playable.json",
-                         "input.job.json",
-                     })
-            {
-                File.Copy(Path.Combine(sourceDirectory, name), Path.Combine(jobDirectory, name));
-            }
+            CopyReadInputs(jobDirectory);
 
             Assert.Empty(new GoldenJobFileSource(root).Read(JobId).Trees);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void A_planted_tile_without_coordinates_is_malformed_not_an_origin_tree()
+    {
+        // Missing x/y must not default to (0, 0): that plants a tree at the origin and
+        // disagrees with every other malformed-fixture path, which throws InvalidDataException.
+        string root = Path.Combine(Path.GetTempPath(), $"mapgen-golden-{Guid.NewGuid():N}");
+        string jobDirectory = Path.Combine(root, JobId);
+        Directory.CreateDirectory(jobDirectory);
+
+        try
+        {
+            CopyReadInputs(jobDirectory);
+            File.WriteAllText(
+                Path.Combine(jobDirectory, $"{JobId}.worldpayload"),
+                """
+                {
+                  "tiles": [
+                    {
+                      "decorations": [ { "type": "tree", "variety": "oak" } ]
+                    }
+                  ]
+                }
+                """);
+
+            var error = Assert.Throws<InvalidDataException>(
+                () => new GoldenJobFileSource(root).Read(JobId));
+
+            Assert.Contains("numeric", error.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("'x'", error.Message, StringComparison.Ordinal);
         }
         finally
         {
@@ -92,4 +119,22 @@ public class GoldenJobFileSourceTests
     // against a directory the running API would never read.
     private static string FixturesRoot()
         => GoldenFixtures.ResolveRoot(configuredRoot: null, AppContext.BaseDirectory);
+
+    /// <summary>
+    /// The three artifacts <see cref="GoldenJobFileSource.Read"/> always opens, for temp
+    /// fixtures that only vary the optional canopy.
+    /// </summary>
+    private static void CopyReadInputs(string jobDirectory)
+    {
+        string sourceDirectory = Path.Combine(FixturesRoot(), JobId);
+        foreach (string name in new[]
+                 {
+                     $"{JobId}.maptiles",
+                     $"{JobId}.playable.json",
+                     "input.job.json",
+                 })
+        {
+            File.Copy(Path.Combine(sourceDirectory, name), Path.Combine(jobDirectory, name));
+        }
+    }
 }

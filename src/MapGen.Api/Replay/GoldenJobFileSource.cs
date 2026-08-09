@@ -167,15 +167,22 @@ public sealed class GoldenJobFileSource : IGoldenJobSource
                     continue;
                 }
 
-                // Missing coordinates default to 0: the previous token walk did the same,
-                // and a real TreePlanter artifact always carries both.
-                int x = tile.TryGetProperty("x", out var xElement) && xElement.ValueKind == JsonValueKind.Number
-                    ? xElement.GetInt32()
-                    : 0;
-                int y = tile.TryGetProperty("y", out var yElement) && yElement.ValueKind == JsonValueKind.Number
-                    ? yElement.GetInt32()
-                    : 0;
-                trees.Add(new GoldenTree(x, y));
+                // A planted tile without numeric x/y is malformed data, not an origin tree.
+                // Other fixture readers already throw InvalidDataException for bad bytes;
+                // defaulting missing coordinates to (0, 0) would silently plant at the origin.
+                if (!tile.TryGetProperty("x", out var xElement) || xElement.ValueKind != JsonValueKind.Number)
+                {
+                    throw new InvalidDataException(
+                        $"'{path}' has a planted tile without a numeric 'x' coordinate.");
+                }
+
+                if (!tile.TryGetProperty("y", out var yElement) || yElement.ValueKind != JsonValueKind.Number)
+                {
+                    throw new InvalidDataException(
+                        $"'{path}' has a planted tile without a numeric 'y' coordinate.");
+                }
+
+                trees.Add(new GoldenTree(xElement.GetInt32(), yElement.GetInt32()));
             }
 
             return trees.ToArray();
