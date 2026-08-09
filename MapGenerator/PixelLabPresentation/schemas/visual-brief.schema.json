@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rtscolony.local/schemas/pixellab/visual-brief-v1.json",
+  "title": "PixelLab VisualBrief v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "jobId", "source", "dimensions", "terrainHistogram", "palette", "prompt", "authority", "warnings"],
+  "properties": {
+    "contractVersion": {"const": "1.0"},
+    "jobId": {"type": "string", "minLength": 1},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "type"],
+      "properties": {
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "type": {"const": "worldpayload-json"}
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "pixelsPerCell"],
+      "properties": {
+        "width": {"type": "integer", "minimum": 1},
+        "height": {"type": "integer", "minimum": 1},
+        "pixelsPerCell": {"const": 1}
+      }
+    },
+    "terrainHistogram": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 1}},
+    "palette": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "prefixItems": [{"type": "integer", "minimum": 0, "maximum": 255}, {"type": "integer", "minimum": 0, "maximum": 255}, {"type": "integer", "minimum": 0, "maximum": 255}],
+        "items": false
+      }
+    },
+    "prompt": {"type": "object"},
+    "authority": {
+      "type": "object",
+      "required": ["presentationOnly", "immutable"],
+      "properties": {"presentationOnly": {"const": true}, "immutable": {"type": "array", "items": {"type": "string"}}}
+    },
+    "warnings": {"type": "array", "items": {"type": "string"}}
+  }
+}
