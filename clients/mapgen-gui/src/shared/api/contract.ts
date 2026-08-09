@@ -91,12 +91,18 @@ export interface NamedStructure extends GridPosition {
 }
 
 /**
- * The document shape this client understands. Anything else is refused loudly.
+ * The shape version this client understands, for both collect payloads. Anything else is
+ * refused loudly.
  *
- * Version 2 is the replayed canopy: `MapPreview` gained a `trees` layer, and this document's
- * `trees` stopped being the `wood` resource clusters and became TreePlanter's forest.
+ * One constant, because the server stamps both payloads from one
+ * (`WorldProjection.DocumentVersion`). Mirroring it as a pair would let a bump land on the
+ * map document and not the preview, and the client would then refuse half the contract.
+ *
+ * Version 2 is the replayed canopy: `MapPreview` gained a `trees` layer, and the map
+ * document's `trees` stopped being the `wood` resource clusters and became TreePlanter's
+ * forest.
  */
-export const MAP_DOCUMENT_VERSION = 2;
+export const MAP_CONTRACT_VERSION = 2;
 
 export interface MapDocument {
   version: number;
@@ -114,7 +120,7 @@ export interface MapDocument {
   human_workers: GridPosition[];
   orc_buildings: OrcBuilding[];
   mines: NamedStructure[];
-  /** TreePlanter's canopy, halved onto the 64x64 grid and distinct: one entry per cell. */
+  /** TreePlanter's canopy, halved onto the 64×64 grid; Distinct after halving. */
   trees: GridPosition[];
   stones: GridPosition[];
   roads: GridPosition[];
@@ -138,18 +144,14 @@ export interface PreviewResourceCluster {
 }
 
 /**
- * One tile of TreePlanter's canopy, on the same tile grid `terrain` is indexed by.
- *
- * A position list rather than a row-major mask alongside the terrain: the replayed jobs
- * plant on the order of a thousand of a 128x128 grid's 16384 tiles, which keeps the whole
- * preview around 45 KB. A mask only pays once the forest covers roughly a third of the grid.
+ * One tile of TreePlanter's canopy, on the same tile grid as `terrain`.
+ * Position list (not a row-major mask): ~1k of 16384 tiles keeps the preview ~45 KB.
+ * A mask pays around one-third canopy coverage.
  */
 export interface PreviewTree {
   x: number;
   y: number;
 }
-
-export const MAP_PREVIEW_VERSION = 2;
 
 export interface MapPreview {
   version: number;

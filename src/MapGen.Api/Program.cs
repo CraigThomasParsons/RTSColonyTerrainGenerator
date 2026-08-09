@@ -69,31 +69,5 @@ v1.MapTileEndpoints();
 
 app.Run();
 
-/// <summary>
-/// Locates the read-only golden-job fixtures. Configuration wins; otherwise walk up from
-/// the content root to the repository marker, so the API runs from any working directory.
-/// </summary>
-internal static class GoldenFixtures
-{
-    private const string RepositoryMarker = "MapGen.slnx";
-
-    public static string ResolveRoot(string? configuredRoot, string contentRootPath)
-    {
-        if (!string.IsNullOrWhiteSpace(configuredRoot))
-        {
-            return configuredRoot;
-        }
-
-        var directory = new DirectoryInfo(contentRootPath);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, RepositoryMarker)))
-        {
-            directory = directory.Parent;
-        }
-
-        string repositoryRoot = directory?.FullName ?? contentRootPath;
-        return Path.Combine(repositoryRoot, "tests", "fixtures", "golden");
-    }
-}
-
 /// <summary>Exposed so endpoint tests can host this exact application (WebApplicationFactory).</summary>
 public partial class Program;

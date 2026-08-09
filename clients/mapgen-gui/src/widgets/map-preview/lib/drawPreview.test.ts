@@ -60,7 +60,7 @@ const recordingContext = () => {
 const TILE_SIZE = 8;
 
 const previewOf = (overrides: Partial<MapPreview> = {}): MapPreview => ({
-  version: 1,
+  version: 2,
   job_id: "43860dcf-6469-42a7-9843-4e33abeacfac",
   width: 3,
   height: 2,

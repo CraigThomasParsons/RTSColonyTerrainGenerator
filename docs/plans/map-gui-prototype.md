@@ -309,10 +309,9 @@ Rules that are not negotiable in this slice:
   ships `"human_workers": []`; `goldshire.json` omits `mines` entirely. The contract
   picks the strict reading so the client needs no null-coalescing.)
 - **`trees` is TreePlanter's canopy**, read from the job's `.worldpayload` and halved
-  onto the 64×64 grid. It was briefly the `wood` resource clusters filtered by type —
-  those are the few harvest sites Playable marks near each start, so a whole map
-  exported with two trees. Positions are distinct: four tile positions collapse onto
-  one grid cell.
+  onto the 64×64 grid (distinct after collapse). It is not the `wood` resource clusters
+  Playable marks as harvest sites near each start — that brief mistake exported a map
+  with as many trees as wood piles.
 - `version` is an integer that increments on any shape change (`AGENTS.md`: no
   silent shape changes). The client asserts `version === 2` and refuses anything else
   loudly rather than parsing leniently.
@@ -415,7 +414,7 @@ Every non-2xx response is RFC 7807 `application/problem+json`:
   constraint). CORS allows exactly the Vite dev origin. In Phase 2 the Laravel BFF
   becomes the only caller and holds the internal service token; the prototype client
   sends no token, which is safe *only* because the API is loopback-bound.
-- **Versioning is in the path** (`/api/v1`) *and* in each document (`version: 1`).
+- **Versioning is in the path** (`/api/v1`) *and* in each document (`version: 2`).
   Path version covers endpoint shape; document version covers payload shape; they
   move independently.
 - **The TypeScript types are hand-written in Phase 3a**, mirroring this section, and
