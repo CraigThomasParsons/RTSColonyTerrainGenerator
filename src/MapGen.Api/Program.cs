@@ -4,6 +4,7 @@ using MapGen.Api.Endpoints;
 using MapGen.Api.Replay;
 using MapGen.Application;
 using MapGen.Application.WorldGeneration;
+using MapGen.Api.PixelLab;
 
 // MapGen.Api is the transport shell over MapGen.Application (ADR 0004). It adds no domain
 // behaviour: every endpoint dispatches an existing CQRS request through Mediator (ADR 0005)
@@ -26,6 +27,18 @@ builder.Services.AddSingleton<IGoldenJobSource>(_ => new GoldenJobFileSource(
     GoldenFixtures.ResolveRoot(builder.Configuration["MapGen:GoldenFixturesRoot"], builder.Environment.ContentRootPath)));
 
 builder.Services.AddMapGenApplication();
+
+string repositoryRoot = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", ".."));
+string fixturesRoot = GoldenFixtures.ResolveRoot(builder.Configuration["MapGen:GoldenFixturesRoot"], builder.Environment.ContentRootPath);
+builder.Services.AddSingleton(new PixelLabOptions
+{
+    RepositoryRoot = repositoryRoot,
+    GoldenFixturesRoot = fixturesRoot,
+    RunsRoot = Path.GetFullPath(builder.Configuration["MapGen:PixelLab:RunsRoot"]
+        ?? Path.Combine(repositoryRoot, ".runtime", "pixellab")),
+});
+builder.Services.AddSingleton<IPixelLabProcessExecutor, PixelLabProcessExecutor>();
+builder.Services.AddSingleton<IPixelLabJobService, PixelLabJobService>();
 
 // snake_case across the whole surface: the map document must be snake_case because AMPB
 // consumes it verbatim, and one convention beats a mixed one.
@@ -66,6 +79,7 @@ if (app.Environment.IsDevelopment())
 var v1 = app.MapGroup("/api/v1");
 v1.MapWorldEndpoints();
 v1.MapTileEndpoints();
+v1.MapPixelLabEndpoints();
 
 app.Run();
 

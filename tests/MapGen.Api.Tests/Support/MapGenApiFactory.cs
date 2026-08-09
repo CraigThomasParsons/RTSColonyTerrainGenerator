@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using MapGen.Api.PixelLab;
 
 namespace MapGen.Api.Tests.Support;
 
@@ -27,6 +28,7 @@ public sealed class MapGenApiFactory : WebApplicationFactory<Program>
 
     /// <summary>Development turns on the OpenAPI document; everything else runs as Testing.</summary>
     public string Environment { get; init; } = "Testing";
+    public IPixelLabProcessExecutor? PixelLabExecutor { get; init; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -45,6 +47,11 @@ public sealed class MapGenApiFactory : WebApplicationFactory<Program>
             {
                 services.RemoveAll<IGoldenJobSource>();
                 services.AddSingleton(GoldenJobs);
+            }
+            if (PixelLabExecutor is not null)
+            {
+                services.RemoveAll<IPixelLabProcessExecutor>();
+                services.AddSingleton(PixelLabExecutor);
             }
         });
     }
