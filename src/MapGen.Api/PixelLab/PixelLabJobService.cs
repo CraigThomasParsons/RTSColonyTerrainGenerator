@@ -45,6 +45,9 @@ public sealed class PixelLabJobService(
 
     public PixelLabReadiness Readiness()
     {
+        if (options.UseFakeTransport)
+            return new PixelLabReadiness(true, false, "development-fake", 999, "fake credits",
+                "Development fake transport: no PixelLab request or credit spend is possible.");
         bool available = File.Exists(Path.Combine(options.RepositoryRoot, options.OrchestratorPath));
         bool liveConfigured = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(
             options.TokenEnvironmentVariable));
@@ -131,7 +134,29 @@ public sealed class PixelLabJobService(
         if (string.IsNullOrWhiteSpace(request.Actor) || string.IsNullOrWhiteSpace(request.Reason))
             throw new ArgumentException("Actor and reason are required for a human decision.");
 
-        var result = await executor.ExecuteAsync(new PixelLabProcessRequest(decision,
+        RefreshCandidates(record);
+        if (decision == "approve")
+        {
+            foreach (PixelLabCandidate approved in record.Candidates.Where(candidate =>
+                candidate.CandidateIndex != candidateIndex && candidate.State == "human-approved"))
+            {
+                PixelLabProcessResult demotion = await ExecuteDecision(record, approved.CandidateIndex,
+                    "reject", request, cancellationToken);
+                if (demotion.ExitCode != 0) throw new InvalidOperationException(SafeError(demotion));
+            }
+        }
+
+        PixelLabProcessResult result = await ExecuteDecision(record, candidateIndex, decision,
+            request, cancellationToken);
+        if (result.ExitCode != 0) throw new InvalidOperationException(SafeError(result));
+        RefreshCandidates(record);
+        Persist(record);
+        return ToSnapshot(record);
+    }
+
+    private Task<PixelLabProcessResult> ExecuteDecision(PixelLabJobRecord record, int candidateIndex,
+        string decision, PixelLabDecisionRequest request, CancellationToken cancellationToken)
+        => executor.ExecuteAsync(new PixelLabProcessRequest(decision,
         [
             "--output", record.RunRoot,
             "--cache", Path.Combine(options.RunsRoot, "cache"),
@@ -139,11 +164,6 @@ public sealed class PixelLabJobService(
             "--actor", request.Actor.Trim(),
             "--reason", request.Reason.Trim(),
         ]), cancellationToken);
-        if (result.ExitCode != 0) throw new InvalidOperationException(SafeError(result));
-        RefreshCandidates(record);
-        Persist(record);
-        return ToSnapshot(record);
-    }
 
     public string? ResolveCandidateImage(string jobId, int candidateIndex)
     {
@@ -240,7 +260,7 @@ public sealed class PixelLabJobService(
                 : [];
             bool hasImage = File.Exists(Path.Combine(directory, "candidate.png"));
             candidates.Add(new PixelLabCandidate(index, seed, state, valid, eligible, cacheHit,
-                failures, hasImage ? $"/api/v1/pixellab/jobs/{record.JobId}/candidates/{index}/image" : null));
+                failures, hasImage ? $"/pixellab/jobs/{record.JobId}/candidates/{index}/image" : null));
         }
         record.Candidates = candidates;
         record.CacheHits = cacheHits;

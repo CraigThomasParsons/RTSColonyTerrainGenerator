@@ -42,6 +42,12 @@ The API integration suite replaces the process executor with a fake transport.
 It covers success, cache hit, failure, retry, approval, image collection, and
 secret non-disclosure without contacting PixelLab or spending credits.
 
+Development configuration also enables that fake transport for interactive Map
+Studio testing. Its readiness banner says `development-fake` and reports fake
+credits so it cannot be confused with an account balance. Set
+`MapGen:PixelLab:UseFakeTransport=false` to exercise the real adapter; do not do
+that merely to test the UI.
+
 ## What backs the world endpoints
 
 `MapGen.Application` has no generation handler — its whole surface is the two
