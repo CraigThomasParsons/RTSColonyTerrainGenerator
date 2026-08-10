@@ -270,7 +270,9 @@ class ExplorationApprovalTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_name:
             root = Path(temporary_name)
             payload = support.build_map_payload("exploration", MAP_WIDTH, MAP_HEIGHT, 1)
-            payload["map"] = {"width_in_cells": 16, "height_in_cells": 16}
+            # 17 is neither the tile extent nor half of it: 16x16 would now be
+            # accepted outright, tiles spanning exactly cells x 2 being the rule.
+            payload["map"] = {"width_in_cells": 17, "height_in_cells": 16}
             payload_path = support.write_payload(root, "map.worldpayload", payload)
             settings = candidate_orchestrator.OrchestrationSettings(
                 input_path=payload_path,
@@ -295,7 +297,9 @@ class ExplorationApprovalTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_name:
             root = Path(temporary_name)
             payload = support.build_map_payload("exploration", MAP_WIDTH, MAP_HEIGHT, 1)
-            payload["map"] = {"width_in_cells": 16, "height_in_cells": 16}
+            # 17 is neither the tile extent nor half of it: 16x16 would now be
+            # accepted outright, tiles spanning exactly cells x 2 being the rule.
+            payload["map"] = {"width_in_cells": 17, "height_in_cells": 16}
             payload_path = support.write_payload(root, "map.worldpayload", payload)
             settings = candidate_orchestrator.OrchestrationSettings(
                 input_path=payload_path,

@@ -92,6 +92,32 @@ class VisualContractTests(unittest.TestCase):
             manifest = visual_contract.write_contract(input_path, temporary_directory / "output", True)
             self.assertIn("EXPLORATION ONLY", manifest["warnings"][0])
 
+    def test_accepts_tiles_that_expand_declared_cells_two_to_one(self) -> None:
+        """Cells and tiles are different units: a 2x2 tile region per cell is the rule, not a mismatch."""
+        # Every real .worldpayload looks like this — the writer declares cells while the
+        # tiles array spans tile space (specs/tiling/CellToTile.dfy, slice 01). Equality
+        # would reject every map the pipeline actually produces.
+        payload = valid_payload()
+        payload["map"] = {"width_in_cells": 2, "height_in_cells": 1}
+        payload["tiles"] = [
+            {"x": x, "y": y, "terrain": "grass"} for y in range(2) for x in range(4)
+        ]
+        payload["features"] = [{"type": "ramp", "x": 1, "y": 1}]
+        payload["playable"]["start_zones"] = [{"id": "start-1", "x": 3, "y": 0}]
+
+        with tempfile.TemporaryDirectory() as temporary_name:
+            temporary_directory = Path(temporary_name)
+            input_path = self.write_payload(temporary_directory, payload)
+            output_directory = temporary_directory / "output"
+            manifest = visual_contract.write_contract(input_path, output_directory, False)
+            brief = json.loads((output_directory / "visual-brief.json").read_text())
+
+        # Tile extents win: everything downstream indexes tile coordinates.
+        self.assertEqual(brief["dimensions"]["width"], 4)
+        self.assertEqual(brief["dimensions"]["height"], 2)
+        # Accepted outright, not tolerated: an exploration warning would block approval.
+        self.assertEqual(manifest["warnings"], [])
+
     def test_rejects_duplicate_coordinates(self) -> None:
         """Two tile records may never claim the same authoritative cell."""
         payload = valid_payload()
