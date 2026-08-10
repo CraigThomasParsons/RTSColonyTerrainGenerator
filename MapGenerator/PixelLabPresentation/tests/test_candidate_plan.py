@@ -170,7 +170,9 @@ class RunPlanTests(unittest.TestCase):
     def test_exploration_override_plans_no_candidates(self) -> None:
         """A #55 dimension override may produce controls and nothing else."""
         payload = support.build_map_payload("exploration", 32, 32, 1)
-        payload["map"] = {"width_in_cells": 16, "height_in_cells": 16}
+        # 17 is neither the tile extent nor half of it: 16x16 would now be accepted
+        # outright, because tiles spanning exactly cells x 2 is the verified rule.
+        payload["map"] = {"width_in_cells": 17, "height_in_cells": 16}
         payload_path = support.write_payload(self.root, "exploration.worldpayload", payload)
         exploration_manifest = controls_manifest_for(
             payload_path, self.root / "exploration-controls", allow_inferred=True

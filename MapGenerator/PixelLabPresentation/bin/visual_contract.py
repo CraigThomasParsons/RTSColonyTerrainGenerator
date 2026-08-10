@@ -27,6 +27,10 @@ TERRAIN_COLORS: dict[str, tuple[int, int, int]] = {
     "road": (123, 94, 65),
 }
 PROTECTED_FEATURE_TYPES = {"bridge", "cavern", "lumber", "path", "ramp", "road", "tunnel"}
+# A cell occupies exactly one 2x2 tile region. That is the pipeline's oldest verified rule
+# (specs/tiling/CellToTile.dfy, slice 01, promoted in both ledgers), which is why a payload
+# declaring cells while its tiles span tile space is correct rather than inconsistent.
+TILES_PER_CELL_AXIS = 2
 
 
 class ContractError(ValueError):
@@ -172,6 +176,16 @@ def resolve_dimensions(
 
     if (declared_width, declared_height) == (inferred_width, inferred_height):
         return declared_width, declared_height, []
+
+    # `width_in_cells` and the tiles array are different units, so equality is the wrong
+    # test. A payload whose tiles span exactly cells x TILES_PER_CELL_AXIS is obeying the
+    # verified cell-to-tile rule, not contradicting itself. Tile extents are returned
+    # because everything downstream — grid completeness, the per-cell raster — indexes
+    # tile coordinates.
+    expanded = (declared_width * TILES_PER_CELL_AXIS, declared_height * TILES_PER_CELL_AXIS)
+    if (inferred_width, inferred_height) == expanded:
+        return inferred_width, inferred_height, []
+
     mismatch = (
         f"declared dimensions {declared_width}x{declared_height} do not match "
         f"tile extents {inferred_width}x{inferred_height} (Gitea #55)"

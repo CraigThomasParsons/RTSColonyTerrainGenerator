@@ -174,7 +174,9 @@ class FailClosedTests(OrchestrationWorkspace):
     def test_dimension_mismatch_fails_closed_by_default(self) -> None:
         """Gitea #55 ambiguity must stop the run unless explicitly overridden."""
         payload = support.build_map_payload("mismatch", 32, 32, 1)
-        payload["map"] = {"width_in_cells": 16, "height_in_cells": 16}
+        # 17 is neither the tile extent nor half of it: 16x16 would now be accepted
+        # outright, because tiles spanning exactly cells x 2 is the verified rule.
+        payload["map"] = {"width_in_cells": 17, "height_in_cells": 16}
         payload_path = support.write_payload(self.maps_directory, "mismatch.worldpayload", payload)
         settings = self.offline_settings("alpha", "mismatch", input_path=payload_path)
 
