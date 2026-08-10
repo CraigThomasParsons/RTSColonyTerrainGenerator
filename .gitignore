@@ -138,3 +138,32 @@ MapGenerator/**/.gradle/
 RTSColonyTerrainGenerator.sln
 
 logs/jobs
+
+# Generated runtime outputs and local agent state
+logs/leftoff_snapshots/
+MapGenerator/StargusExport/exports/
+.claude/
+.worktrees/
+
+# Beads: keep repository policy/configuration, never local Dolt state or credentials.
+.beads/dolt/
+.beads/.beads-credential-key
+.beads/dolt-access.lock
+.beads/*.lock
+.beads/*.sock
+.beads/*.sock.*
+.beads/*.pid
+.beads/*.log
+.beads/*.log.*
+.beads/sync-state.json
+.beads/last-touched
+.beads/.local_version
+.beads/redirect
+.beads/export-state/
+.beads/ephemeral.sqlite3*
+.beads/*.db
+.beads/*.db-*
+!.beads/.gitignore
+
+# Local editor workspace files at repository root
+/*.code-workspace
