@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch Heightmap output and SimulateCity inbox for new jobs
+
+[Path]
+PathChanged=%h/Code/RTSColonyTerrainGenerator/MapGenerator/Heightmap/outbox/
+PathChanged=%h/Code/RTSColonyTerrainGenerator/MapGenerator/SimulateCity/inbox/
+
+[Install]
+WantedBy=default.target

@@ -7,6 +7,14 @@
       "MapGenerator\\TreePlanter\\": "src/"
     }
   },
+  "autoload-dev": {
+    "psr-4": {
+      "Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "test": "phpunit"
+  },
   "bin": [
     "bin/treeplanter.php"
   ],
@@ -15,6 +23,7 @@
     "minicli/minicli": "^4.2"
   },
   "require-dev": {
-    "phpmd/phpmd": "^2.15"
+    "phpmd/phpmd": "^2.15",
+    "phpunit/phpunit": "^11"
   }
 }

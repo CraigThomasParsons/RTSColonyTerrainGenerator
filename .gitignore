@@ -42,6 +42,7 @@ MapGenerator/Heightmap/bin/heightmap-engine
 
 *.log
 *.tmp
+.runtime/
 *.pyc
 **/__pycache__/
 tools/ai_test/last_run_report.json
@@ -139,13 +140,27 @@ RTSColonyTerrainGenerator.sln
 
 logs/jobs
 
-# Generated runtime outputs and local agent state
+# ============================
+# Runtime / generated outputs
+# ============================
+
+# Autosaved "where I left off" session snapshots (generated, not source)
 logs/leftoff_snapshots/
+
+# StargusExport generated SCM map outputs
 MapGenerator/StargusExport/exports/
+# Spec-driven toolkit (feature/spec-driven-toolkit)
+node_modules/
+src/**/bin/
+tests/**/bin/
+
+# Local Claude Code project config
 .claude/
+
+# Local agent worktrees and Beads runtime state
 .worktrees/
 
-# Beads: keep repository policy/configuration, never local Dolt state or credentials.
+# Beads repository policy is tracked; local Dolt data, credentials, and process state are not.
 .beads/dolt/
 .beads/.beads-credential-key
 .beads/dolt-access.lock
@@ -165,5 +180,5 @@ MapGenerator/StargusExport/exports/
 .beads/*.db-*
 !.beads/.gitignore
 
-# Local editor workspace files at repository root
+# Local editor workspace files at repo root
 /*.code-workspace

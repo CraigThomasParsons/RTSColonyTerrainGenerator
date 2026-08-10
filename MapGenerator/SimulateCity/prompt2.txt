@@ -1,0 +1,61 @@
+You are implementing the runner for the CivicOverreach v1 pipeline stage.
+
+---------------------------------------
+ROLE
+---------------------------------------
+The runner:
+- Watches the Heightmap outbox
+- Copies heightmap artifacts into a working directory
+- Executes CivicOverreach v1 logic
+- Writes a worldpayload to outbox
+- Never mutates input artifacts
+
+---------------------------------------
+DIRECTORY STRUCTURE
+---------------------------------------
+CivicOverreach/
+├─ bin/
+│  ├─ run_civic_overreach.sh
+│  └─ civic_overreach.py
+├─ inbox/
+├─ outbox/
+├─ logs/
+
+---------------------------------------
+RUNNER BEHAVIOR
+---------------------------------------
+run_civic_overreach.sh must:
+
+1. Accept a job_id
+2. Locate:
+   - Heightmap/outbox/<job_id>/
+3. Copy required artifacts locally
+4. Call civic_overreach.py with explicit paths
+5. Write:
+   - <job_id>.civic_overreach.worldpayload
+   to CivicOverreach/outbox/
+
+---------------------------------------
+FAILURE HANDLING
+---------------------------------------
+- If heightmap artifacts are missing → log and exit
+- If partial data is produced → still emit payload
+- Never block other pipeline stages
+
+---------------------------------------
+LOGGING
+---------------------------------------
+Log:
+- detected islands
+- number of bridges attempted
+- number of disasters applied
+- number of ruins emitted
+
+---------------------------------------
+IMPORTANT
+---------------------------------------
+This runner must:
+- be idempotent
+- never delete inbox files
+- never assume determinism
+- work even if CivicOverreach is the only enabled stage

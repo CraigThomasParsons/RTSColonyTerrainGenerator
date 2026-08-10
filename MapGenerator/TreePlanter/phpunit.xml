@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PHPUnit configuration for the TreePlanter stage.
+
+  Added with the planar .weather reader fix (issue 39). Before that the stage carried a
+  PHPUnit-style test but no runner, no autoload-dev mapping and no configuration, so the
+  test had never executed. A decode bug that silently produced 1111 illegal flow values
+  is exactly what a running suite is for.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         failOnWarning="true"
+         failOnNotice="true">
+    <testsuites>
+        <testsuite name="TreePlanter">
+            <directory>tests/TreePlanter</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
+</phpunit>

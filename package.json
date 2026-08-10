@@ -1,0 +1,15 @@
+{
+  "name": "rtscolony-terrain-generator-bdd",
+  "private": true,
+  "description": "Gherkin acceptance lane for the MapGenerator pipeline (cucumber-js, Pulse-style profiles).",
+  "type": "module",
+  "scripts": {
+    "bdd": "cucumber-js",
+    "bdd:legacy": "cucumber-js -p legacy",
+    "bdd:net": "cucumber-js -p net",
+    "bdd:smoke": "cucumber-js -p smoke"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^11.2.0"
+  }
+}

@@ -113,6 +113,15 @@ class StageRegistry:
                 description="Renders interactive world preview",
             )
         )
+        self.register(
+            StageDefinition(
+                name="SimulateCity",
+                timeout_seconds=120,
+                artifact_patterns=["{job_id}.civic_overreach.worldpayload"],
+                dependencies=["Heightmap"],
+                description="CivicOverreach: SimCity-inspired ruins synthesis",
+            )
+        )
 
     def register(self, stage: StageDefinition) -> None:
         """Register a stage definition."""
