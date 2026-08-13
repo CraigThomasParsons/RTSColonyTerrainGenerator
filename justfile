@@ -45,7 +45,12 @@ test-compatibility:
 test-php:
     cd MapGenerator/TreePlanter && ./vendor/bin/phpunit
 
-# Gate 9 — BDD acceptance (cucumber-js; same Gherkin, either target)
+# Gate 9 — repository-local orchestration contracts. These tests are intentionally
+# stdlib-only so the stage evaluator remains available on bounded worker hosts.
+test-tools:
+    /usr/bin/python3 -m unittest discover -s scripts/tools/tests -p 'test_*.py' -v
+
+# Gate 10 — BDD acceptance (cucumber-js; same Gherkin, either target)
 bdd-smoke:
     npm run bdd:smoke
 
@@ -65,6 +70,7 @@ quality:
     just test-api
     just test-compatibility
     just test-php
+    just test-tools
     just bdd-smoke
     just bdd-legacy
     just bdd-net
