@@ -18,6 +18,10 @@ The launcher refuses protected branches, duplicate session names, missing
 prompts/providers, and unacknowledged tmux sessions attached to the worktree.
 Use --handoff-from only after the predecessor provider has stopped writing.
 
+Set CLAUDE_ALLOWED_TOOLS to a comma-separated Claude tool allowlist when a
+non-interactive phase must run pre-authorized evidence commands. The launcher
+keeps acceptEdits as the default and never enables skip-permissions.
+
 Example — issue #37 / PR #45 Claude-to-Grok handoff:
   scripts/tools/launch_agent_phase.sh \
     --session nyx-pr45-grok \
@@ -97,7 +101,16 @@ case "$provider" in
     claude)
         provider_bin=${CLAUDE_BIN:-$(command -v claude || true)}
         [[ -n $provider_bin && -x $provider_bin ]] || die 'Claude executable is unavailable'
-        provider_command=("$provider_bin" --permission-mode acceptEdits --print "$(<"$prompt_file")")
+        if [[ -n ${CLAUDE_ALLOWED_TOOLS:-} ]]; then
+            provider_command=(
+                "$provider_bin"
+                --permission-mode dontAsk
+                --allowedTools "$CLAUDE_ALLOWED_TOOLS"
+                --print "$(<"$prompt_file")"
+            )
+        else
+            provider_command=("$provider_bin" --permission-mode acceptEdits --print "$(<"$prompt_file")")
+        fi
         ;;
     *) die "unsupported provider: $provider" ;;
 esac

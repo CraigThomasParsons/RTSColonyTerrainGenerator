@@ -1,0 +1,88 @@
+Execute exactly Phase 1 RECONCILE of the supervised work packet for Gitea issue
+#514 in craigpars/AgileMedievalPeasantBoard.
+
+Repository root:
+  /home/craigpar/Code/AgileMedievalPeasantBoard-514-staging
+Branch:
+  feature/514-move-ampb-staging-and-deploy-runner
+Exact base commit:
+  d0c6a359ba606325686519d668164a02b5f12ee1
+Grant:
+  ampb-514-reconcile-v1
+Idempotency key:
+  ampb-514-reconcile-v1
+Provider:
+  Claude primary; Grok is the single bounded fallback.
+
+Read AGENTS.md, CLAUDE.md, docs/Left_Off_At.md, Gitea issue #514, the current
+staging plan, the old NAS deployment contract, scripts/deploy.sh,
+scripts/rollback.sh, and the existing supervised agent tooling before editing.
+Follow repository policy exactly. This is an infrastructure-only documentation
+and tooling phase; do not begin BUILD_STAGING.
+
+Authorized actions:
+- inspect this repository and read live system facts without printing secrets;
+- edit only docs/plans/, docs/execution/cachyos-staging/, scripts/tools/,
+  AGENTS.md, and CLAUDE.md;
+- run focused documentation/tooling validation and tests;
+- commit, push the feature branch, and attach evidence to issue #514.
+
+Required outcomes:
+1. Reconcile docs/plans/staging_move_off_nas.md with observed reality:
+   - /srv/ampb is an existing bind-mounted APP_ENV=local development Compose
+     stack, not staging and not promotable in place;
+   - staging will use /srv/ampb-staging and remain isolated;
+   - RDP is remote access, not workload offloading;
+   - NAS AMPB services were unexpectedly active;
+   - the NAS scheduler stacked schedule:run and simulation:tick processes,
+     was stopped, and is reversibly masked pending cutover;
+   - local NAS-writing Bandcamp/Radarr/Sonarr services are paused pending #516;
+   - gitea-postgres is running but unhealthy and must not be restarted here;
+   - existing local dev data (~21 million AI-decision rows) is not automatically
+     authoritative staging data.
+2. Add a CachyOS staging deployment contract containing measured facts and
+   explicit unknowns. No app, database, service, or host mutation in this phase.
+3. Add reusable supervised phase-launch, deterministic classification, and
+   receipt-validation tooling to AMPB under scripts/tools/. Reuse/adapt the
+   proven RTSColony launcher design. Prompts must live under
+   scripts/tools/prompts/, receipts under docs/execution/cachyos-staging/.
+4. Add the durable Phase 1 capability grant and receipt schema to the execution
+   docs. Update AGENTS.md/CLAUDE.md pointers only where required by repository
+   policy.
+5. Add focused programmatic tests for new tooling. Use timeouts for network or
+   service observations; never let a health probe wait indefinitely.
+6. Create any newly discovered obligation as a Gitea issue before proceeding.
+   Link duplicates instead of creating them. Do not silently fix unrelated work.
+
+Known linked issues:
+- #515 move Gitea and gitea-postgres off the NAS
+- #516 throttle and schedule CachyOS media writers targeting the NAS
+- #517 prevent simulation:tick overlap and reduce scheduler runtime
+
+Forbidden:
+- no edits outside the authorized write paths;
+- no deploy, host/service mutation, database mutation, secret reads/output,
+  merge, force-push, protected-branch writes, or re-enabling paused workloads;
+- no BUILD_STAGING implementation;
+- do not touch unrelated untracked work in the original AMPB checkout;
+- do not use /tmp as the sole durable prompt or receipt location.
+
+Validation:
+- run the focused test suite for scripts/tools changes;
+- run documentation/stale-path checks required by AGENTS.md;
+- run a secret scan over changed files;
+- inspect git diff/status and confirm scope;
+- push the branch.
+
+Write a structured receipt to:
+  docs/execution/cachyos-staging/phase-1-reconcile-receipt.json
+
+The receipt must use geara.execution-receipt/v1 and include issue/phase,
+grant/idempotency key, Claude provider and tmux session, start/end SHA, changed
+files and scope, exact commands/results with log digests, clean or explained
+worktree state, push status, PR status, discovered issue links, blockers, and
+the next gate. Do not claim completion from prose or a sentinel alone.
+
+Only after the commit is pushed and the receipt validates, print this sentinel
+on its own final line:
+PHASE_514_RECONCILE_COMPLETE

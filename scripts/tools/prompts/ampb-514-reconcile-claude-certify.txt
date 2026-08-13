@@ -1,0 +1,60 @@
+Certify and finish exactly Phase 1 RECONCILE for AMPB Gitea issue #514 after
+the authoring worker stopped because its Claude adapter denied evidence commands.
+
+Repository:
+  /home/craigpar/Code/AgileMedievalPeasantBoard-514-staging
+Branch:
+  feature/514-move-ampb-staging-and-deploy-runner
+Base:
+  d0c6a359ba606325686519d668164a02b5f12ee1
+Grant/idempotency key:
+  ampb-514-reconcile-v1
+Session:
+  ampb-514-reconcile-claude-certify
+
+This is the same phase and same Claude provider. It is an execution-lane repair,
+not Grok fallback. The prior worker authored the in-scope files and correctly
+left the receipt incomplete. No commit or remote feature branch exists.
+
+Read AGENTS.md, CLAUDE.md, the original and outage-resume prompts, the full diff,
+and docs/execution/cachyos-staging/phase-1-reconcile-receipt.json. Audit all
+authored changes for scope, correctness, repository style, and secrets before
+running anything. Do not trust the prior prose summary.
+
+You are allowed only to:
+- read files and inspect the existing diff;
+- correct Phase 1 files within the original grant if validation finds a defect;
+- run the original focused Python tests, receipt validator, stale-path check,
+  secret scan, git diff/status checks, and hashes;
+- update the receipt from incomplete to passed only when evidence genuinely
+  passes, including exact commands, exit codes, SHA/digests, outage history,
+  clean final worktree, push state, and next gate;
+- commit the complete Phase 1 change set, push only this feature branch, and
+  post the structured evidence summary to issue #514 with gitea.py.
+
+Forbidden:
+- no host, Docker, systemd, nginx, database, deploy, migration, or network
+  mutation except the authorized Git push and Gitea issue comment;
+- no BUILD_STAGING work, PR opening, merge, force-push, protected-branch write,
+  re-enabling paused services, or skip-permissions;
+- no unrelated cleanup.
+
+Required sequence:
+1. Inspect branch/base/status/diff and verify every path is authorized.
+2. Run `/usr/bin/python3 -m unittest discover -s scripts/tools/tests -t . -v`.
+3. Run the AGENTS.md stale-path guard and a secret-bearing-path/content scan on
+   changed files. Do not print any secret value.
+4. Run `git diff --check` and the focused receipt validator.
+5. Correct any genuine defect within scope and rerun affected checks.
+6. Commit with an issue-linked infrastructure-only message.
+7. Update the receipt with the result commit SHA and evidence. Because the
+   receipt itself is tracked, amend the same Phase 1 commit after finalizing it,
+   then re-run receipt validation against the amended SHA.
+8. Push `HEAD` to the matching origin feature branch without force.
+9. Verify the remote SHA equals local HEAD and the worktree is clean.
+10. Post the evidence summary and receipt digest to Gitea issue #514.
+
+If a gate fails, leave the receipt incomplete and report the exact failure. Do
+not print completion. Only after all evidence passes, the commit is pushed, the
+worktree is clean, and the Gitea comment succeeds, print on its own final line:
+PHASE_514_RECONCILE_COMPLETE

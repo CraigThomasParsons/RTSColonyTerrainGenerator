@@ -1,0 +1,46 @@
+Resume exactly Phase 1 RECONCILE of Gitea issue #514 after a confirmed host
+power outage terminated the original tmux session.
+
+This is an infrastructure resume, not a provider fallback and not a new phase.
+Claude remains the primary provider. Preserve the existing worktree, branch,
+issue lock, exact base, grant, idempotency key, and evidence contract from:
+  scripts/tools/prompts/ampb-514-reconcile-claude.txt
+
+Repository:
+  /home/craigpar/Code/AgileMedievalPeasantBoard-514-staging
+Branch:
+  feature/514-move-ampb-staging-and-deploy-runner
+Base:
+  d0c6a359ba606325686519d668164a02b5f12ee1
+Grant and idempotency key:
+  ampb-514-reconcile-v1
+Session:
+  ampb-514-reconcile-claude-resume
+
+Recovery observation:
+- The original tmux session no longer exists.
+- No Phase 1 commit or remote feature branch exists.
+- The issue #514 lock survives and names this branch.
+- One uncommitted in-scope edit survives in scripts/tools/gitea.py. It adds a
+  `show-issue` command. Inspect and preserve it unless testing demonstrates it
+  is incorrect; do not discard or overwrite it blindly.
+- No durable Phase 1 receipt exists yet.
+- NAS ampb-scheduler.service remains inactive and masked after reboot.
+- Bandcamp NAS-sync triggers were reactivated by reboot and have been stopped
+  again; Radarr/Sonarr NAS writers remain stopped.
+- Gitea is responding and NAS load fell to about 6.5.
+
+Read the original prompt completely, then AGENTS.md and CLAUDE.md. Re-observe
+git status and the surviving diff before editing. Complete only RECONCILE under
+the original write paths and forbidden actions. Do not begin BUILD_STAGING and
+do not mutate hosts, services, databases, nginx, Docker, or deployment state.
+
+Run all original focused validations, commit, push, post evidence to #514, and
+write the required structured receipt to:
+  docs/execution/cachyos-staging/phase-1-reconcile-receipt.json
+
+The receipt must explicitly record the outage, original lost session, surviving
+partial edit, resume session, and final disposition of that edit. It must use
+the same grant/idempotency key and exact base. Only print the original sentinel
+after the pushed commit and receipt validate:
+PHASE_514_RECONCILE_COMPLETE

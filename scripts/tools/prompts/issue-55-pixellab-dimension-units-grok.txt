@@ -1,0 +1,92 @@
+Execute exactly one supervised Nyx work packet phase for Gitea issue #55 in
+craigpars/RTSColonyTerrainGenerator. Grok is the explicitly authorized provider.
+
+Outcome: rescue, validate, and publish the existing uncommitted behaviour
+correction for PixelLab cell-versus-tile dimension reconciliation. Do not begin
+issue #67 or any other work in this phase.
+
+Repository and starting state:
+
+- canonical worktree: /home/craigpar/Code/RTSColonyTerrainGenerator-exec
+- starting branch: verify/pr63
+- expected starting HEAD: 08521cb1b24c5518a3867b2b1d7caa56259e5f52
+- target branch: fix/55-pixellab-dimension-units
+- issue: http://192.168.2.48:3000/craigpars/RTSColonyTerrainGenerator/issues/55
+- classification: Behaviour correction
+- sole allowed product write surface:
+  - MapGenerator/PixelLabPresentation/bin/visual_contract.py
+  - MapGenerator/PixelLabPresentation/tests/test_visual_contract.py
+  - MapGenerator/PixelLabPresentation/tests/test_candidate_plan.py
+  - MapGenerator/PixelLabPresentation/tests/test_candidate_orchestrator.py
+  - MapGenerator/PixelLabPresentation/tests/test_candidate_approval.py
+
+Five modifications already exist solely in the worktree. Preserve them. Before
+editing, read AGENTS.md and confirm that HEAD, branch, dirty paths, and diff match
+this packet. If they do not match, stop without changing anything and report
+BLOCKED_SCOPE. Leave the pre-existing stash `stash@{0} pre-ff-to-origin-main`
+untouched.
+
+Required behaviour:
+
+- `reconcile_dimensions` must validate the promoted CellToTile rule: one cell
+  occupies one 2x2 tile region, so tile width and height equal twice their cell
+  counterparts.
+- Return tile extents because downstream consumers index tile coordinates.
+- Tests that previously used 16x16 cells against 32x32 tiles as malformed must
+  use a genuinely inconsistent dimension such as 17x16.
+- Every corrected bug must retain a regression test.
+
+Execution order:
+
+1. Inspect the existing diff; do not discard, regenerate, or broaden it.
+2. Create/switch to `fix/55-pixellab-dimension-units` without losing the dirty
+   changes.
+3. Run the exact focused suite below before changing the existing patch. If it
+   is green, avoid additional product edits. If it fails, fix only failures
+   caused by the five-path patch.
+4. Commit coherently with `#55` in the message. This local commit is the first
+   durability boundary and must happen even if Gitea remains unavailable.
+5. Fetch current `origin/main` and rebase the fix branch onto it only after the
+   rescue commit exists. If Gitea is unavailable, do not rewrite or guess the
+   base; record WAITING_PROVIDER/FAILED_INFRASTRUCTURE with the local commit SHA.
+6. Re-run the focused suite and `git diff --check` at the exact final revision.
+7. Push the branch and open a non-draft PR to `main` with `Closes #55`. Never
+   merge it. Before retrying a timed-out Gitea write, inspect whether it already
+   succeeded.
+
+Focused test suite:
+
+  /usr/bin/python3 -m unittest \
+    MapGenerator/PixelLabPresentation/tests/test_visual_contract.py \
+    MapGenerator/PixelLabPresentation/tests/test_pixellab_client.py \
+    MapGenerator/PixelLabPresentation/tests/test_candidate_plan.py \
+    MapGenerator/PixelLabPresentation/tests/test_candidate_validation.py \
+    MapGenerator/PixelLabPresentation/tests/test_candidate_approval.py \
+    MapGenerator/PixelLabPresentation/tests/test_candidate_orchestrator.py
+
+Expected baseline is 89 passing tests, approximately two seconds. Also prove
+the offline orchestrator accepts all three real golden maps with
+`networkTransportAttempts: 0` and `submissions: 0`; locate and use the existing
+repository test/command rather than inventing a live request. No PixelLab credit
+spending or network generation is authorized.
+
+Forbidden actions:
+
+- Do not modify, merge, deploy, force-push, or commit to main/develop.
+- Do not touch PR #63 or fold this fix into its branch.
+- Do not edit outside the five allowed product paths except mechanically
+  generated phase evidence that is explicitly ignored by Git.
+- Do not pop, drop, or modify any stash.
+- Do not address #47, #67, the missing PHP vendor CI setup, BDD lane failures,
+  or any newly discovered work. Search/create/link a Gitea issue for a new
+  obligation before recommending it; if Gitea is unavailable, record it as an
+  unfiled blocker and do not implement it.
+
+Completion receipt must include: issue and phase; Grok/Nyx executor and tmux
+session; start/end SHAs; changed files and scope statement; exact commands and
+results including test count; offline/no-credit evidence; branch and clean or
+explained worktree state; push status and PR URL; discovered issue links;
+blockers; and the single recommended next gate. Print this exact sentinel on
+its own final line only after the PR and receipt requirements are satisfied:
+
+PHASE_ISSUE55_DONE
