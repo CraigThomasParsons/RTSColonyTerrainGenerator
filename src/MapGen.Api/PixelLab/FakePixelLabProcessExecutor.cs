@@ -22,6 +22,7 @@ public sealed class FakePixelLabProcessExecutor : IPixelLabProcessExecutor
         {
             int count = int.Parse(Value(request.Arguments, "--candidates"));
             Directory.CreateDirectory(output);
+            WriteControls(output);
             File.WriteAllText(Path.Combine(output, "run-plan.json"), JsonSerializer.Serialize(new
             {
                 candidates = Enumerable.Range(0, count).Select(index => new { candidateIndex = index, seed = index + 1 })
@@ -50,7 +51,22 @@ public sealed class FakePixelLabProcessExecutor : IPixelLabProcessExecutor
         File.WriteAllText(Path.Combine(directory, "validation.json"),
             """{"structurallyValid":true,"eligibleForApproval":true,"resultingState":"generated","failures":[]}""");
         File.WriteAllText(Path.Combine(directory, "generation-manifest.json"),
-            JsonSerializer.Serialize(new { remote = new { cacheHit = index > 0 } }));
+            JsonSerializer.Serialize(new
+            {
+                provider = "development-fake",
+                remote = new { cacheHit = index > 0, usage = (object?)null },
+            }));
+    }
+
+    private static void WriteControls(string output)
+    {
+        string controls = Path.Combine(output, "controls");
+        Directory.CreateDirectory(controls);
+        File.WriteAllText(Path.Combine(controls, "visual-brief.json"),
+            "{\"contractVersion\":\"development-fake\"}");
+        byte[] image = BuildCandidatePng(0);
+        File.WriteAllBytes(Path.Combine(controls, "semantic-control.png"), image);
+        File.WriteAllBytes(Path.Combine(controls, "protected-mask.png"), image);
     }
 
     private static byte[] BuildCandidatePng(int variant)

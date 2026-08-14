@@ -230,3 +230,54 @@ export interface PixelLabDecisionRequest {
   actor: string;
   reason: string;
 }
+
+export interface PixelLabEvaluationScores {
+  shoreline_fidelity: number;
+  traversability_cues: number;
+  starts_and_resources: number;
+  visual_cohesion: number;
+  gameplay_readability: number;
+}
+
+export interface PixelLabEvaluationRequest {
+  reviewer: string;
+  rationale: string;
+  verdict: "accept" | "reject";
+  scores: PixelLabEvaluationScores;
+}
+
+export interface PixelLabEvidenceObservation {
+  status: "observed" | "not-observed";
+  value: number | null;
+  unit: string | null;
+}
+
+export interface PixelLabEvaluationReview extends PixelLabEvaluationRequest {
+  recorded_at_utc: string;
+  bound_evidence_digest: string;
+  current: boolean;
+}
+
+export interface PixelLabEvaluationCandidate {
+  candidate_index: number;
+  candidate_seed: number;
+  state: PixelLabCandidate["state"];
+  structurally_valid: boolean;
+  eligible_for_evaluation: boolean;
+  evidence_digest: string;
+  artifact_digests: Record<string, string>;
+  artifact_urls: Record<string, string>;
+  provider: string;
+  cost: PixelLabEvidenceObservation;
+  latency: PixelLabEvidenceObservation;
+  validation_failures: string[];
+  reviews: PixelLabEvaluationReview[];
+}
+
+export interface PixelLabEvaluationBundle {
+  version: number;
+  job_id: string;
+  world_job_id: string;
+  world_seed: Int64String;
+  candidates: PixelLabEvaluationCandidate[];
+}

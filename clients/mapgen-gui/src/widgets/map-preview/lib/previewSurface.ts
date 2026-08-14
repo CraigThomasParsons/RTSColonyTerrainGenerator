@@ -30,6 +30,10 @@ export function createPreviewSurface(
   canvas: HTMLCanvasElement,
   preview: MapPreview,
   approvedBackground?: CanvasImageSource,
+  overlays: { showStartZones: boolean; showResources: boolean } = {
+    showStartZones: true,
+    showResources: true,
+  },
 ): PreviewSurface {
   const worldPixelWidth = preview.width * PREVIEW_TILE_PIXELS;
   const worldPixelHeight = preview.height * PREVIEW_TILE_PIXELS;
@@ -64,7 +68,7 @@ export function createPreviewSurface(
     ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, x * dpr, y * dpr);
     ctx.clearRect(0, 0, worldPixelWidth, worldPixelHeight);
 
-    drawPreview(ctx, preview, { tileSize: PREVIEW_TILE_PIXELS, approvedBackground });
+    drawPreview(ctx, preview, { tileSize: PREVIEW_TILE_PIXELS, approvedBackground, ...overlays });
   };
 
   const handleResize = () => {

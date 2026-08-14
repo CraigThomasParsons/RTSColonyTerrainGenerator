@@ -19,6 +19,9 @@ public static class PixelLabEndpoints
             (string jobId, int candidateIndex, PixelLabDecisionRequest request, IPixelLabJobService service,
                 HttpContext context, CancellationToken token) => Decide(jobId, candidateIndex, "reject", request, service, context, token));
         group.MapGet("/pixellab/jobs/{jobId}/candidates/{candidateIndex:int}/image", Image);
+        group.MapGet("/pixellab/jobs/{jobId}/evaluation", Evaluation);
+        group.MapPost("/pixellab/jobs/{jobId}/candidates/{candidateIndex:int}/evaluation", RecordEvaluation);
+        group.MapGet("/pixellab/jobs/{jobId}/candidates/{candidateIndex:int}/evidence/{artifact}", Evidence);
         return group;
     }
 
@@ -67,4 +70,29 @@ public static class PixelLabEndpoints
         => service.ResolveCandidateImage(jobId, candidateIndex) is { } path
             ? Results.File(path, "image/png", enableRangeProcessing: true)
             : ApiProblems.NotFound("The candidate image does not exist or is not eligible for review.", context);
+
+    private static IResult Evaluation(string jobId, IPixelLabJobService service, HttpContext context)
+        => service.FindEvaluation(jobId) is { } bundle ? Results.Ok(bundle)
+            : ApiProblems.NotFound($"PixelLab job '{jobId}' was not found.", context);
+
+    private static IResult RecordEvaluation(string jobId, int candidateIndex,
+        PixelLabEvaluationRequest request, IPixelLabJobService service, HttpContext context)
+    {
+        try
+        {
+            return service.RecordEvaluation(jobId, candidateIndex, request) is { } evaluation
+                ? Results.Ok(evaluation)
+                : ApiProblems.NotFound($"PixelLab job '{jobId}' was not found.", context);
+        }
+        catch (Exception error) when (error is ArgumentException or InvalidOperationException)
+        {
+            return ApiProblems.InvalidRequest(error.Message, context);
+        }
+    }
+
+    private static IResult Evidence(string jobId, int candidateIndex, string artifact,
+        IPixelLabJobService service, HttpContext context)
+        => service.ResolveEvidenceArtifact(jobId, candidateIndex, artifact) is { } evidence
+            ? Results.File(evidence.Path, evidence.ContentType, enableRangeProcessing: true)
+            : ApiProblems.NotFound("The requested evaluation artifact is unavailable or not allowlisted.", context);
 }

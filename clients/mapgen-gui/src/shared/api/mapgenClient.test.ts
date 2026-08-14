@@ -257,3 +257,27 @@ describe("error responses", () => {
     expect(failure.message).toContain("502");
   });
 });
+
+describe("PixelLab evaluation evidence", () => {
+  it("reads a world seed losslessly and posts the human rubric to the candidate endpoint", async () => {
+    const hugeSeed = "9007199254740993";
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(200, JSON.stringify({
+        version: 1, job_id: "presentation-1", world_job_id: JOB_ID,
+        world_seed: Number(hugeSeed), candidates: [],
+      }).replace(String(Number(hugeSeed)), hugeSeed)))
+      .mockResolvedValueOnce(jsonResponse(200, JSON.stringify({ candidate_index: 0 })));
+
+    const evaluation = await clientUnderTest().getPixelLabEvaluation("presentation-1");
+    expect(evaluation.world_seed).toBe(hugeSeed);
+    await clientUnderTest().recordPixelLabEvaluation("presentation-1", 0, {
+      reviewer: "Craig", rationale: "Compared the authoritative evidence.", verdict: "accept",
+      scores: { shoreline_fidelity: 5, traversability_cues: 4, starts_and_resources: 5,
+        visual_cohesion: 4, gameplay_readability: 5 },
+    });
+
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${BASE_URL}/pixellab/jobs/presentation-1/candidates/0/evaluation`);
+    expect((fetchMock.mock.calls[1]?.[1] as RequestInit).method).toBe("POST");
+  });
+});

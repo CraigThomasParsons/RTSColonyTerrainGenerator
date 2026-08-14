@@ -9,6 +9,9 @@ import type {
   PixelLabDecisionRequest,
   PixelLabJob,
   PixelLabReadiness,
+  PixelLabEvaluationBundle,
+  PixelLabEvaluationCandidate,
+  PixelLabEvaluationRequest,
 } from "./contract.ts";
 import { MAP_CONTRACT_VERSION } from "./contract.ts";
 import { parseJsonWithInt64, stringifyJsonWithInt64 } from "./int64.ts";
@@ -63,6 +66,8 @@ export interface MapGenClient {
   getPixelLabJob(jobId: string): Promise<PixelLabJob>;
   retryPixelLabJob(jobId: string): Promise<PixelLabJob>;
   decidePixelLabCandidate(jobId: string, candidateIndex: number, decision: "approve" | "reject", request: PixelLabDecisionRequest): Promise<PixelLabJob>;
+  getPixelLabEvaluation(jobId: string): Promise<PixelLabEvaluationBundle>;
+  recordPixelLabEvaluation(jobId: string, candidateIndex: number, request: PixelLabEvaluationRequest): Promise<PixelLabEvaluationCandidate>;
   resolveApiUrl(path: string): string;
 }
 
@@ -114,6 +119,12 @@ export function createMapGenClient({
     retryPixelLabJob: (jobId) => send<PixelLabJob>(`/pixellab/jobs/${encodeURIComponent(jobId)}/retry`, { method: "POST" }),
     decidePixelLabCandidate: (jobId, candidateIndex, decision, request) =>
       send<PixelLabJob>(`/pixellab/jobs/${encodeURIComponent(jobId)}/candidates/${candidateIndex}/${decision}`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request),
+      }),
+    getPixelLabEvaluation: (jobId) =>
+      send<PixelLabEvaluationBundle>(`/pixellab/jobs/${encodeURIComponent(jobId)}/evaluation`),
+    recordPixelLabEvaluation: (jobId, candidateIndex, request) =>
+      send<PixelLabEvaluationCandidate>(`/pixellab/jobs/${encodeURIComponent(jobId)}/candidates/${candidateIndex}/evaluation`, {
         method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request),
       }),
     resolveApiUrl: (path) => {
