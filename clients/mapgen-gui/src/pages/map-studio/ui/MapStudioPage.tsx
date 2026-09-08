@@ -4,6 +4,8 @@ import { GenerateWorldForm } from "~/features/generate-world";
 import type { MapGenClient } from "~/shared/api/mapgenClient.ts";
 import { MapPreviewPanel } from "~/widgets/map-preview";
 import { PixelLabPanel } from "~/features/pixellab-presentation/PixelLabPanel.tsx";
+import { EvaluationWorkbench } from "~/features/evaluate-presentation";
+import type { PixelLabJob } from "~/shared/api/contract.ts";
 
 import styles from "./MapStudioPage.module.css";
 
@@ -20,6 +22,7 @@ export interface MapStudioPageProps {
 export function MapStudioPage({ client, pollIntervalMs }: MapStudioPageProps) {
   const { snapshot, generate } = useWorldJob(client, pollIntervalMs);
   const [approvedImageUrl, setApprovedImageUrl] = useState<string | null>(null);
+  const [pixelLabJob, setPixelLabJob] = useState<PixelLabJob | null>(null);
   const handleApprovedImage = useCallback((url: string | null) => setApprovedImageUrl(url), []);
 
   return (
@@ -39,7 +42,7 @@ export function MapStudioPage({ client, pollIntervalMs }: MapStudioPageProps) {
         <GenerateWorldForm snapshot={snapshot} onGenerate={generate} />
 
         <PixelLabPanel client={client} worldJobId={snapshot.jobId} worldReady={snapshot.status?.status === "succeeded"}
-          pollIntervalMs={pollIntervalMs} onApprovedImage={handleApprovedImage} />
+          pollIntervalMs={pollIntervalMs} onApprovedImage={handleApprovedImage} onJobChange={setPixelLabJob} />
 
         {snapshot.jobId && (
           <footer className={styles.jobId}>
@@ -47,6 +50,9 @@ export function MapStudioPage({ client, pollIntervalMs }: MapStudioPageProps) {
           </footer>
         )}
       </aside>
+      {snapshot.preview && pixelLabJob?.status === "succeeded" && <EvaluationWorkbench
+        key={`${pixelLabJob.job_id}-${pixelLabJob.candidates.map((candidate) => candidate.state).join("-")}`}
+        client={client} pixelLabJobId={pixelLabJob.job_id} preview={snapshot.preview} />}
     </main>
   );
 }

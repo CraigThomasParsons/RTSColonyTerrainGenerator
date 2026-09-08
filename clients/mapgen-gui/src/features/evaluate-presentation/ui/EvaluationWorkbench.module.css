@@ -1,0 +1,17 @@
+.workbench { position: absolute; right: 1.25rem; bottom: 1.25rem; left: 24rem; z-index: 2; display: grid; gap: .65rem; max-height: calc(100dvh - 2.5rem); overflow: auto; padding: .9rem; border: 1px solid var(--edge); border-radius: 10px; background: color-mix(in srgb, var(--surface) 94%, transparent); box-shadow: 0 20px 50px rgb(0 0 0 / 45%); font-size: .72rem; }
+.workbench header, .toggles, .evidence, .form { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.workbench h2, .workbench p, .workbench figure { margin: 0; }
+.workbench header { justify-content: space-between; }
+.workbench header p { color: var(--text-dim); }
+.comparison { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; }
+.comparison figure { min-width: 0; border: 1px solid var(--edge); border-radius: 6px; overflow: hidden; background: #171923; }
+.comparison figure > div, .control img { width: 100%; height: min(32vh, 20rem); object-fit: contain; }
+.comparison figcaption { padding: .35rem; color: var(--text-dim); }
+.evidence { justify-content: space-between; }
+.evidence code { word-break: break-all; }
+.form label { display: grid; gap: .2rem; }
+.form input[type="number"] { width: 3rem; }
+.rationale { flex: 1 1 18rem; }
+.rationale textarea { min-height: 3rem; resize: vertical; }
+.current { color: #b7dc99; }
+@media (max-width: 900px) { .workbench { left: 1.25rem; } .comparison { grid-template-columns: 1fr; } }

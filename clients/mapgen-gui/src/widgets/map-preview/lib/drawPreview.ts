@@ -52,12 +52,14 @@ export interface DrawPreviewOptions {
   tileSize: number;
   /** Present only for an explicitly human-approved candidate. */
   approvedBackground?: CanvasImageSource | undefined;
+  showStartZones?: boolean;
+  showResources?: boolean;
 }
 
 export function drawPreview(
   ctx: CanvasRenderingContext2D,
   preview: MapPreview,
-  { tileSize, approvedBackground }: DrawPreviewOptions,
+  { tileSize, approvedBackground, showStartZones = true, showResources = true }: DrawPreviewOptions,
 ): void {
   const expected = preview.width * preview.height;
   if (preview.terrain.length !== expected) {
@@ -76,8 +78,8 @@ export function drawPreview(
     drawTerrain(ctx, preview, tileSize);
     drawCanopy(ctx, preview, tileSize);
   }
-  drawResourceClusters(ctx, preview, tileSize);
-  drawStartZones(ctx, preview, tileSize);
+  if (showResources) drawResourceClusters(ctx, preview, tileSize);
+  if (showStartZones) drawStartZones(ctx, preview, tileSize);
 }
 
 function drawTerrain(

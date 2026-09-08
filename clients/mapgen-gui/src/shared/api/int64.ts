@@ -18,7 +18,7 @@
  * mangled display string rather than a wrong map, so the trade is deliberate.
  */
 
-const INT64_FIELDS = ["seed"] as const;
+const INT64_FIELDS = ["seed", "world_seed"] as const;
 
 const keyed = (field: string, pattern: string) =>
   new RegExp(String.raw`([{,]\s*"${field}"\s*:\s*)${pattern}`, "g");

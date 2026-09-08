@@ -10,6 +10,55 @@ public sealed record CreatePixelLabJobRequest(
 
 public sealed record PixelLabDecisionRequest(string Actor, string Reason);
 
+public sealed record PixelLabEvaluationScores(
+    int ShorelineFidelity,
+    int TraversabilityCues,
+    int StartsAndResources,
+    int VisualCohesion,
+    int GameplayReadability);
+
+public sealed record PixelLabEvaluationRequest(
+    string Reviewer,
+    string Rationale,
+    string Verdict,
+    PixelLabEvaluationScores Scores);
+
+public sealed record PixelLabEvidenceObservation(
+    string Status,
+    decimal? Value,
+    string? Unit);
+
+public sealed record PixelLabEvaluationReview(
+    string Reviewer,
+    string Rationale,
+    string Verdict,
+    PixelLabEvaluationScores Scores,
+    DateTimeOffset RecordedAtUtc,
+    string BoundEvidenceDigest,
+    bool Current);
+
+public sealed record PixelLabEvaluationCandidate(
+    int CandidateIndex,
+    long CandidateSeed,
+    string State,
+    bool StructurallyValid,
+    bool EligibleForEvaluation,
+    string EvidenceDigest,
+    IReadOnlyDictionary<string, string> ArtifactDigests,
+    IReadOnlyDictionary<string, string> ArtifactUrls,
+    string Provider,
+    PixelLabEvidenceObservation Cost,
+    PixelLabEvidenceObservation Latency,
+    IReadOnlyList<string> ValidationFailures,
+    IReadOnlyList<PixelLabEvaluationReview> Reviews);
+
+public sealed record PixelLabEvaluationBundle(
+    int Version,
+    string JobId,
+    string WorldJobId,
+    long WorldSeed,
+    IReadOnlyList<PixelLabEvaluationCandidate> Candidates);
+
 public sealed record PixelLabReadiness(
     bool Available,
     bool LiveConfigured,
@@ -42,4 +91,3 @@ public sealed record PixelLabJobSnapshot(
     DateTimeOffset? CompletedAtUtc,
     string? Error,
     IReadOnlyList<PixelLabCandidate> Candidates);
-

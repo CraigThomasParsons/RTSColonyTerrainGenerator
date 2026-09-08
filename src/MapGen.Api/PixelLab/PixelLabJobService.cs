@@ -14,13 +14,20 @@ public interface IPixelLabJobService
     Task<PixelLabJobSnapshot?> DecideAsync(string jobId, int candidateIndex, string decision,
         PixelLabDecisionRequest request, CancellationToken cancellationToken);
     string? ResolveCandidateImage(string jobId, int candidateIndex);
+    PixelLabEvaluationBundle? FindEvaluation(string jobId);
+    PixelLabEvaluationCandidate? RecordEvaluation(string jobId, int candidateIndex,
+        PixelLabEvaluationRequest request);
+    PixelLabEvidenceArtifact? ResolveEvidenceArtifact(string jobId, int candidateIndex, string artifact);
 }
+
+public sealed record PixelLabEvidenceArtifact(string Path, string ContentType);
 
 internal sealed class PixelLabJobRecord
 {
     public required string JobId { get; init; }
     public required CreatePixelLabJobRequest Request { get; init; }
     public required string GoldenJobId { get; init; }
+    public long WorldSeed { get; init; }
     public required string RunRoot { get; init; }
     public required DateTimeOffset SubmittedAtUtc { get; init; }
     public string Status { get; set; } = "queued";
@@ -98,6 +105,7 @@ public sealed class PixelLabJobService(
             JobId = jobId,
             Request = request,
             GoldenJobId = world.GoldenJobId,
+            WorldSeed = world.Seed,
             RunRoot = runRoot,
             SubmittedAtUtc = clock.GetUtcNow(),
         };
@@ -173,6 +181,30 @@ public sealed class PixelLabJobService(
         if (candidate?.State is not ("generated" or "human-approved")) return null;
         string path = Path.Combine(record.RunRoot, "candidates", $"candidate-{candidateIndex:D3}", "candidate.png");
         return File.Exists(path) ? path : null;
+    }
+
+    public PixelLabEvaluationBundle? FindEvaluation(string jobId)
+    {
+        if (!_jobs.TryGetValue(jobId, out var record)) return null;
+        RefreshCandidates(record);
+        return PixelLabEvaluation.BuildBundle(record);
+    }
+
+    public PixelLabEvaluationCandidate? RecordEvaluation(string jobId, int candidateIndex,
+        PixelLabEvaluationRequest request)
+    {
+        if (!_jobs.TryGetValue(jobId, out var record)) return null;
+        RefreshCandidates(record);
+        return PixelLabEvaluation.Record(record, candidateIndex, request, clock.GetUtcNow());
+    }
+
+    public PixelLabEvidenceArtifact? ResolveEvidenceArtifact(string jobId, int candidateIndex,
+        string artifact)
+    {
+        if (!_jobs.TryGetValue(jobId, out var record)) return null;
+        RefreshCandidates(record);
+        if (record.Candidates.All(candidate => candidate.CandidateIndex != candidateIndex)) return null;
+        return PixelLabEvaluation.ResolveArtifact(record, candidateIndex, artifact);
     }
 
     private async Task RunAsync(PixelLabJobRecord record, CancellationToken cancellationToken)

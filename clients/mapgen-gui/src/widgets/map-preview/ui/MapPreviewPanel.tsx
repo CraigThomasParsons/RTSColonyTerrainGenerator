@@ -12,9 +12,11 @@ import styles from "./MapPreviewPanel.module.css";
 export interface MapPreviewPanelProps {
   preview: MapPreview | null;
   approvedBackgroundUrl?: string | null;
+  showStartZones?: boolean;
+  showResources?: boolean;
 }
 
-export function MapPreviewPanel({ preview, approvedBackgroundUrl }: MapPreviewPanelProps) {
+export function MapPreviewPanel({ preview, approvedBackgroundUrl, showStartZones = true, showResources = true }: MapPreviewPanelProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -26,15 +28,15 @@ export function MapPreviewPanel({ preview, approvedBackgroundUrl }: MapPreviewPa
     let surface: ReturnType<typeof createPreviewSurface> | undefined;
     let cancelled = false;
     if (!approvedBackgroundUrl) {
-      surface = createPreviewSurface(canvas, preview);
+      surface = createPreviewSurface(canvas, preview, undefined, { showStartZones, showResources });
     } else {
       const image = new Image();
-      image.onload = () => { if (!cancelled) surface = createPreviewSurface(canvas, preview, image); };
-      image.onerror = () => { if (!cancelled) surface = createPreviewSurface(canvas, preview); };
+      image.onload = () => { if (!cancelled) surface = createPreviewSurface(canvas, preview, image, { showStartZones, showResources }); };
+      image.onerror = () => { if (!cancelled) surface = createPreviewSurface(canvas, preview, undefined, { showStartZones, showResources }); };
       image.src = approvedBackgroundUrl;
     }
     return () => { cancelled = true; surface?.destroy(); };
-  }, [preview, approvedBackgroundUrl]);
+  }, [preview, approvedBackgroundUrl, showResources, showStartZones]);
 
   if (!preview) {
     return (

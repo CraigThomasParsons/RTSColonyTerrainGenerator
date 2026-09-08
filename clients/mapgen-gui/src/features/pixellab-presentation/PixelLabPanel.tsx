@@ -9,9 +9,10 @@ export interface PixelLabPanelProps {
   worldReady: boolean;
   pollIntervalMs: number;
   onApprovedImage: (url: string | null) => void;
+  onJobChange?: (job: PixelLabJob | null) => void;
 }
 
-export function PixelLabPanel({ client, worldJobId, worldReady, pollIntervalMs, onApprovedImage }: PixelLabPanelProps) {
+export function PixelLabPanel({ client, worldJobId, worldReady, pollIntervalMs, onApprovedImage, onJobChange }: PixelLabPanelProps) {
   const [readiness, setReadiness] = useState<PixelLabReadiness | null>(null);
   const [job, setJob] = useState<PixelLabJob | null>(null);
   const [count, setCount] = useState(3);
@@ -32,6 +33,7 @@ export function PixelLabPanel({ client, worldJobId, worldReady, pollIntervalMs, 
     if (approved?.image_url) approvedUrl = client.resolveApiUrl(approved.image_url);
     onApprovedImage(approvedUrl);
   }, [approved, client, onApprovedImage]);
+  useEffect(() => onJobChange?.(job), [job, onJobChange]);
 
   const start = async () => {
     if (!worldJobId) return;
