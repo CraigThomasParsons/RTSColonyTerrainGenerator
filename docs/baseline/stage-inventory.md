@@ -16,6 +16,7 @@ wrapper and the engine it calls. Filenames use `<id>` for the job id.
 | **CartridgeManufacturer** | Rust (cargo workspace) | `bin/consume_cartridge_job.sh` → `wcar_pack`, `wcar_export_chk`, `wcar_run_stratagus` (`bin/wcar-tools/crates/`) | `Playable/outbox/<id>.worldpayload` (fallback: TreePlanter) | `outbox/<id>.wcar` + `<id>.chk` + `<id>.scm` | Pack WCAR cartridge, export CHK/SCM, validate via Stratagus |
 | **WorldPreview** | Rust | `bin/consume_worldpreview_job.sh` → `worldpreview-engine` (`bin/worldpreview-engine/src/main.rs`) | `PathFinder/outbox/<id>.json` | `outbox/<id>/index.html` (+ style.css, main.js, world.json, assets/) | Interactive HTML world viewer |
 | **WorldSnapshot** | Python (Playwright) | `bin/consume_worldsnapshot_job.sh` → `bin/worldsnapshot.py` | `WorldPreview/outbox/<id>/index.html` | `outbox/<id>.png` | Headless Chromium screenshot of WorldPreview |
+| **MapTexture** | Python | `bin/consume_maptexture_job.sh [<id>]` → `bin/maptexture.py` | Heightmap binary + PNG; Playable `.worldpayload` + `.playable.json` | `outbox/<id>/` controls, offline 512×512 candidates, validation/approval evidence, optional approved `background.png` | Optional non-authoritative background texture; never feeds gameplay stages |
 | **AncientCivilization** | Rust | `bin/consume_ancientcivilization_job.sh` → `ancientcivilization-engine` | `WorldFeatures/outbox/<id>.worldpayload` | `<id>.settlements.json`, `<id>.ruins.json`, `<id>.ancient_paths.json`, `<id>.reclaimed_resources.json`, `<id>.collapse_reason.txt` | Synthesize ruins / settlements / ancient paths (**largely placeholder content**) |
 | **CivicOverreach** | Python | `bin/run_civic_overreach.sh <id>` → `bin/civic_overreach.py` (**no queue consumer**) | `Heightmap/outbox/<id>/` PNG+meta or `<id>.heightmap` | `outbox/<id>.civic_overreach.worldpayload` | Overreach / disaster / ruin heuristics from the heightmap |
 | **SimulateCity** | Python | `bin/consume_simulatecity_job.sh` → `bin/run_civic_overreach.sh <id>` → `bin/civic_overreach.py` | `Heightmap/outbox/<id>.heightmap` (latest) | `outbox/<id>.civic_overreach.worldpayload` | Near-duplicate of CivicOverreach with a queue consumer |
@@ -23,7 +24,8 @@ wrapper and the engine it calls. Filenames use `<id>` for the job id.
 | **WorldTilemap** | *(planned)* Python/pygame | none yet — only `docs/plan.md` | *(planned)* `Playable/outbox/<id>.worldpayload` + `<id>.playable.json` | *(planned)* `outbox/<id>.png` | Planned pygame tilemap renderer (would replace WorldSnapshot) |
 | **InfrastructureBuilder** | *(planned)* Kotlin / Gradle | none yet — empty `bin/`, `plan.md`, skeleton `src/` | *(planned)* `PathFinder/outbox/<id>.json` + WorldFeatures `<id>.worldpayload` | *(planned)* `outbox/<id>.worldpayload` (mutated) | Planned — apply PathFinder infrastructure requests (roads / bridges / tunnels) |
 
-**Wired vs planned:** 15 stages have real implementations; **WorldTilemap** and
+**Wired vs planned:** MapTexture is an opt-in terminal presentation lane and is
+not part of mandatory gameplay completion. 15 baseline stages have real implementations; **WorldTilemap** and
 **InfrastructureBuilder** are scaffolds (directories + plan docs, no engine, not installed).
 Of the wired stages, **AncientCivilization** and **TransportTycoonDeluxe** emit largely
 placeholder content.

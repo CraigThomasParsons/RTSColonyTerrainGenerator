@@ -86,6 +86,9 @@ STAGE_DIRECTORY_MAP = {
     "tiler": "Tiler",
     "weather": "WeatherAnalyses",  # Note: not "Weather" - full name used
     "treeplanter": "TreePlanter",
+    # Optional terminal presentation stage. It is intentionally absent from
+    # PIPELINE_STAGES so normal gameplay completion never waits for it.
+    "maptexture": "MapTexture",
 }
 
 
@@ -814,7 +817,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     watch_parser.add_argument(
         "--stage",
-        choices=["heightmap", "tiler", "treeplanter"],
+        choices=["heightmap", "tiler", "treeplanter", "maptexture"],
         required=True,
         help="Pipeline stage to watch",
     )
@@ -826,7 +829,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     clean_parser.add_argument(
         "--stage",
-        choices=["heightmap", "tiler", "weather", "treeplanter", "all"],
+        choices=["heightmap", "tiler", "weather", "treeplanter", "maptexture", "all"],
         required=True,
         help="Pipeline stage to clean, or 'all' to clean everything including logs",
     )
