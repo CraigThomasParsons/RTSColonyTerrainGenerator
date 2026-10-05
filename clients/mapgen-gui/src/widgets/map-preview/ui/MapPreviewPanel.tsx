@@ -53,10 +53,14 @@ export function MapPreviewPanel({
     let cancelled = false;
     loadTileset().then(
       (loaded) => {
-        if (!cancelled) setTilesetState({ status: "ready", tileset: loaded });
+        if (!cancelled) {
+          setTilesetState({ status: "ready", tileset: loaded });
+        }
       },
       () => {
-        if (!cancelled) setTilesetState({ status: "failed" });
+        if (!cancelled) {
+          setTilesetState({ status: "failed" });
+        }
       },
     );
     return () => {
@@ -113,8 +117,11 @@ export function MapPreviewPanel({
           className={styles.toggle}
           aria-pressed={wantsTiles}
           onClick={() => {
-            if (wantsTiles) setRenderMode("flat");
-            else setRenderMode("tiled");
+            if (wantsTiles) {
+              setRenderMode("flat");
+            } else {
+              setRenderMode("tiled");
+            }
           }}
         >
           Game tiles

@@ -57,10 +57,18 @@ export const ALL_CORNERS = CORNER_UL | CORNER_UR | CORNER_LR | CORNER_LL;
 
 export function cornerMask({ n, e, s, w }: EdgeNeighbours): number {
   let mask = 0;
-  if (n && w) mask |= CORNER_UL;
-  if (n && e) mask |= CORNER_UR;
-  if (s && e) mask |= CORNER_LR;
-  if (s && w) mask |= CORNER_LL;
+  if (n && w) {
+    mask |= CORNER_UL;
+  }
+  if (n && e) {
+    mask |= CORNER_UR;
+  }
+  if (s && e) {
+    mask |= CORNER_LR;
+  }
+  if (s && w) {
+    mask |= CORNER_LL;
+  }
   return mask;
 }
 
@@ -116,7 +124,9 @@ export function resolveAutotileMask(
   x: number,
   y: number,
 ): TileResolution {
-  if (!config) return UNMAPPED;
+  if (!config) {
+    return UNMAPPED;
+  }
 
   if (mask === ALL_CORNERS && config.interiorVariants && config.interiorVariants.length > 0) {
     const variants = config.interiorVariants;
@@ -143,11 +153,15 @@ export function resolveTerrainTile(
   terrainTiles: Readonly<Record<string, SpriteCell>>,
   kind: string | undefined,
 ): TileResolution {
-  if (kind === undefined || !Object.hasOwn(terrainTiles, kind)) return UNMAPPED;
+  if (kind === undefined || !Object.hasOwn(terrainTiles, kind)) {
+    return UNMAPPED;
+  }
   return spriteOrUnmapped(terrainTiles[kind]);
 }
 
 function spriteOrUnmapped(cell: SpriteCell | undefined): TileResolution {
-  if (!cell) return UNMAPPED;
+  if (!cell) {
+    return UNMAPPED;
+  }
   return { kind: "sprite", cell };
 }
