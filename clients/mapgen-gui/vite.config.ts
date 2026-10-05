@@ -14,6 +14,9 @@ export default defineConfig({
       // capybara_2d_engine is self-hosted from source (third_party/…/PROVENANCE.md);
       // it publishes no build output, so the client compiles its TypeScript directly.
       "@capybara": here("../../third_party/capybara_2d_engine/src"),
+      // AMPB's forest sheet and autotile tables, vendored so the preview needs no running
+      // AMPB (third_party/ampb_forest_tileset/PROVENANCE.md).
+      "@ampb-tileset": here("../../third_party/ampb_forest_tileset"),
     },
   },
   server: {

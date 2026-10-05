@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MapPreview } from "~/shared/api/contract.ts";
+import {
+  FOREST_SOURCE_TILE_SIZE,
+  FOREST_TERRAIN_TILES,
+  FOREST_TREE_AUTOTILE,
+} from "./forestTileset.ts";
 import { createPreviewSurface, PREVIEW_TILE_PIXELS } from "./previewSurface.ts";
 
 /**
@@ -108,6 +113,35 @@ describe("createPreviewSurface", () => {
     expect(recorder.clears).toBeGreaterThan(0);
 
     surface.destroy();
+  });
+
+  it("draws game tiles through the same camera transform as flat colour", () => {
+    // Tiling is a change to what gets painted, not to how it is framed: the engine's
+    // camera transform is set before either kind of frame, unchanged.
+    const flat = canvasWithRecorder();
+    const flatSurface = createPreviewSurface(flat.canvas, PREVIEW);
+    flatSurface.destroy();
+
+    const tiled = canvasWithRecorder();
+    const blits: number[] = [];
+    const ctx = tiled.canvas.getContext("2d") as unknown as Record<string, unknown>;
+    ctx.drawImage = (...args: unknown[]) => blits.push(args.length);
+    const tiledSurface = createPreviewSurface(tiled.canvas, PREVIEW, undefined, {
+      showStartZones: true,
+      showResources: true,
+      tileset: {
+        image: {} as CanvasImageSource,
+        sourceTileSize: FOREST_SOURCE_TILE_SIZE,
+        tree: FOREST_TREE_AUTOTILE,
+        terrain: FOREST_TERRAIN_TILES,
+      },
+    });
+
+    expect(tiled.recorder.transforms).toEqual(flat.recorder.transforms);
+    expect(blits).toHaveLength(PREVIEW.width * PREVIEW.height);
+    expect(tiled.canvas.width).toBe(flat.canvas.width);
+
+    tiledSurface.destroy();
   });
 
   it("repaints when asked to redraw, and stops repainting once destroyed", () => {

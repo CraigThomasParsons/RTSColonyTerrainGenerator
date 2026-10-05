@@ -2,6 +2,7 @@ import CameraViewportController from "@capybara/core/CameraViewportController.ts
 
 import type { MapPreview } from "~/shared/api/contract.ts";
 import { drawPreview } from "./drawPreview.ts";
+import type { Tileset } from "./forestTileset.ts";
 
 /**
  * The map preview as a live surface, framed by the self-hosted `capybara_2d_engine`.
@@ -13,7 +14,8 @@ import { drawPreview } from "./drawPreview.ts";
  *
  * The engine's `GameRuntime` / `GameMap` are deliberately not used: they load capybara.build
  * sprite sheets, mask atlases and audio, and a generated terrain preview has none of those.
- * See `third_party/capybara_2d_engine/PROVENANCE.md`.
+ * See `third_party/capybara_2d_engine/PROVENANCE.md`. The tiled view's art is AMPB's
+ * vendored forest sheet. It is loaded by the widget and passed in already decoded.
  */
 
 /** Pixel size of one preview tile. A 128×128 preview becomes a 1024px world. */
@@ -30,7 +32,7 @@ export function createPreviewSurface(
   canvas: HTMLCanvasElement,
   preview: MapPreview,
   approvedBackground?: CanvasImageSource,
-  overlays: { showStartZones: boolean; showResources: boolean } = {
+  overlays: { showStartZones: boolean; showResources: boolean; tileset?: Tileset | undefined } = {
     showStartZones: true,
     showResources: true,
   },

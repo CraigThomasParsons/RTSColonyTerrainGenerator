@@ -1,4 +1,11 @@
 import type { MapPreview } from "~/shared/api/contract.ts";
+import type { Tileset } from "./forestTileset.ts";
+import {
+  edgeNeighbours,
+  resolveAutotile,
+  resolveTerrainTile,
+  type TileResolution,
+} from "./tileResolver.ts";
 
 /**
  * Paints a `MapPreview` into a 2D context.
@@ -11,6 +18,11 @@ import type { MapPreview } from "~/shared/api/contract.ts";
  * Deliberately a plain function over a context rather than a class over a canvas: the camera
  * transform is the engine's job (`MapPreviewSurface`), and what gets painted where is worth
  * testing without a GPU.
+ *
+ * There are two ways to paint the grid layers. With a `tileset`, terrain and canopy are cut
+ * from AMPB's forest sheet, so the preview looks like the game. Without one they are flat
+ * colour fills, which are better for debugging generation. Without a tileset is also the
+ * fallback when the sheet fails to load. The markers are the same in both.
  */
 
 /** `.worldpayload`'s terrain vocabulary, in the flat palette the prototype renders. */
@@ -52,6 +64,8 @@ export interface DrawPreviewOptions {
   tileSize: number;
   /** Present only for an explicitly human-approved candidate. */
   approvedBackground?: CanvasImageSource | undefined;
+  /** Already loaded. Absent means flat colour, whether chosen or because loading failed. */
+  tileset?: Tileset | undefined;
   showStartZones?: boolean;
   showResources?: boolean;
 }
@@ -59,7 +73,13 @@ export interface DrawPreviewOptions {
 export function drawPreview(
   ctx: CanvasRenderingContext2D,
   preview: MapPreview,
-  { tileSize, approvedBackground, showStartZones = true, showResources = true }: DrawPreviewOptions,
+  {
+    tileSize,
+    approvedBackground,
+    tileset,
+    showStartZones = true,
+    showResources = true,
+  }: DrawPreviewOptions,
 ): void {
   const expected = preview.width * preview.height;
   if (preview.terrain.length !== expected) {
@@ -74,6 +94,11 @@ export function drawPreview(
   // forest can never hide the start zones and resource clusters the preview exists to show.
   if (approvedBackground) {
     ctx.drawImage(approvedBackground, 0, 0, preview.width * tileSize, preview.height * tileSize);
+  } else if (tileset && isDecoded(tileset.image)) {
+    // 16px pixel art scaled by the camera must stay pixel art.
+    ctx.imageSmoothingEnabled = false;
+    drawTiledTerrain(ctx, preview, tileSize, tileset);
+    drawTiledCanopy(ctx, preview, tileSize, tileset);
   } else {
     drawTerrain(ctx, preview, tileSize);
     drawCanopy(ctx, preview, tileSize);
@@ -111,6 +136,85 @@ function drawCanopy(
   for (const tree of preview.trees) {
     ctx.fillRect(tree.x * tileSize, tree.y * tileSize, tileSize, tileSize);
   }
+}
+
+/**
+ * An `<img>` that never decoded blits nothing, which would leave an empty map. Such an
+ * image falls back to flat colour instead. Other sources (bitmaps, canvases, test stubs)
+ * are drawable as given.
+ */
+function isDecoded(image: CanvasImageSource): boolean {
+  if (typeof HTMLImageElement !== "undefined" && image instanceof HTMLImageElement) {
+    return image.complete && image.naturalWidth > 0;
+  }
+  return true;
+}
+
+function drawTiledTerrain(
+  ctx: CanvasRenderingContext2D,
+  preview: MapPreview,
+  tileSize: number,
+  tileset: Tileset,
+): void {
+  const tiles = preview.terrain_palette.map((name) => resolveTerrainTile(tileset.terrain, name));
+
+  for (let y = 0; y < preview.height; y += 1) {
+    for (let x = 0; x < preview.width; x += 1) {
+      const paletteIndex = preview.terrain[y * preview.width + x] ?? -1;
+      const tile = tiles[paletteIndex] ?? resolveTerrainTile(tileset.terrain, undefined);
+      blitTile(ctx, tileset, tile, x, y, tileSize);
+    }
+  }
+}
+
+/**
+ * The canopy, autotiled against itself as AMPB's `TreeAutotiler` does: a tree's neighbours
+ * are the other trees. Forest edges therefore blend into the ground underneath them.
+ */
+function drawTiledCanopy(
+  ctx: CanvasRenderingContext2D,
+  preview: MapPreview,
+  tileSize: number,
+  tileset: Tileset,
+): void {
+  const occupied = new Set(preview.trees.map((tree) => `${tree.x},${tree.y}`));
+  const isTree = (x: number, y: number) => occupied.has(`${x},${y}`);
+
+  for (const tree of preview.trees) {
+    const neighbours = edgeNeighbours(isTree, tree.x, tree.y, preview.width, preview.height);
+    const tile = resolveAutotile(tileset.tree, neighbours, tree.x, tree.y);
+    blitTile(ctx, tileset, tile, tree.x, tree.y, tileSize);
+  }
+}
+
+/** Blit one resolved cell, or paint the flagged unknown colour where nothing is configured. */
+function blitTile(
+  ctx: CanvasRenderingContext2D,
+  tileset: Tileset,
+  tile: TileResolution,
+  x: number,
+  y: number,
+  tileSize: number,
+): void {
+  if (tile.kind === "unmapped") {
+    ctx.fillStyle = UNKNOWN_TERRAIN_COLOR;
+    ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+    return;
+  }
+
+  const [row, col] = tile.cell;
+  const source = tileset.sourceTileSize;
+  ctx.drawImage(
+    tileset.image,
+    col * source,
+    row * source,
+    source,
+    source,
+    x * tileSize,
+    y * tileSize,
+    tileSize,
+    tileSize,
+  );
 }
 
 function drawResourceClusters(

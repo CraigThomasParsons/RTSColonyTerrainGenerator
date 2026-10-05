@@ -44,5 +44,7 @@ conventions**, not its asset pipeline:
 The engine's `GameRuntime` / `GameMap` are deliberately **not** used: they load
 capybara.build sprite sheets, mask atlases and audio, none of which a generated terrain
 preview has. The preview paints palette-indexed terrain and `.playable.json` markers
-into the engine's viewport instead. Should this prototype grow real generated art, that
-is the path back to `GameMap`.
+into the engine's viewport instead. The preview can also blit AMPB's forest tiles
+through the same camera (`third_party/ampb_forest_tileset/`, issue #67). That art is
+vendored separately and adds no further use of the engine. Should this prototype grow
+real generated art, that is the path back to `GameMap`.
