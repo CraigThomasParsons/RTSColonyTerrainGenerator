@@ -1,10 +1,12 @@
 import { useCallback, useState } from "react";
 
+const PREVIEW_RENDER_MODES = ["tiled", "flat"] as const;
+
 /**
  * How the preview paints its grid layers: AMPB's tiles, or flat colour for debugging
  * generation. Client-only. It is never part of any payload.
  */
-export type PreviewRenderMode = "tiled" | "flat";
+export type PreviewRenderMode = (typeof PREVIEW_RENDER_MODES)[number];
 
 export const RENDER_MODE_STORAGE_KEY = "mapgen.preview.renderMode";
 
@@ -33,9 +35,15 @@ export function usePreviewRenderMode(): [PreviewRenderMode, (mode: PreviewRender
 function readStoredMode(): PreviewRenderMode {
   try {
     const stored = window.sessionStorage.getItem(RENDER_MODE_STORAGE_KEY);
-    if (stored === "tiled" || stored === "flat") return stored;
+    if (isPreviewRenderMode(stored)) {
+      return stored;
+    }
   } catch {
     // Unreadable storage behaves like an empty one.
   }
   return DEFAULT_RENDER_MODE;
+}
+
+function isPreviewRenderMode(value: string | null): value is PreviewRenderMode {
+  return PREVIEW_RENDER_MODES.some((mode) => mode === value);
 }
