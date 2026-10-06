@@ -2,6 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { MapPreview } from "~/shared/api/contract.ts";
 import { drawPreview, TERRAIN_COLORS, TREE_COLOR, UNKNOWN_TERRAIN_COLOR } from "./drawPreview.ts";
+import {
+  FOREST_SOURCE_TILE_SIZE,
+  FOREST_TERRAIN_TILES,
+  FOREST_TREE_AUTOTILE,
+  type Tileset,
+} from "./forestTileset.ts";
+import { resolveAutotile } from "./tileResolver.ts";
 
 /**
  * The seam under test is the draw call: given a `MapPreview` and a 2D context, what gets
@@ -24,9 +31,18 @@ interface DrawnArc {
   radius: number;
 }
 
+/** One cell cut from the sheet: source cell `[row, col]`, destination tile `(x, y)`. */
+interface Blit {
+  cell: [number, number];
+  x: number;
+  y: number;
+  size: number;
+}
+
 const recordingContext = () => {
   const rects: DrawnRect[] = [];
   const arcs: DrawnArc[] = [];
+  const blits: Blit[] = [];
   let pendingArc: Omit<DrawnArc, "fillStyle"> | null = null;
   const events: string[] = [];
 
@@ -34,13 +50,27 @@ const recordingContext = () => {
     fillStyle: "",
     strokeStyle: "",
     lineWidth: 1,
+    imageSmoothingEnabled: true,
     save: () => {},
     restore: () => {},
     beginPath: () => {},
     closePath: () => {},
     stroke: () => {},
     clearRect: () => {},
-    drawImage: () => { events.push("background"); },
+    drawImage(...args: unknown[]) {
+      if (args.length === 9) {
+        const [, sx, sy, sw, , dx, dy, dw] = args as number[];
+        blits.push({
+          cell: [(sy ?? 0) / (sw ?? 1), (sx ?? 0) / (sw ?? 1)],
+          x: (dx ?? 0) / TILE_SIZE,
+          y: (dy ?? 0) / TILE_SIZE,
+          size: dw ?? 0,
+        });
+        events.push("tile");
+        return;
+      }
+      events.push("background");
+    },
     fillRect(x: number, y: number, w: number, h: number) {
       rects.push({ fillStyle: ctx.fillStyle, x, y, w, h });
       if (w === TILE_SIZE && h === TILE_SIZE) events.push("grid");
@@ -58,8 +88,17 @@ const recordingContext = () => {
     },
   };
 
-  return { ctx: ctx as unknown as CanvasRenderingContext2D, rects, arcs, events };
+  return { ctx: ctx as unknown as CanvasRenderingContext2D, rects, arcs, blits, events };
 };
+
+/** A loaded tileset with a stub image: the draw path never needs real pixels. */
+const stubTileset = (overrides: Partial<Tileset> = {}): Tileset => ({
+  image: {} as CanvasImageSource,
+  sourceTileSize: FOREST_SOURCE_TILE_SIZE,
+  tree: FOREST_TREE_AUTOTILE,
+  terrain: FOREST_TERRAIN_TILES,
+  ...overrides,
+});
 
 const TILE_SIZE = 8;
 
@@ -235,5 +274,172 @@ describe("drawPreview", () => {
         tileSize: TILE_SIZE,
       }),
     ).toThrow(/3 x 2/);
+  });
+});
+
+describe("drawPreview with a tileset", () => {
+  it("blits every terrain tile from its configured sheet cell, row-major", () => {
+    const { ctx, blits, rects } = recordingContext();
+
+    drawPreview(ctx, previewOf(), { tileSize: TILE_SIZE, tileset: stubTileset() });
+
+    expect(rects).toHaveLength(0);
+    expect(blits).toHaveLength(6);
+    // (x=2, y=0) is terrain index 2 -> "dirt".
+    expect(blits[2]).toEqual({ cell: [...FOREST_TERRAIN_TILES.dirt!], x: 2, y: 0, size: TILE_SIZE });
+    // (x=0, y=1) is terrain index 3 -> "grass".
+    expect(blits[3]).toEqual({ cell: [...FOREST_TERRAIN_TILES.grass!], x: 0, y: 1, size: TILE_SIZE });
+  });
+
+  it("turns image smoothing off so 16px pixel art stays crisp under the camera", () => {
+    const { ctx } = recordingContext();
+
+    drawPreview(ctx, previewOf(), { tileSize: TILE_SIZE, tileset: stubTileset() });
+
+    expect(ctx.imageSmoothingEnabled).toBe(false);
+  });
+
+  it("autotiles the canopy against itself, so forest edges and interiors differ", () => {
+    // A 3 x 3 forest on a 3 x 3 map: the centre is interior (mask 15), the top-left
+    // corner tree has only E and S neighbours (mask LR = 2).
+    const forest = [];
+    for (let y = 0; y < 3; y += 1) for (let x = 0; x < 3; x += 1) forest.push({ x, y });
+    const { ctx, blits } = recordingContext();
+
+    drawPreview(
+      ctx,
+      previewOf({ width: 3, height: 3, terrain: Array(9).fill(3), trees: forest }),
+      { tileSize: TILE_SIZE, tileset: stubTileset() },
+    );
+
+    const canopy = blits.slice(9);
+    expect(canopy).toHaveLength(9);
+    const at = (x: number, y: number) => canopy.find((blit) => blit.x === x && blit.y === y)?.cell;
+
+    expect(at(0, 0)).toEqual([...FOREST_TREE_AUTOTILE.tileMap[2]!]);
+    expect(at(1, 1)).toEqual([...FOREST_TREE_AUTOTILE.interiorVariants![(1 * 7 + 1 * 13) % 4]!]);
+    expect(at(1, 0)).toEqual([...FOREST_TREE_AUTOTILE.tileMap[3]!]);
+  });
+
+  it("treats the map border as absent forest, not as more trees", () => {
+    // A lone tree in the corner of the map resolves as isolated, whatever lies off-grid.
+    const { ctx, blits } = recordingContext();
+
+    drawPreview(ctx, previewOf({ trees: [{ x: 0, y: 0 }] }), {
+      tileSize: TILE_SIZE,
+      tileset: stubTileset(),
+    });
+
+    const isolated = FOREST_TREE_AUTOTILE.singleTree?.find((c) => c.label === "isolated");
+    expect(blits.at(-1)).toEqual({ cell: [...isolated!.sprite], x: 0, y: 0, size: TILE_SIZE });
+  });
+
+  it("flags an unmapped terrain kind in the unknown colour rather than substituting a tile", () => {
+    const { ctx, blits, rects } = recordingContext();
+
+    drawPreview(
+      ctx,
+      previewOf({ width: 2, height: 1, terrain_palette: ["lava", "grass"], terrain: [0, 1] }),
+      { tileSize: TILE_SIZE, tileset: stubTileset() },
+    );
+
+    expect(rects).toEqual([
+      { fillStyle: UNKNOWN_TERRAIN_COLOR, x: 0, y: 0, w: TILE_SIZE, h: TILE_SIZE },
+    ]);
+    expect(blits).toHaveLength(1);
+  });
+
+  it("flags canopy in the unknown colour when no tree table is configured", () => {
+    const { ctx, rects } = recordingContext();
+
+    drawPreview(ctx, previewOf({ trees: [{ x: 1, y: 1 }] }), {
+      tileSize: TILE_SIZE,
+      tileset: stubTileset({ tree: undefined }),
+    });
+
+    expect(rects).toEqual([
+      { fillStyle: UNKNOWN_TERRAIN_COLOR, x: TILE_SIZE, y: TILE_SIZE, w: TILE_SIZE, h: TILE_SIZE },
+    ]);
+  });
+
+  it("keeps the layer order: terrain, canopy, then resource and start-zone markers on top", () => {
+    const { ctx, events, arcs } = recordingContext();
+
+    drawPreview(
+      ctx,
+      previewOf({
+        trees: [{ x: 1, y: 1 }],
+        resource_clusters: [{ id: "start_1_wood", type: "wood", x: 1, y: 1, start_id: "start_1" }],
+        start_zones: [{ id: "start_1", x: 1, y: 1 }],
+      }),
+      { tileSize: TILE_SIZE, tileset: stubTileset() },
+    );
+
+    // 6 terrain tiles, then 1 canopy tile, then the marker.
+    expect(events).toEqual(["tile", "tile", "tile", "tile", "tile", "tile", "tile", "marker"]);
+    expect(arcs).toHaveLength(1);
+  });
+
+  it("draws the same operations for the same payload and config, every time", () => {
+    const payload = previewOf({
+      trees: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }],
+      start_zones: [{ id: "start_1", x: 2, y: 1 }],
+    });
+    const first = recordingContext();
+    const second = recordingContext();
+
+    drawPreview(first.ctx, payload, { tileSize: TILE_SIZE, tileset: stubTileset() });
+    drawPreview(second.ctx, payload, { tileSize: TILE_SIZE, tileset: stubTileset() });
+
+    expect(second.blits).toEqual(first.blits);
+    expect(second.events).toEqual(first.events);
+    expect(second.arcs).toEqual(first.arcs);
+  });
+
+  it("matches the resolver for every tree it draws", () => {
+    // The renderer adds no tiling rules of its own: what it blits is what the pure resolver
+    // says for that neighbourhood.
+    const trees = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }];
+    const { ctx, blits } = recordingContext();
+
+    drawPreview(ctx, previewOf({ trees }), { tileSize: TILE_SIZE, tileset: stubTileset() });
+
+    const occupied = (x: number, y: number) => trees.some((t) => t.x === x && t.y === y);
+    for (const tree of trees) {
+      const neighbours = {
+        n: occupied(tree.x, tree.y - 1),
+        e: occupied(tree.x + 1, tree.y),
+        s: occupied(tree.x, tree.y + 1),
+        w: occupied(tree.x - 1, tree.y),
+      };
+      const expected = resolveAutotile(FOREST_TREE_AUTOTILE, neighbours, tree.x, tree.y);
+      const drawn = blits.slice(6).find((blit) => blit.x === tree.x && blit.y === tree.y);
+      expect(expected.kind).toBe("sprite");
+      if (expected.kind === "sprite") expect(drawn?.cell).toEqual([...expected.cell]);
+    }
+  });
+
+  it("degrades to flat colour when the tileset image never decoded", () => {
+    // An <img> that failed to load would blit nothing and leave a black map.
+    const { ctx, blits, rects } = recordingContext();
+    const broken = new Image();
+
+    drawPreview(ctx, previewOf(), { tileSize: TILE_SIZE, tileset: stubTileset({ image: broken }) });
+
+    expect(blits).toHaveLength(0);
+    expect(rects.filter((rect) => rect.w === TILE_SIZE)).toHaveLength(6);
+    expect(rects[2]?.fillStyle).toBe(TERRAIN_COLORS.dirt);
+  });
+
+  it("still lets an approved background win over the tileset", () => {
+    const { ctx, events } = recordingContext();
+
+    drawPreview(ctx, previewOf(), {
+      tileSize: TILE_SIZE,
+      approvedBackground: {} as CanvasImageSource,
+      tileset: stubTileset(),
+    });
+
+    expect(events).toEqual(["background"]);
   });
 });
