@@ -5,9 +5,8 @@ Status: **Inventory only** (Gitea #98, 2026-10-06). Nothing has been moved yet.
 ## Why this exists
 
 The Feudal Frontiers monorepo plan puts terrain generation in `apps/mapgen` inside
-`ElasticGun/feudal-frontiers`. That repository does not exist yet. These notes prepare the
-extract from this donor repository, so the move is mechanical when the monorepo is ready
-and nobody waits on the monorepo to start planning.
+`ElasticGun/feudal-frontiers`. That repository now exists. These notes prepare the
+extract from this donor repository; approving this inventory does not perform an import.
 
 The scope is narrow on purpose:
 
@@ -23,7 +22,7 @@ The scope is narrow on purpose:
 | File | What it gives you |
 |---|---|
 | [`MAP.md`](MAP.md) | The path-by-path map: donor path → `apps/mapgen/...`, plus the **exclude** and **defer** lists, the CQRS strangler-step summary, and the **licence (GPL-2) notes** |
-| this README | Purpose, ground rules, the open decisions for Craig, and the order to carry out the extract |
+| this README | Purpose, ground rules, Craig’s recorded decisions, and the order to carry out the extract |
 
 ## Ground rules for the extract
 
@@ -45,27 +44,37 @@ The scope is narrow on purpose:
 6. **Leave the donor intact.** This repository stays as the archive and as the home of
    everything on the exclude list. Remove nothing here as part of the extract.
 
-## Decisions needed from Craig
+## Decisions recorded by Craig (2026-10-06)
 
-These are flagged, not decided. The extract must not proceed past step 1 below until the
-licence decision is made.
+D1, D3, D4, and D5 were confirmed in the PR #104 review conversation. D2 is
+verification work, not an assertion that provenance has already been checked.
+The target decision is recorded in Feudal Frontiers
+[ADR 0002 — copyright and donor provenance](http://192.168.2.48:3000/ElasticGun/feudal-frontiers/src/branch/develop/docs/adr/0002-copyright-and-donor-provenance.md),
+accepted 2026-09-25. This documentation PR changes no licence file and imports nothing.
 
-| # | Decision | Options | Notes |
-|---|---|---|---|
-| D1 | **Licence of `apps/mapgen` inside the monorepo** | (a) keep GPL-2 for `apps/mapgen` and carry the `LICENSE` file into it; (b) Craig, as sole copyright holder, relicenses (a separate, explicit act, not part of this ticket); (c) keep mapgen out of the monorepo and integrate over the HTTP seam only | See MAP.md §5. This ticket changes no licence file. |
-| D2 | Contributor check before any relicense | confirm every commit author is Craig or his agents | Required only for D1(b). See MAP.md §5.3. |
-| D3 | Deferred presentation lanes (PixelLab, MapTexture, Map Studio GUI) | move later into `apps/mapgen`, or into a separate presentation app | ADR 0001-pixellab says they are presentation-only. They never affect gameplay. |
-| D4 | Forge tooling (`scripts/tools/*gitea*`) | rewrite for the monorepo's Gitea, or reuse whatever process the monorepo already has | The scripts hard-code `craigpars/RTSColonyTerrainGenerator`. |
-| D5 | ADR 0006 (GameStart React island) | hand it to the AMPB game extract ticket | Mostly about the AMPB side. See MAP.md §3. |
+| # | Decision | Follow-up / boundary |
+|---|---|---|
+| D1 | Follow the accepted ADR: all-rights-reserved distribution for Craig’s original code | Verify provenance before importing. Preserve third-party terms and rights already granted for earlier GPL copies. |
+| D2 | Verify ownership and provenance before each import | Record donor URL, immutable revision, selected paths and third-party components in the extraction manifest. Unresolved provenance blocks the affected paths. An author name alone is not evidence of rights. |
+| D3 | Defer presentation tools; decide placement when needed | PixelLab, MapTexture and Map Studio GUI remain outside the first extract. No provider or spending calls are authorized. |
+| D4 | Use Feudal Frontiers’ existing repository workflow | Leave donor forge and agent scripts behind. Adapt the imported AGENTS.md to the target workflow while preserving mapgen’s technical rules. |
+| D5 | Keep the older AMPB GameStart React design as historical reference | Leave ADR 0006 in the donor and link it as historical context. Follow the current Feudal Frontiers game plan; do not revive the older client design by importing it. |
 
-## Extract order (once the monorepo exists)
+## Extract order (after provenance verification)
 
-1. Settle D1 (licence). Until then, stop.
-2. Import the **Move** rows of MAP.md §2 under `apps/mapgen/`, preserving history.
-3. Build the legacy stage binaries (at minimum `MapGenerator/Tiler/build.sh`; see the
-   *fresh-clone gotchas* in MAP.md §2.2). Then run the full gate surface from `apps/mapgen/`: `just quality`, `dotnet test`,
-   `dafny verify specs/**/*.dfy`, `npm run bdd:legacy`, `npm run bdd:net`. They must pass
-   with the same results as on the donor. Any change is a regression in the move itself.
-4. Rewrite the monorepo-specific parts of `AGENTS.md` (issue lifecycle, forge URL, lock
-   file). The coding and specification rules stay unchanged.
-5. Pick up the **Defer** rows (MAP.md §4) as their own tickets.
+1. Apply D1 and complete D2 for the selected paths. Record the approved terms and
+   retained notices in the extraction manifest. Unresolved provenance blocks the affected
+   import; merging this inventory does not clear that gate.
+2. Import the approved **Move** and **Move (rework)** rows across MAP.md §§1–2,
+   including the planning pack, ADRs, spec packs and AGENTS.md. Preserve history and
+   relative layout; include the licence/provenance records approved under §5.
+3. Complete the import-time rework before validation: remove the complete deferred
+   PixelLab dependency set and rework shared startup/test wiring (MAP.md §2.1), retain
+   stage-manifest tests (§2.3), and adapt AGENTS.md to the existing target workflow (D4).
+4. Install the prerequisites recorded in `docs/environment.md` and restore project
+   dependencies. Build the legacy stage binaries (at minimum `MapGenerator/Tiler/build.sh`;
+   see MAP.md §2.2). From `apps/mapgen/`, run `just quality`, `dotnet test`,
+   `dafny verify specs/**/*.dfy`, `npm run bdd:legacy`, and `npm run bdd:net`.
+   Record exact results and any baseline failures; do not label a failing gate as passed.
+   Any unexpected difference from the donor requires investigation before acceptance.
+5. Pick up the **Defer** rows (MAP.md §4) as separate tickets when needed.
