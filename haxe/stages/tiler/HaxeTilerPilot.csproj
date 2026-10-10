@@ -3,8 +3,8 @@
   <!--
     Compiles stage-tiler's Haxe output (generated-cs/, gitignored, rebuilt by
     `haxe stages/tiler/build-cs.hxml`) on the modern SDK toolchain instead of
-    the hxcs haxelib's own legacy mono/csc invocation (haxe/README.md "Known
-    toolchain limitation"). This project file is the hand-maintained adapter;
+    the hxcs haxelib's own legacy mono/csc invocation (haxe/README.md "Toolchain
+    note: bypassing hxcs's own build step"). This project file is the hand-maintained adapter;
     every *.cs it compiles is generated output, never edited directly.
   -->
 
