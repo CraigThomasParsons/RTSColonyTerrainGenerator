@@ -47,7 +47,7 @@ class TileRegion {
 			}
 		}
 		if (distinct != 4) {
-			throw "A tile region must contain four unique coordinates.";
+			throw new haxe.exceptions.ArgumentException("coordinates", "A tile region must contain four unique coordinates.");
 		}
 		this.coordinates = ordered;
 	}
