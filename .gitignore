@@ -162,3 +162,6 @@ tests/**/bin/
 
 # Local editor workspace files at repo root
 /*.code-workspace
+
+# Haxe build output (haxe/README.md) — generated, never hand-edited.
+haxe/**/generated-cs/

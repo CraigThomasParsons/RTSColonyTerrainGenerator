@@ -78,3 +78,11 @@ quality:
 # Run the legacy pipeline end to end (filesystem is the source of truth).
 run-legacy width='248' height='248':
     python -m tools.mapgenctl run --width {{width}} --height {{height}}
+
+# Haxe pilot (issue #107, haxe/README.md) — deliberately not in `quality` yet:
+# it proves a target compiles, not that any stage's behaviour has migrated.
+haxe-test:
+    cd haxe && haxe tests/build-test.hxml
+
+haxe-build-tiler-cs:
+    cd haxe && haxe stages/tiler/build-cs.hxml
