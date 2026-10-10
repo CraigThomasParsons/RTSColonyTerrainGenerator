@@ -12,7 +12,7 @@ import domain.tileresolution.TileMapDimensions;
 	the Haxe implementation against them, the same role CellExpanderPropertyTests
 	plays for the C# implementation.
 
-	Run with: haxe build-test.hxml   (see haxe/README.md)
+	Run from haxe/ with: haxe tests/build-test.hxml   (see haxe/README.md)
 **/
 class TileResolutionTest {
 	static var failures = 0;
