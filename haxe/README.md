@@ -48,33 +48,44 @@ Provisional, per stage, until representative workloads are benchmarked:
 - No Rust backend: Haxe does not generate Rust. Any stage currently in Rust
   that moves to Haxe picks cs or cpp instead.
 
-## Known toolchain limitation (this pilot)
+## Toolchain note: bypassing hxcs's own build step
 
-`haxe stages/tiler/build-cs.hxml` successfully **generates** C# source
-(`stages/tiler/generated-cs/src/*.cs`) — inspected and confirmed correct: it
-calls `CellExpander.expand` and produces the expected result. It does **not**
-finish compiling to an executable here, for two independent reasons worth
-separating before choosing how to fix either:
+Haxe's `cs` target (via the `hxcs` haxelib, 4.2.0 as installed) defaults to
+`-D NET_20` and, left to itself, tries to finish the build by shelling out to
+`mono`/`csc` directly — neither is installed on this machine, and even if
+they were, that path produces a legacy-Mono binary, not SDK-style `net10.0`
+output.
 
-1. Haxe's `cs` target (via the `hxcs` haxelib, 4.2.0 as installed) defaults to
-   `-D NET_20` and emits its own `haxe.lang.*` runtime shim classes — it is
-   not, out of the box, SDK-style `net10.0` source. Dropping it into
-   `src/Tiler`'s actual `.csproj` is not a drop-in; it needs either newer
-   `net-ver`/SDK-support flags on the Haxe side or a deliberate bridge, not
-   assumed as part of this pilot.
-2. No `mono` or `csc` is installed on this machine to finish even the
-   default legacy build, so the generated source has not been executed, only
-   read and reasoned about. `dotnet` is installed but is not what `hxcs`
-   invokes.
+`build-cs.hxml` passes `-D no-compilation`, which stops Haxe after emitting
+C# source and skips that invocation entirely. `HaxeTilerPilot.csproj` (hand-
+maintained, tracked — NOT generated) then compiles that source with the same
+`dotnet build` used for the rest of this repository's .NET projects. The
+generated `haxe.lang.*` / `cs.internal.*` runtime shim classes that `hxcs`
+emits alongside the domain code compile cleanly under net10.0 as plain C# —
+no `mono`, no `csc`, no legacy-runtime target needed:
 
-Resolving either is future work, not assumed here. The behavioural proof in
-this pilot rests on `tests/TileResolutionTest.hx`, run under Haxe's own
-interpreter (`--interp`), which needs neither mono nor csc.
+```sh
+cd haxe
+haxe stages/tiler/build-cs.hxml                        # emit C# source only
+dotnet build stages/tiler/HaxeTilerPilot.csproj         # compile it, net10.0
+dotnet stages/tiler/bin/Debug/net10.0/HaxeTilerPilot.dll
+# -> cell (3,4) -> (6,8), (7,8), (6,9), (7,9)
+```
+
+That output matches the Gherkin "Expand an interior cell" scenario and
+`CellExpanderPropertyTests`'s expectation for the same input exactly.
+
+This resolves the earlier concern about the `cs` target needing a legacy
+runtime — it doesn't, once `hxcs`'s own build invocation is skipped. It does
+NOT mean the generated code is reviewed as production-quality or wired into
+the real Tiler build (`RTSColonyTerrainGenerator.sln`); `HaxeTilerPilot.csproj`
+is a standalone proof project, intentionally outside both `.sln` files.
 
 ## Running this pilot
 
 ```sh
 cd haxe
-haxe tests/build-test.hxml       # behavioural checks, interpreted — see output below
-haxe stages/tiler/build-cs.hxml  # generates C# source; does not compile it (see above)
+haxe tests/build-test.hxml                        # behavioural checks, interpreted
+haxe stages/tiler/build-cs.hxml                    # emit C# source
+dotnet build stages/tiler/HaxeTilerPilot.csproj    # compile the emitted source, net10.0
 ```

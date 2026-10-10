@@ -86,3 +86,7 @@ haxe-test:
 
 haxe-build-tiler-cs:
     cd haxe && haxe stages/tiler/build-cs.hxml
+    cd haxe && dotnet build stages/tiler/HaxeTilerPilot.csproj
+
+haxe-run-tiler-cs: haxe-build-tiler-cs
+    dotnet haxe/stages/tiler/bin/Debug/net10.0/HaxeTilerPilot.dll

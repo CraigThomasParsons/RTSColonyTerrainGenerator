@@ -12,3 +12,8 @@
 -cp stages/tiler
 -main Main
 -cs stages/tiler/generated-cs
+
+# Emit C# source only; never let Haxe shell out to mono/csc itself. Compiling
+# the output is HaxeTilerPilot.csproj's job (plain dotnet build), so this
+# command's success depends only on Haxe's own code generation.
+-D no-compilation
