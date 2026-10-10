@@ -71,6 +71,7 @@ class TileResolutionTest {
 	static function scenario_reject_an_out_of_bounds_cell():Void {
 		var dims = new CellMapDimensions(10, 10);
 		expectThrows("out-of-bounds cell (10,9): operation fails", () -> CellExpander.expand(new CellCoordinate(10, 9), dims));
+		expectThrows("out-of-bounds cell (9,10): operation fails", () -> CellExpander.expand(new CellCoordinate(9, 10), dims));
 	}
 
 	// ---- Dafny lemmas: specs/tiling/CellToTile.dfy ----
@@ -155,12 +156,18 @@ class TileResolutionTest {
 
 	static function lemma_DistinctCellsHaveDisjointRegions():Void {
 		var ok = true;
+		// Pair each cell with an independently generated second cell anywhere in
+		// the map, as the lemma quantifies over any two distinct cells.
+		var pairSeed = 20261010;
+		function nextPair():Int {
+			pairSeed = (pairSeed * 1103515245 + 12345) & 0x7fffffff;
+			return pairSeed;
+		}
 		forEachValidInput((dims, cell) -> {
-			var otherX = (cell.x + 1) % dims.width;
-			if (otherX == cell.x) {
-				return; // 1-wide map: no distinct sibling on this axis
+			var other = new CellCoordinate(nextPair() % dims.width, nextPair() % dims.height);
+			if (other.equals(cell)) {
+				return; // same cell: the lemma only speaks about distinct cells
 			}
-			var other = new CellCoordinate(otherX, cell.y);
 			var a = CellExpander.expand(cell, dims).coordinates;
 			var b = CellExpander.expand(other, dims).coordinates;
 			for (t in a) {
@@ -176,10 +183,17 @@ class TileResolutionTest {
 
 	static function lemma_EveryTileHasAnOwningCell():Void {
 		var ok = true;
+		// Any in-bounds tile, not just the bottom-right one: the lemma is over
+		// every tile of the tile map.
+		var tileSeed = 20261011;
+		function nextTile():Int {
+			tileSeed = (tileSeed * 1103515245 + 12345) & 0x7fffffff;
+			return tileSeed;
+		}
 		forEachValidInput((dims, _) -> {
 			var tileMap = TileMapDimensions.from(dims);
-			var tx = (tileMap.width - 1);
-			var ty = (tileMap.height - 1);
+			var tx = nextTile() % tileMap.width;
+			var ty = nextTile() % tileMap.height;
 			var t = new TileCoordinate(tx, ty);
 			var owner = new CellCoordinate(Std.int(tx / 2), Std.int(ty / 2));
 			ok = ok && dims.contains(owner);
