@@ -1,0 +1,18 @@
+import domain.tileresolution.CellCoordinate;
+import domain.tileresolution.CellExpander;
+import domain.tileresolution.CellMapDimensions;
+
+/**
+	Target-specific adapter for the Tiler stage. Holds no domain behaviour —
+	it only proves the shared Haxe domain code (haxe/domain/) compiles and
+	runs on the selected target (cs: see haxe/README.md). Domain logic lives
+	entirely in domain/tileresolution/; this stays a thin entry point, per
+	the architecture note's "keep target-specific code in small adapters" rule.
+**/
+class Main {
+	public static function main():Void {
+		var dims = new CellMapDimensions(10, 10);
+		var region = CellExpander.expand(new CellCoordinate(3, 4), dims);
+		Sys.println('cell (3,4) -> ${region.topLeft}, ${region.topRight}, ${region.bottomLeft}, ${region.bottomRight}');
+	}
+}
