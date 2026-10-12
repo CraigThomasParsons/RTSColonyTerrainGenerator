@@ -217,6 +217,38 @@ class TileResolutionTest {
 		check("Expansion_is_deterministic", ok);
 	}
 
+	// ---- Regression tests: Codex review findings on PR #108/#8, fixed in issue #115 ----
+
+	static function regression_oversized_dimensions_are_rejected_not_overflowed():Void {
+		expectThrows("width beyond MaxSafeDimension is rejected",
+			() -> new CellMapDimensions(CellMapDimensions.MaxSafeDimension + 1, 1));
+		expectThrows("height beyond MaxSafeDimension is rejected",
+			() -> new CellMapDimensions(1, CellMapDimensions.MaxSafeDimension + 1));
+
+		// At exactly the boundary, the rightmost/bottommost cell must still
+		// expand correctly instead of wrapping negative.
+		var dims = new CellMapDimensions(CellMapDimensions.MaxSafeDimension, CellMapDimensions.MaxSafeDimension);
+		var edgeCell = CellMapDimensions.MaxSafeDimension - 1;
+		var region = CellExpander.expand(new CellCoordinate(edgeCell, edgeCell), dims);
+		check("boundary cell doubles without overflow (no negative coordinate)",
+			region.topLeft.x >= 0 && region.topLeft.y >= 0 && region.bottomRight.x >= 0 && region.bottomRight.y >= 0);
+		check("boundary cell doubles to the exact expected corner",
+			region.bottomRight.equals(new TileCoordinate(edgeCell * 2 + 1, edgeCell * 2 + 1)));
+	}
+
+	static function regression_coordinates_getter_returns_a_copy():Void {
+		var region = CellExpander.expand(new CellCoordinate(3, 4), new CellMapDimensions(10, 10));
+		var original = region.topLeft;
+
+		var borrowed = region.coordinates;
+		borrowed[0] = new TileCoordinate(0, 0); // overwrite an element
+		borrowed.push(new TileCoordinate(99, 99)); // and append one — neither should reach the region
+
+		check("mutating the returned array does not change topLeft", region.topLeft.equals(original));
+		check("mutating the returned array does not change the region's length", region.coordinates.length == 4);
+		check("a fresh call to .coordinates is unaffected by a previous caller's mutation", region.coordinates[0].equals(original));
+	}
+
 	public static function main():Void {
 		Sys.println("Gherkin scenarios (tests/bdd/features/01-cell-to-tile/cell-to-tile-expansion.feature):");
 		scenario_expand_the_origin_cell();
@@ -233,6 +265,10 @@ class TileResolutionTest {
 		lemma_DistinctCellsHaveDisjointRegions();
 		lemma_EveryTileHasAnOwningCell();
 		property_expansion_is_deterministic();
+
+		Sys.println("Regression tests (Codex review, PR #108/#8 -> issue #115):");
+		regression_oversized_dimensions_are_rejected_not_overflowed();
+		regression_coordinates_getter_returns_a_copy();
 
 		if (failures == 0) {
 			Sys.println('All checks passed.');
