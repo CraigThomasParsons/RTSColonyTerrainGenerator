@@ -3,7 +3,8 @@ package domain.tileresolution;
 /**
 	Width and height of the source map, measured in cells. Both are strictly
 	positive (precondition of the verified model, CellToTile.dfy
-	ValidDimensions). Mirrors MapGen.Domain.TileResolution.CellMapDimensions (C#).
+	ValidDimensions). Mirrors MapGen.Domain.TileResolution.CellMapDimensions (C#)
+	except for the upper bound below, which the C# twin does not yet enforce.
 
 	Also bounded above, unlike the Dafny model's unbounded `nat`: the largest
 	in-bounds cell coordinate is `width - 1` (or `height - 1`), and
