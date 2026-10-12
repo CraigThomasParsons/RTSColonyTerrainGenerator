@@ -1,17 +1,19 @@
-# Haxe pilot — cell-to-tile domain implementation
+# Haxe pilot — cell-to-tile and adjacency-mask domain implementation
 
-Issue #107. Haxe is the proposed canonical source language for pipeline
-components going forward; each stage compiles its shared Haxe domain code to
-whichever runtime target fits that stage. This directory is the first,
-narrow proof of that idea against one already-closed slice
-(`docs/specs/01-cell-to-tile/`, milestone M3) — it does not replace anything.
+Issues #107 (cell-to-tile) and #117 (adjacency-mask). Haxe is the proposed
+canonical source language for pipeline components going forward; each stage
+compiles its shared Haxe domain code to whichever runtime target fits that
+stage. This directory proves that idea against two already-closed Tiler
+slices (`docs/specs/01-cell-to-tile/`, M3; `docs/specs/02-adjacency-mask/`,
+M4) — it does not replace anything.
 
 ## Source ownership
 
 - `domain/tileresolution/` — shared Haxe domain code. No target-specific
-  types, no IO, no clock. This is the only place the cell-to-tile rule is
-  hand-written in Haxe; it mirrors `src/MapGen.Domain/TileResolution/*.cs`
-  one file at a time, by design, so a reviewer can diff the two.
+  types, no IO, no clock. This is the only place these rules are
+  hand-written in Haxe; each file mirrors its
+  `src/MapGen.Domain/TileResolution/*.cs` twin one file at a time, by
+  design, so a reviewer can diff the two.
   One known divergence: Haxe `CellMapDimensions` rejects width or height
   above `MaxSafeDimension` (2^30) to keep tile coordinates inside 32-bit
   `Int`; the C# twin does not yet. See the slice's `verification-report.md`.

@@ -1,6 +1,8 @@
+import domain.tileresolution.AdjacencyMaskCalculator;
 import domain.tileresolution.CellCoordinate;
 import domain.tileresolution.CellExpander;
 import domain.tileresolution.CellMapDimensions;
+import domain.tileresolution.TerrainGrid;
 
 /**
 	Target-specific adapter for the Tiler stage. Holds no domain behaviour —
@@ -14,5 +16,9 @@ class Main {
 		var dims = new CellMapDimensions(10, 10);
 		var region = CellExpander.expand(new CellCoordinate(3, 4), dims);
 		Sys.println('cell (3,4) -> ${region.topLeft}, ${region.topRight}, ${region.bottomLeft}, ${region.bottomRight}');
+
+		var grid = new TerrainGrid(3, 3, [1, 1, 1, 1, 1, 1, 1, 1, 1]);
+		var mask = AdjacencyMaskCalculator.computeMask(grid, 1, 1);
+		Sys.println('adjacency mask at (1,1) of a uniform 3x3 grid -> ${mask.value}');
 	}
 }

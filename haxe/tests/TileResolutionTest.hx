@@ -1,6 +1,9 @@
+import domain.tileresolution.AdjacencyMask;
+import domain.tileresolution.AdjacencyMaskCalculator;
 import domain.tileresolution.CellCoordinate;
 import domain.tileresolution.CellExpander;
 import domain.tileresolution.CellMapDimensions;
+import domain.tileresolution.TerrainGrid;
 import domain.tileresolution.TileCoordinate;
 import domain.tileresolution.TileMapDimensions;
 
@@ -249,6 +252,139 @@ class TileResolutionTest {
 		check("a fresh call to .coordinates is unaffected by a previous caller's mutation", region.coordinates[0].equals(original));
 	}
 
+	// ==== slice-02-adjacency-mask ====================================
+
+	// ---- Gherkin scenarios: tests/bdd/features/02-adjacency-mask/adjacency-mask.feature ----
+
+	static function grid3x3(rows:Array<Array<Int>>):TerrainGrid {
+		var flat = [];
+		for (row in rows) {
+			for (v in row) {
+				flat.push(v);
+			}
+		}
+		return new TerrainGrid(3, 3, flat);
+	}
+
+	static function scenario_a_cell_surrounded_by_the_same_terrain_sets_all_four_bits():Void {
+		var grid = grid3x3([[1, 1, 1], [1, 1, 1], [1, 1, 1]]);
+		var mask = AdjacencyMaskCalculator.computeMask(grid, 1, 1);
+		check("surrounded cell: mask is 15", mask.value == 15);
+	}
+
+	static function scenario_a_corner_cell_can_only_see_east_and_south():Void {
+		var grid = grid3x3([[1, 1, 1], [1, 1, 1], [1, 1, 1]]);
+		var mask = AdjacencyMaskCalculator.computeMask(grid, 0, 0);
+		check("corner cell: mask is 6", mask.value == 6);
+		check("corner cell: has East and South but not North or West", mask.hasEast && mask.hasSouth && !mask.hasNorth && !mask.hasWest);
+	}
+
+	static function scenario_a_cell_whose_neighbours_differ_sets_no_bits():Void {
+		var grid = grid3x3([[1, 2, 1], [2, 3, 2], [1, 2, 1]]);
+		var mask = AdjacencyMaskCalculator.computeMask(grid, 1, 1);
+		check("differing neighbours: mask is 0", mask.value == 0);
+	}
+
+	static function scenario_only_matching_neighbours_set_their_bit():Void {
+		var grid = grid3x3([[0, 1, 0], [2, 1, 2], [0, 1, 0]]);
+		var mask = AdjacencyMaskCalculator.computeMask(grid, 1, 1);
+		check("partial match: mask is 5", mask.value == 5);
+		check("partial match: has North and South but not East or West", mask.hasNorth && mask.hasSouth && !mask.hasEast && !mask.hasWest);
+	}
+
+	static function scenario_reject_an_out_of_bounds_cell_adjacency():Void {
+		var grid = grid3x3([[1, 1, 1], [1, 1, 1], [1, 1, 1]]);
+		expectThrows("out-of-bounds cell (3,1): operation fails", () -> AdjacencyMaskCalculator.computeMask(grid, 3, 1));
+	}
+
+	// ---- Dafny lemmas: specs/tiling/AdjacencyMask.dfy ----
+	// A small fixed-seed property sweep stands in for FsCheck's GridAndCell generator.
+
+	static function forEachGridAndCell(body:(TerrainGrid, Int, Int) -> Void):Void {
+		var seed = 20261012;
+		function next():Int {
+			seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+			return seed;
+		}
+		for (_ in 0...500) {
+			var width = 1 + (next() % 12);
+			var height = 1 + (next() % 12);
+			var terrain = [for (_ in 0...(width * height)) next() % 4];
+			var x = next() % width;
+			var y = next() % height;
+			body(new TerrainGrid(width, height, terrain), x, y);
+		}
+	}
+
+	static function lemma_MaskInRange():Void {
+		var ok = true;
+		forEachGridAndCell((grid, x, y) -> {
+			var v = AdjacencyMaskCalculator.computeMask(grid, x, y).value;
+			ok = ok && v >= 0 && v <= 15;
+		});
+		check("MaskInRange", ok);
+	}
+
+	static function lemma_EdgeCellsNeverSetOffMapBits():Void {
+		var ok = true;
+		forEachGridAndCell((grid, x, y) -> {
+			var mask = AdjacencyMaskCalculator.computeMask(grid, x, y);
+			ok = ok
+				&& (y != 0 || !mask.hasNorth)
+				&& (x != 0 || !mask.hasWest)
+				&& (y != grid.height - 1 || !mask.hasSouth)
+				&& (x != grid.width - 1 || !mask.hasEast);
+		});
+		check("EdgeCellsNeverSetOffMapBits", ok);
+	}
+
+	static function lemma_BitsReflectNeighbourPredicate():Void {
+		var ok = true;
+		forEachGridAndCell((grid, x, y) -> {
+			var mask = AdjacencyMaskCalculator.computeMask(grid, x, y);
+			var self = grid.terrainAt(x, y);
+			var north = y > 0 && grid.terrainAt(x, y - 1) == self;
+			var east = x + 1 < grid.width && grid.terrainAt(x + 1, y) == self;
+			var south = y + 1 < grid.height && grid.terrainAt(x, y + 1) == self;
+			var west = x > 0 && grid.terrainAt(x - 1, y) == self;
+			ok = ok && mask.hasNorth == north && mask.hasEast == east && mask.hasSouth == south && mask.hasWest == west;
+		});
+		check("BitsReflectNeighbourPredicate", ok);
+	}
+
+	static function lemma_EastWestSymmetry():Void {
+		var ok = true;
+		forEachGridAndCell((grid, x, y) -> {
+			if (x + 1 >= grid.width) {
+				return; // no east neighbour to be symmetric with
+			}
+			var selfEast = AdjacencyMaskCalculator.computeMask(grid, x, y).hasEast;
+			var neighbourWest = AdjacencyMaskCalculator.computeMask(grid, x + 1, y).hasWest;
+			ok = ok && selfEast == neighbourWest;
+		});
+		check("EastWestSymmetry", ok);
+	}
+
+	static function lemma_NorthSouthSymmetry():Void {
+		var ok = true;
+		forEachGridAndCell((grid, x, y) -> {
+			if (y + 1 >= grid.height) {
+				return;
+			}
+			var selfSouth = AdjacencyMaskCalculator.computeMask(grid, x, y).hasSouth;
+			var neighbourNorth = AdjacencyMaskCalculator.computeMask(grid, x, y + 1).hasNorth;
+			ok = ok && selfSouth == neighbourNorth;
+		});
+		check("NorthSouthSymmetry", ok);
+	}
+
+	static function property_mask_computation_is_deterministic():Void {
+		var ok = true;
+		forEachGridAndCell((grid, x,
+			y) -> ok = ok && AdjacencyMaskCalculator.computeMask(grid, x, y).value == AdjacencyMaskCalculator.computeMask(grid, x, y).value);
+		check("Mask_computation_is_deterministic", ok);
+	}
+
 	public static function main():Void {
 		Sys.println("Gherkin scenarios (tests/bdd/features/01-cell-to-tile/cell-to-tile-expansion.feature):");
 		scenario_expand_the_origin_cell();
@@ -269,6 +405,21 @@ class TileResolutionTest {
 		Sys.println("Regression tests (Codex review, PR #108/#8 -> issue #115):");
 		regression_oversized_dimensions_are_rejected_not_overflowed();
 		regression_coordinates_getter_returns_a_copy();
+
+		Sys.println("Gherkin scenarios (tests/bdd/features/02-adjacency-mask/adjacency-mask.feature):");
+		scenario_a_cell_surrounded_by_the_same_terrain_sets_all_four_bits();
+		scenario_a_corner_cell_can_only_see_east_and_south();
+		scenario_a_cell_whose_neighbours_differ_sets_no_bits();
+		scenario_only_matching_neighbours_set_their_bit();
+		scenario_reject_an_out_of_bounds_cell_adjacency();
+
+		Sys.println("Dafny lemmas (specs/tiling/AdjacencyMask.dfy), 500 generated cases each:");
+		lemma_MaskInRange();
+		lemma_EdgeCellsNeverSetOffMapBits();
+		lemma_BitsReflectNeighbourPredicate();
+		lemma_EastWestSymmetry();
+		lemma_NorthSouthSymmetry();
+		property_mask_computation_is_deterministic();
 
 		if (failures == 0) {
 			Sys.println('All checks passed.');
