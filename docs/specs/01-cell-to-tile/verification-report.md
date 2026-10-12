@@ -42,6 +42,12 @@ expansion is a **partition** of the tile map — no gaps, no overlaps.
 - **The legacy Tiler's per-cell behaviour** is demonstrated, not proved: the BDD legacy
   adapter probes the published binary with a marker terrain value and observes the four
   tiles that carry it. Coverage is per-scenario, not universal.
+- **Integer range.** `CellToTile.dfy` uses unbounded `nat` dimensions; the
+  implementations use signed 32-bit `int`. The Haxe pilot's `CellMapDimensions`
+  rejects width or height above `MaxSafeDimension` (2^30) so that the doubling in
+  `CellExpander` cannot overflow. The C# `CellMapDimensions` has no such bound yet,
+  so its doubling can wrap negative for dimensions above 2^30. That range is
+  outside the model's guarantees for both twins.
 
 ## Relationship between model, production code, and tests
 

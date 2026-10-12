@@ -12,6 +12,9 @@ narrow proof of that idea against one already-closed slice
   types, no IO, no clock. This is the only place the cell-to-tile rule is
   hand-written in Haxe; it mirrors `src/MapGen.Domain/TileResolution/*.cs`
   one file at a time, by design, so a reviewer can diff the two.
+  One known divergence: Haxe `CellMapDimensions` rejects width or height
+  above `MaxSafeDimension` (2^30) to keep tile coordinates inside 32-bit
+  `Int`; the C# twin does not yet. See the slice's `verification-report.md`.
 - `stages/<stage>/` — one directory per pipeline stage. Holds that stage's
   build command (`build-<target>.hxml`) and a thin target-specific entry
   point (`Main.hx`). Domain behaviour never lives here — see
