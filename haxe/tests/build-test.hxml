@@ -1,0 +1,10 @@
+# Run the Haxe twin of CellExpanderPropertyTests / the slice-01 Gherkin feature.
+# Interpreted (eval), not compiled: fast, and proves nothing about a production
+# target -- that is build-cs.hxml's job. Run from haxe/:
+#
+#   haxe tests/build-test.hxml
+#
+-cp domain
+-cp tests
+-main TileResolutionTest
+--interp

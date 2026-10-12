@@ -32,11 +32,25 @@ test-unit:
 test-architecture:
     dotnet test tests/MapGen.ArchitectureTests
 
+# Gate 6 — HTTP endpoint tests (MapGen.Api against the real application layer)
+test-api:
+    dotnet test tests/MapGen.Api.Tests
+
 # Gate 7 — legacy-vs-replacement compatibility
 test-compatibility:
     dotnet test tests/MapGen.CompatibilityTests
 
-# Gate 8 — BDD acceptance (cucumber-js; same Gherkin, either target)
+# Gate 8 — legacy PHP stages. Only TreePlanter has a suite today; it exists because the
+# stage silently decoded the .weather artifact wrong for want of one (issue 39).
+test-php:
+    cd MapGenerator/TreePlanter && ./vendor/bin/phpunit
+
+# Gate 9 — repository-local orchestration contracts. These tests are intentionally
+# stdlib-only so the stage evaluator remains available on bounded worker hosts.
+test-tools:
+    /usr/bin/python3 -m unittest discover -s scripts/tools/tests -p 'test_*.py' -v
+
+# Gate 10 — BDD acceptance (cucumber-js; same Gherkin, either target)
 bdd-smoke:
     npm run bdd:smoke
 
@@ -53,7 +67,10 @@ quality:
     just verify
     just test-unit
     just test-architecture
+    just test-api
     just test-compatibility
+    just test-php
+    just test-tools
     just bdd-smoke
     just bdd-legacy
     just bdd-net
@@ -61,3 +78,15 @@ quality:
 # Run the legacy pipeline end to end (filesystem is the source of truth).
 run-legacy width='248' height='248':
     python -m tools.mapgenctl run --width {{width}} --height {{height}}
+
+# Haxe pilot (issue #107, haxe/README.md) — deliberately not in `quality` yet:
+# it proves a target compiles, not that any stage's behaviour has migrated.
+haxe-test:
+    cd haxe && haxe tests/build-test.hxml
+
+haxe-build-tiler-cs:
+    cd haxe && haxe stages/tiler/build-cs.hxml
+    cd haxe && dotnet build stages/tiler/HaxeTilerPilot.csproj
+
+haxe-run-tiler-cs: haxe-build-tiler-cs
+    dotnet haxe/stages/tiler/bin/Debug/net10.0/HaxeTilerPilot.dll

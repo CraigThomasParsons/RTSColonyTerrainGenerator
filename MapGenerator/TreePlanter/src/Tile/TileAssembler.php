@@ -335,27 +335,34 @@ class TileAssembler
             );
         }
 
+        // Why: The writer emits one complete layer at a time (every slope, then every flow
+        // byte, then every basin id) rather than interleaving the three per cell. Both
+        // layouts occupy the same number of bytes, so reading them in the wrong order is
+        // not caught by the size guard above — it silently yields impossible values.
+        $slopeOffset = 16;
+        $flowOffset = $slopeOffset + ($cellCount * 2);
+        $basinOffset = $flowOffset + $cellCount;
+
+        $slopes = array_values(unpack("v{$cellCount}", substr($content, $slopeOffset, $cellCount * 2)));
+        $flows = array_values(unpack("C{$cellCount}", substr($content, $flowOffset, $cellCount)));
+        $basins = array_values(unpack("V{$cellCount}", substr($content, $basinOffset, $cellCount * 4)));
+
         // Why: We expand the packed layers into explicit tile metadata.
         $tiles = [];
-        $offset = 16;
         for ($rowIndex = 0; $rowIndex < $gridHeight; $rowIndex++) {
             for ($columnIndex = 0; $columnIndex < $gridWidth; $columnIndex++) {
-                $rawSlope = unpack('v', substr($content, $offset, 2))[1];
+                $cellIndex = ($rowIndex * $gridWidth) + $columnIndex;
+
+                // Why: Slope is signed on the wire but unpack('v') reads it unsigned.
+                $rawSlope = $slopes[$cellIndex];
                 $slope = $rawSlope > 32767 ? $rawSlope - 65536 : $rawSlope;
-                $offset += 2;
-
-                $flow = unpack('C', substr($content, $offset, 1))[1];
-                $offset += 1;
-
-                $basin = unpack('V', substr($content, $offset, 4))[1];
-                $offset += 4;
 
                 $tiles[] = [
                     'x' => $columnIndex,
                     'y' => $rowIndex,
                     'slope' => $slope,
-                    'flow' => $flow,
-                    'basin' => $basin,
+                    'flow' => $flows[$cellIndex],
+                    'basin' => $basins[$cellIndex],
                 ];
             }
         }

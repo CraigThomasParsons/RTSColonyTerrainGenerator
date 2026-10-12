@@ -29,6 +29,8 @@ graph TD
 
   PLAY -->|"&lt;id&gt;.worldpayload"| SE[StargusExport]
   PLAY -->|"&lt;id&gt;.worldpayload"| CM[CartridgeManufacturer]
+  HM -.->|"heightmap + deterministic PNG"| MT[MapTexture]
+  PLAY -.->|"worldpayload + playable.json (opt-in)"| MT
   PLAY -.->|"planned"| WT[WorldTilemap]
 
   WP -->|"&lt;id&gt;/index.html"| WS[WorldSnapshot]
@@ -43,7 +45,8 @@ graph TD
   siblings, **not** sequential (contradicting `stages.md`'s "PathFinder → Playable").
 - **Terminal sinks** (nothing in-repo consumes their output): StargusExport,
   CartridgeManufacturer, WorldSnapshot, AncientCivilization, SimulateCity, CivicOverreach,
-  TransportTycoonDeluxe.
+  TransportTycoonDeluxe, and optional MapTexture. MapTexture's approved background is
+  presentation evidence only and is composed beneath authoritative overlays by Map Studio.
 - **Planned / not wired:** WorldTilemap, InfrastructureBuilder.
 
 ## Lane lifecycle

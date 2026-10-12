@@ -1,0 +1,84 @@
+Implement exactly one authorized phase: Gitea issue #52 under outcome #49 in
+repository craigpars/RTSColonyTerrainGenerator.
+
+- worktree: /home/craigpar/Code/RTSColonyTerrainGenerator/.worktrees/issue52
+- branch: feature/52-pixellab-candidate-orchestration
+- required baseline: b80e875
+- issue: http://192.168.2.48:3000/craigpars/RTSColonyTerrainGenerator/issues/52
+- provider order: Claude primary; Grok is the single bounded fallback
+
+Read and obey AGENTS.md, docs/python.md, issue #52 and outcome #49, the PixelLab
+README/ADR/plan, all PixelLabPresentation schemas, implementation, and tests.
+Confirm branch, exact baseline, origin relationship, and clean worktree before
+editing. You are the sole writer for this worktree.
+
+AUTHORIZED SCOPE
+
+Implement the optional, deterministic candidate-orchestration layer that turns
+one strict WorldSnapshot/worldpayload input into issue #50 control artifacts
+and a bounded set of issue #51 PixelLab candidate requests/results. It must:
+
+1. Accept explicit input/output/cache paths, fixed seed(s), candidate count, and
+   an explicit offline/live mode; default to offline/dry-run.
+2. Invoke or reuse the existing visual-contract and PixelLab-client APIs without
+   duplicating their contract, token, transport, cache, or polling logic.
+3. Produce a deterministic run plan and per-candidate directories/manifests with
+   stable candidate indices and seeds. Re-running an identical offline plan must
+   be byte-stable and must not create network requests.
+4. Enforce a small explicit candidate budget before any submit. Never silently
+   multiply paid requests; one candidate equals at most one explicit submission,
+   and cached candidates do not consume the budget.
+5. Fail closed on issue #55 dimension warnings and issue #60 PixelLab image-size
+   violations. Exploration overrides may generate local controls only and must
+   never be eligible for live submission or approval.
+6. Validate contract/schema versions, immutable input/control hashes, PNG MIME
+   and dimensions, mask dimensions, candidate image hash/dimensions, cache key,
+   candidate index/seed, and protected-landmark alignment evidence available
+   from the deterministic masks. Never infer gameplay truth from generated
+   pixels.
+7. Model explicit candidate states such as planned, dry-run, processing,
+   generated, rejected, and human-approved. Automated validation may reject but
+   must never silently mark a candidate human-approved. Approval/rejection must
+   be an explicit local operator action with actor/time/reason evidence, atomic
+   writes, and immutable source/control artifacts.
+8. Provide standard-library unit/integration tests with injected/fake client
+   boundaries covering deterministic plans, zero-network dry-run, bounded
+   candidate counts, cache reuse, validation rejection, dimension/size fail-
+   closed behavior, and explicit human approval/rejection transitions.
+9. Document the complete offline operator workflow and the separately gated
+   live workflow, including rollback/deletion safety and the fact that this
+   implementation phase made no live PixelLab calls and spent no credits.
+
+Prefer small composable Python modules over growing pixellab_client.py further.
+Use the Python standard library unless an existing dependency is clearly
+justified. Preserve issue #50/#51 behavior and their tests.
+
+FORBIDDEN
+
+- Make no live PixelLab request, balance request, or credit spend in this phase.
+- Never request, inspect, print, persist, or expose PIXELLAB_API_TOKEN.
+- Do not implement issue #53 rendering/composition, issue #54 evaluation UI or
+  go/no-go decision, issue #55 dimension repair, or issue #60 product decision.
+- Do not change authoritative WorldSnapshot/worldpayload/gameplay/export data.
+- Do not commit to main/develop, merge, deploy, force-push, or alter existing
+  PR #59/#61 state.
+- Do not implement newly discovered obligations until they have a Gitea issue.
+
+VALIDATION AND PUBLICATION
+
+Run all issue #50/#51 tests plus new focused tests, Python compilation, CLI help,
+representative deterministic offline runs, schema-adjacent JSON/PNG checks,
+network-call counters proving zero requests, git diff --check, and final clean /
+tracking checks. Make coherent commits referencing #52, push the branch, and
+open a WIP/draft Gitea PR targeting main. Never merge.
+
+RECEIPT
+
+Emit the AGENTS.md structured receipt with issue/phase, executor/provider and
+session, start/end SHA, changed files/scope, exact commands/results, deterministic
+and zero-network evidence, zero live calls/spend/token access, clean/tracking
+state, push/PR URL, discovered issue links, blockers, and recommended #53 gate.
+
+Print this exact sentinel on its own final line only when all requirements pass:
+
+PHASE_52_COMPLETE

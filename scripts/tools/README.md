@@ -6,6 +6,15 @@ These scripts let an AI agent or a developer drive the full issue
 lifecycle on the local Gitea forge — claim, branch, checkpoint, finish —
 without hand-crafting HTTP calls or branch setup.
 
+## Stage delivery manifest
+
+`stage_manifest.py` is the read-only completeness gate for a full-stack Terrain
+stage. It validates digest-bound component receipts and reports whether the
+manifest is ready, incomplete, stale, or contradictory. It never performs a
+merge or changes forge state. The v1 contract and invocation are documented in
+`docs/plans/stage-delivery-manifest.md`; run its focused gate with
+`just test-tools`.
+
 ## Configuration (shared constants)
 
 Every script carries the same configuration block:

@@ -1,0 +1,31 @@
+{
+  "name": "capybara_2d_engine",
+  "version": "1.0.0",
+  "description": "Capybara Game template visit https://capybara.build to learn more",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run typecheck && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p . --noEmit",
+    "typecheck:watch": "tsc -p . --noEmit --watch",
+    "push": "node scripts/capybara-cli.mjs push",
+    "publish": "node scripts/capybara-cli.mjs publish",
+    "pull": "node scripts/capybara-cli.mjs pull"
+  },
+  "author": "Capybara Game Team",
+  "license": "MIT",
+  "type": "module",
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^25.9.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.5"
+  },
+  "dependencies": {
+    "@types/pathfinding": "^0.1.0",
+    "pathfinding": "^0.4.18"
+  }
+}

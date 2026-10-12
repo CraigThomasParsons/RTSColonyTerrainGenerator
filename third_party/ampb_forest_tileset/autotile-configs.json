@@ -1,0 +1,57 @@
+{
+  "tree": {
+    "tileMap": [
+      [4, 15],
+      [4, 12],
+      [4, 9],
+      [4, 11],
+      [4, 7],
+      [5, 7],
+      [4, 8],
+      [4, 10],
+      [4, 15],
+      [4, 14],
+      [5, 8],
+      [4, 13],
+      [5, 13],
+      [5, 14],
+      [5, 9],
+      [5, 14]
+    ],
+    "interiorVariants": [
+      [5, 14],
+      [4, 10],
+      [4, 13],
+      [4, 14]
+    ],
+    "singleTree": [
+      { "label": "S only", "hasN": false, "hasS": true, "hasE": false, "hasW": false, "sprite": [5, 10] },
+      { "label": "N+S", "hasN": true, "hasS": true, "hasE": false, "hasW": false, "sprite": [5, 11] },
+      { "label": "N only", "hasN": true, "hasS": false, "hasE": false, "hasW": false, "sprite": [5, 12] },
+      { "label": "E only", "hasN": false, "hasS": false, "hasE": true, "hasW": false, "sprite": [4, 7] },
+      { "label": "W only", "hasN": false, "hasS": false, "hasE": false, "hasW": true, "sprite": [4, 15] },
+      { "label": "E+W", "hasN": false, "hasS": false, "hasE": true, "hasW": true, "sprite": [19, 9] },
+      { "label": "isolated", "hasN": false, "hasS": false, "hasE": false, "hasW": false, "sprite": [19, 8] }
+    ]
+  },
+  "road": {
+    "tileMap": [
+      [0, 0], [0, 1], [0, 8], [0, 9],
+      [0, 4], [0, 5], [0, 12], [0, 13],
+      [0, 2], [0, 3], [0, 10], [0, 11],
+      [0, 6], [0, 7], [0, 14], [0, 15]
+    ]
+  },
+  "stone": {
+    "tileMap": [
+      [0, 0], [0, 1], [0, 2], [1, 0],
+      [0, 3], [1, 4], [1, 1], [2, 0],
+      [0, 4], [1, 3], [1, 5], [2, 3],
+      [1, 2], [2, 2], [2, 1], [3, 0]
+    ],
+    "interiorVariants": [
+      [3, 0], [3, 1], [3, 2], [3, 3]
+    ],
+    "removedTile": [3, 4]
+  }
+}
