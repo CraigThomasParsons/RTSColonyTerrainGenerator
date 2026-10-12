@@ -1,0 +1,19 @@
+# Build command for the Tiler stage's Haxe source, cs target.
+#
+# cs was chosen for this pilot because Tiler's own runtime is already C#/.NET
+# (src/Tiler, published as bin/published/Tiler) -- compiling here to the same
+# ecosystem keeps a later parity/integration step a same-language comparison
+# instead of also crossing a language boundary. Other stages may pick a
+# different target once their representative workloads are benchmarked
+# (haxe/README.md "Target selection").
+#
+# Run from haxe/:  haxe stages/tiler/build-cs.hxml
+-cp domain
+-cp stages/tiler
+-main Main
+-cs stages/tiler/generated-cs
+
+# Emit C# source only; never let Haxe shell out to mono/csc itself. Compiling
+# the output is HaxeTilerPilot.csproj's job (plain dotnet build), so this
+# command's success depends only on Haxe's own code generation.
+-D no-compilation

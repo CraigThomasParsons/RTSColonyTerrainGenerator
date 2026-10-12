@@ -20,6 +20,7 @@ The pipeline is file-driven. Each stage is a stateless transformer: one input �
 - CartridgeManufacturer
 - WorldPreview
 - WorldSnapshot
+- PixelLabPresentation (optional experiment; presentation-only)
 
 ---
 
@@ -83,6 +84,11 @@ WorldPreview
 WorldSnapshot
   ├─ inbox:  WorldPreview outbox/<id>/index.html
   └─ outbox: <id>.png
+  │
+  └──────────────► PixelLabPresentation (optional; Gitea #49)
+                    ├─ input: authoritative JSON .worldpayload
+                    ├─ controls: VisualBrief + semantic/protected/decoration PNGs
+                    └─ output: unsubmitted generation manifest (phase #50)
 ```
 
 ---
@@ -292,6 +298,30 @@ WorldSnapshot
 **Outbox:**
 
 - MapGenerator/WorldSnapshot/outbox/<id>.png
+
+---
+
+### PixelLabPresentation (Optional Experiment)
+
+**Purpose:** Build deterministic control artifacts for an optional PixelLab
+static-background pass. PixelLab output is presentation-only and never feeds
+terrain, collision, pathfinding, starts, resources, or exporters.
+
+**Input:**
+
+- JSON `.worldpayload` with declared dimensions matching a complete tile grid
+
+**Contract output (issue #50):**
+
+- `visual-brief.json`
+- `semantic-control.png`
+- `protected-mask.png`
+- `decoration-mask.png`
+- `generation-manifest.template.json`
+
+**Network behavior:** None in issue #50. Issue #51 owns the explicit opt-in
+PixelLab client. Existing WorldPreview and WorldSnapshot lanes remain the
+offline deterministic fallback.
 
 ---
 

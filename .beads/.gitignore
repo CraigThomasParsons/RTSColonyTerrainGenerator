@@ -1,0 +1,36 @@
+# Dolt database and credentials are local, never Git source.
+dolt/
+dolt-access.lock
+
+# Runtime and sync state.
+bd.sock
+bd.sock.startlock
+.exclusive-lock
+.sync.lock
+sync-state.json
+last-touched
+.local_version
+redirect
+export-state/
+
+# Ephemeral stores.
+ephemeral.sqlite3*
+*.db
+*.db?*
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Dolt server management.
+dolt-server.pid
+dolt-server.log
+dolt-server.lock
+dolt-server.port
+dolt-server.activity
+dolt-monitor.pid
+
+# Legacy daemon files.
+daemon.lock
+daemon.log
+daemon-*.log.gz
+daemon.pid

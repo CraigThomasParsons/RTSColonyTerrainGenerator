@@ -1,0 +1,70 @@
+Resume exactly the CODE REVIEW phase for Gitea issue #58 in repository
+craigpars/RTSColonyTerrainGenerator.
+
+Claude is unavailable because of a confirmed session limit. It made no changes
+in this phase. Preserve the existing completed simplify and architecture work:
+
+- worktree: /home/craigpar/Code/RTSColonyTerrainGenerator-gui
+- branch: feature/58-canopy-quality-phases
+- starting/pushed HEAD: 5a3bc30
+- predecessor session: mapgui
+- issue: http://192.168.2.48:3000/craigpars/RTSColonyTerrainGenerator/issues/58
+
+Read and obey AGENTS.md in that worktree before doing anything. Confirm the
+branch, HEAD, origin relationship, and clean worktree. You are the sole fallback
+writer and must resume this phase, not restart prior phases.
+
+Issue #37 / PR #45 is already merged. Review the resulting canopy change set
+and the three issue #58 architecture commits. Judge every finding on its merits
+and IMPLEMENT findings that hold up, with coherent commits referencing #58.
+Do not stop at a findings report. Do not run another architecture phase.
+
+Separately sweep comments and docstrings in the reviewed change set for accuracy
+and concision; commit text-only edits separately from behavior/code fixes.
+
+Known finding to judge independently: GoldenJobFileSource.ReadCanopy defaults a
+missing tile x or y to 0, planting a tree at the origin, while other malformed
+reads throw InvalidDataException. If fixed, label the commit explicitly as a
+behavior correction for malformed input, not behavior-preserving cleanup.
+
+Forbidden and deferred scope:
+
+- Never commit to main, merge, force-push, deploy, or modify protected branches.
+- Do not modify .dfy files under specs, tests/bdd/net-ready.tags,
+  specs/dafny-ready.tags, or committed golden fixture artifacts.
+- Do not address the ~15 MB pretty-printed fixture JSON, missing replay cache,
+  issue #41, issue #56, or issue #57.
+- Do not silently implement new findings; ensure each deferred/new obligation
+  has a linked Gitea issue first.
+
+Known baseline failures, all caused by missing bin lanes and not regressions:
+npm run bdd:smoke, npm run bdd:legacy, and npm run bdd:net. Do not fix them in
+this phase.
+
+Required green gates:
+
+- just format-check
+- just build
+- just verify
+- just test-unit
+- just test-architecture
+- just test-api
+- just test-compatibility
+- just test-php (run composer install in MapGenerator/TreePlanter first if its
+  gitignored vendor directory is absent)
+- npm run typecheck in clients/mapgen-gui
+- npx vitest run in clients/mapgen-gui
+
+GenerateWorldForm and MapStudioPage are timeout-sensitive under load; rerun them
+before classifying a failure as a regression. Push after every commit. Update or
+open the appropriate WIP Gitea PR, never merge it.
+
+At completion emit the full AGENTS.md receipt: issue/phase, Grok executor and
+session, start/end SHAs, changed files and scope, findings fixed/deferred with
+issue links, exact validation commands/results, known-baseline comparison,
+clean worktree, push and PR URL, blockers, and recommended next phase.
+
+Print this exact sentinel on its own final line only after all requirements are
+complete:
+
+PHASE_REVIEW_DONE

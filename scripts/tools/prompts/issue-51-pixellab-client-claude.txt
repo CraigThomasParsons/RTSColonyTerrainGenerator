@@ -1,0 +1,53 @@
+You are the primary executor for exactly one authorized phase: Gitea issue #51 under outcome #49 in repository craigpars/RTSColonyTerrainGenerator.
+
+Worktree: /home/craigpar/Code/RTSColonyTerrainGenerator/.worktrees/issue51
+Branch: feature/51-pixellab-v2-client
+Dependency baseline: b1caad2 from issue #50 / draft PR #59
+Gitea issue: http://192.168.2.48:3000/craigpars/RTSColonyTerrainGenerator/issues/51
+
+Read docs/python.md, MapGenerator/PixelLabPresentation/README.md, docs/adr/0001-pixellab-presentation-only.md, docs/plans/pixellab-static-presentation.md, both schemas, the generator, and its tests before changing anything. Confirm the branch, HEAD, origin relationship, and clean worktree.
+
+Use PixelLab's authoritative v2 references for request/response details:
+- https://api.pixellab.ai/v2/llms.txt
+- https://api.pixellab.ai/v2/openapi.json
+
+AUTHORIZED SCOPE ONLY
+
+Implement the opt-in PixelLab v2 adapter in MapGenerator/PixelLabPresentation. Include:
+
+1. Bearer token read only from PIXELLAB_API_TOKEN at live-call time; never accept it as a CLI argument, persist it, print it, or include it in an exception/manifest.
+2. Explicit modes for dry-run request construction and balance/readiness inspection.
+3. A fixed endpoint allowlist initially limited to the endpoint already named by the issue #50 manifest contract.
+4. Asynchronous submission plus bounded polling using PixelLab's documented background-job endpoint.
+5. Explicit timeouts and actionable handling for HTTP 401, 402, 423 if applicable, 429, 529, invalid JSON, unexpected MIME/type/dimensions, and terminal remote failure.
+6. Content-addressed cache lookup before submission. A cache hit must make no generation request.
+7. Atomic updates to a copied generation manifest and candidate output; never overwrite the issue #50 source/control artifacts.
+8. Bounded retry behavior that cannot invisibly multiply paid submissions. Poll retries are allowed; generation resubmission must require a new explicit invocation.
+9. Standard-library mock HTTP tests covering dry-run/no token, missing token for live mode, token redaction, cache hit/no request, accepted async flow, timeout, and representative HTTP failures.
+10. Operator documentation for environment setup, balance checks, dry-run, live opt-in, cache behavior, failure recovery, and the fact that no live call was made in this phase.
+
+Use the Python standard library unless a dependency is already present and justified. Follow docs/python.md docstring and clarity rules. Prefer dependency injection for the HTTP transport and clock/sleep so tests are fast and deterministic.
+
+FORBIDDEN
+
+- Do not make any live PixelLab request or spend credits.
+- Do not ask for, inspect, install, or expose Craig's PixelLab token.
+- Do not implement issue #52 candidate orchestration, issue #53 WorldPreview/GUI composition, or issue #54 evaluation UI.
+- Do not change authoritative worldpayloads, WorldSnapshot outputs, gameplay data, PixelLab control semantics, or resolve issue #55.
+- Do not commit to develop/main, merge, deploy, force-push, or take PR #59 out of draft.
+- Do not silently implement newly discovered work. Create or request a linked Gitea issue first.
+
+VALIDATION
+
+Run the existing issue #50 tests plus all new focused tests, Python compilation, JSON parsing/schema-adjacent checks available without adding a package, CLI help, at least one dry-run, git diff --check, and a final clean-worktree/push check. Tests must prove no network request is made in dry-run and cache-hit paths and that token material cannot appear in logs/manifests/errors.
+
+COMMIT AND PUBLISH
+
+Make coherent commits referencing #51 and push every commit to origin/feature/51-pixellab-v2-client. Open a WIP/draft Gitea pull request targeting develop only after validation. Never merge it.
+
+RECEIPT
+
+At completion, report issue/phase, executor/provider, start/end SHA, changed files and scope statement, exact validation commands/results, explicit confirmation of zero live PixelLab calls and zero credit spend, token-redaction evidence, cache/no-network evidence, push/PR URL, discovered work with Gitea issue links, blockers, and recommended next phase.
+
+Print this exact sentinel on its own final line only if every required item is complete:
+PHASE_51_COMPLETE

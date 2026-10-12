@@ -16,16 +16,21 @@ Token resolution order:
      with the other repos on the same Gitea instance)
 
 Usage:
+  python3 scripts/tools/gitea.py create-issue "Title" "Body"
   python3 scripts/tools/gitea.py find-issue "Sprint 2"
   python3 scripts/tools/gitea.py comment <issue-number> "<message>"
   python3 scripts/tools/gitea.py close <issue-number>
   python3 scripts/tools/gitea.py reopen <issue-number>
   python3 scripts/tools/gitea.py pr <branch> "<title>" ["<body>"]
+  python3 scripts/tools/gitea.py pr-view <number>
+  python3 scripts/tools/gitea.py pr-reviews <number>
+  python3 scripts/tools/gitea.py pr-ready <number> "<title>" "<body>" GATES_VALIDATED
   python3 scripts/tools/gitea.py sprint-status
 """
 
 import os
 import sys
+import json
 import requests
 from pathlib import Path
 
@@ -118,6 +123,16 @@ def cmd_find_issue(title_fragment: str) -> None:
         page += 1
 
 
+def cmd_create_issue(title: str, body: str) -> None:
+    """Create one repository issue and print its durable URL."""
+    result = make_request(
+        "POST",
+        f"/repos/{OWNER}/{REPO}/issues",
+        json={"title": title, "body": body},
+    )
+    print(f"✓ Issue #{result['number']} created: {result['html_url']}")
+
+
 def cmd_comment(issue_number: str, message: str) -> None:
     """
     Append a comment to a Gitea issue.
@@ -185,6 +200,68 @@ def cmd_open_pull_request(branch: str, title: str, body: str = "") -> str:
     return pr_url
 
 
+def cmd_view_pull_request(number: str) -> None:
+    """Print concise review and merge metadata for one pull request."""
+    result = make_request("GET", f"/repos/{OWNER}/{REPO}/pulls/{number}")
+    fields = {
+        "number": result.get("number"),
+        "title": result.get("title"),
+        "state": result.get("state"),
+        "draft": result.get("draft"),
+        "mergeable": result.get("mergeable"),
+        "merged": result.get("merged"),
+        "base": result.get("base", {}).get("ref"),
+        "head": result.get("head", {}).get("ref"),
+        "headSha": result.get("head", {}).get("sha"),
+        "url": result.get("html_url"),
+    }
+    print(json.dumps(fields, indent=2, sort_keys=True))
+
+
+def cmd_pull_request_reviews(number: str) -> None:
+    """Print reviews and aggregate commit status for one pull request."""
+    pull = make_request("GET", f"/repos/{OWNER}/{REPO}/pulls/{number}")
+    reviews = make_request("GET", f"/repos/{OWNER}/{REPO}/pulls/{number}/reviews")
+    head_sha = pull.get("head", {}).get("sha")
+    status = make_request("GET", f"/repos/{OWNER}/{REPO}/commits/{head_sha}/status")
+    summary = {
+        "number": pull.get("number"),
+        "headSha": head_sha,
+        "reviewCount": len(reviews),
+        "reviews": [
+            {
+                "id": review.get("id"),
+                "state": review.get("state"),
+                "reviewer": review.get("user", {}).get("login"),
+                "submitted": review.get("submitted_at"),
+            }
+            for review in reviews
+        ],
+        "commitStatus": status.get("state"),
+        "statusCount": status.get("total_count", 0),
+    }
+    print(json.dumps(summary, indent=2, sort_keys=True))
+
+
+def cmd_mark_pull_request_ready(
+    number: str, title: str, body: str, confirmation: str
+) -> None:
+    """Remove Gitea draft state after evidence gates have been validated."""
+    if confirmation != "GATES_VALIDATED":
+        sys.exit("pr-ready requires the exact confirmation GATES_VALIDATED")
+    current = make_request("GET", f"/repos/{OWNER}/{REPO}/pulls/{number}")
+    if current.get("merged") or current.get("state") != "open":
+        sys.exit(f"PR #{number} is not an open, unmerged pull request")
+    result = make_request(
+        "PATCH",
+        f"/repos/{OWNER}/{REPO}/pulls/{number}",
+        json={"title": title, "body": body, "draft": False},
+    )
+    if result.get("draft"):
+        sys.exit(f"Gitea left PR #{number} in draft state")
+    print(f"✓ PR #{number} marked ready: {result['html_url']}")
+
+
 def cmd_sprint_status() -> None:
     """
     Print a progress bar for every milestone (phase) in the project.
@@ -204,11 +281,15 @@ def cmd_sprint_status() -> None:
 # ── Command dispatch ──────────────────────────────────────────────────────────
 
 COMMANDS: dict = {
+    "create-issue":  (cmd_create_issue,             2, 2),
     "find-issue":    (cmd_find_issue,         1, 1),
     "comment":       (cmd_comment,            2, 2),
     "close":         (cmd_close,              1, 1),
     "reopen":        (cmd_reopen,             1, 1),
     "pr":            (cmd_open_pull_request,  2, 3),
+    "pr-view":       (cmd_view_pull_request,        1, 1),
+    "pr-reviews":    (cmd_pull_request_reviews,     1, 1),
+    "pr-ready":      (cmd_mark_pull_request_ready,  4, 4),
     "sprint-status": (cmd_sprint_status,      0, 0),
 }
 

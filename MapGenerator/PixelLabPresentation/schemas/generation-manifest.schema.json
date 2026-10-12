@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rtscolony.local/schemas/pixellab/generation-manifest-v1.json",
+  "title": "PixelLab Generation Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "state", "endpoint", "cacheKey", "inputs", "request", "remote", "output", "acceptance", "warnings"],
+  "properties": {
+    "contractVersion": {"const": "1.0"},
+    "state": {"enum": ["unsubmitted", "submitted", "processing", "completed", "failed", "rejected", "accepted"]},
+    "endpoint": {"const": "/create-image-pixflux-background"},
+    "cacheKey": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "inputs": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[a-f0-9]{64}$"}},
+    "request": {"type": "object"},
+    "remote": {"type": "object"},
+    "output": {"type": "object"},
+    "acceptance": {
+      "type": "object",
+      "required": ["state", "validator", "reason"],
+      "properties": {
+        "state": {"enum": ["pending", "accepted", "rejected"]},
+        "validator": {"type": ["string", "null"]},
+        "reason": {"type": ["string", "null"]}
+      }
+    },
+    "warnings": {"type": "array", "items": {"type": "string"}}
+  }
+}

@@ -30,6 +30,10 @@ Stages may:
 - Repair
 - Invent infrastructure
 
+Presentation-only stages may also create non-authoritative visual artifacts. Such a stage
+must be optional, must never feed generated pixels into gameplay or export stages, and must
+record source hashes plus explicit human approval before publishing an approved asset.
+
 There are **no thematic restrictions** at this level.
 
 ---
@@ -356,4 +360,3 @@ Unless explicitly documented otherwise:
 - No network access
 
 ---
-
