@@ -1,0 +1,6 @@
+# cpp target for the fault-line benchmark (haxe/README.md "Benchmark: cpp vs cs").
+# Run from haxe/:  haxe benchmarks/faultline/build-cpp.hxml
+-cp benchmarks/faultline
+-main Main
+-cpp benchmarks/faultline/generated-cpp
+-D release

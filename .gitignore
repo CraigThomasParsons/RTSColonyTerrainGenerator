@@ -165,5 +165,6 @@ tests/**/bin/
 
 # Haxe build output (haxe/README.md) — generated, never hand-edited.
 haxe/**/generated-cs/
+haxe/**/generated-cpp/
 haxe/**/bin/
 haxe/**/obj/

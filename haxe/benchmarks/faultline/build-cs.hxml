@@ -1,0 +1,7 @@
+# cs target for the fault-line benchmark, same no-compilation approach as
+# haxe/stages/tiler/build-cs.hxml (haxe/README.md "Toolchain note").
+# Run from haxe/:  haxe benchmarks/faultline/build-cs.hxml
+-cp benchmarks/faultline
+-main Main
+-cs benchmarks/faultline/generated-cs
+-D no-compilation

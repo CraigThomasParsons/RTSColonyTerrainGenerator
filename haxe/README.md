@@ -47,9 +47,56 @@ Provisional, per stage, until representative workloads are benchmarked:
   already C#/.NET, so a later integration step compares same-language output
   instead of also crossing a language boundary.
 - **cpp** — candidate for native, compute-heavy stages (Heightmap,
-  WeatherAnalyses are Rust today; cpp is Haxe's closest analogue).
+  WeatherAnalyses are Rust today; cpp is Haxe's closest analogue). Issue
+  #119 benchmarked this (below): on a representative workload, `cpp` ran
+  ~10-11x faster than `cs`, with byte-identical output.
 - No Rust backend: Haxe does not generate Rust. Any stage currently in Rust
   that moves to Haxe picks cs or cpp instead.
+
+## Benchmark: cpp vs cs (issue #119)
+
+`benchmarks/faultline/` is a synthetic, representative workload for
+comparing targets — **not** a port of the real Rust `heightmap-engine`
+(`MapGenerator/Heightmap`). It is shaped like that family of stages (tight,
+allocation-light, per-cell integer loop over a grid, run many times): classic
+fault-formation terrain generation, picking a random line through the grid
+and raising one side / lowering the other, for a fixed number of passes. The
+line-side test is an integer cross product (no floating point), so the exact
+same seed produces byte-identical output on every target — the thing this
+benchmark needs in order to tell "faster" apart from "different algorithm."
+
+```sh
+cd haxe
+haxe benchmarks/faultline/build-cs.hxml
+dotnet build benchmarks/faultline/HaxeFaultLineBenchmark.csproj -c Release
+dotnet benchmarks/faultline/bin/Release/net10.0/HaxeFaultLineBenchmark.dll
+
+haxe benchmarks/faultline/build-cpp.hxml    # -D release; needs hxcpp (haxelib install hxcpp)
+./benchmarks/faultline/generated-cpp/Main
+```
+
+Both run the same workload: a 512x512 grid, 3000 fault passes, seed
+`20261012`, best-of-3 trials. Measured on this machine:
+
+| Target | Best trial | Checksum |
+|---|---|---|
+| `cpp` (`-D release`) | ~860ms | `-343056495` |
+| `cs` (`dotnet build -c Release`, net10.0) | ~9.0-9.3s | `-343056495` |
+
+Checksums matched on every run across repeated trials — both targets did
+identical work. `cpp` was consistently **~10-11x faster**.
+
+**Recommendation:** for a compute-heavy, tight-loop stage like Heightmap or
+WeatherAnalyses, `cpp` is the better-fitting target, not `cs`. The `cs`
+target's overhead here almost certainly comes from `hxcs`'s `haxe.lang.*`
+runtime shim (boxing/dynamic dispatch around what should be plain array
+indexing) rather than from .NET itself being slow — Tiler's own hand-written
+C# runs at native .NET speed; it is only Haxe's *generated* C# that pays this
+cost. That is a reason to keep `cs` for stages like Tiler, where the
+per-cell work is small and already wrapped in C#'s own ecosystem, and to
+prefer `cpp` once a stage's inner loop is the actual cost center. This one
+workload is not a verdict on every future stage — benchmark again with that
+stage's real shape before committing to a target.
 
 ## Toolchain note: bypassing hxcs's own build step
 
